@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -23,12 +23,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { apiGetMain } from "@/lib/api-client";
+import { toast } from "sonner";
+import { formatDate } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 export default function TrainingPage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [courses, setCourses] = useState<any[]>([]);
   const [categoryFilter, setCategoryFilter] = useState("all");
 
-  const courses = [
+  const coursesExample = [
     {
       id: "1",
       name: "STCW Basic Safety Training",
@@ -90,6 +96,18 @@ export default function TrainingPage() {
       seatsAvailable: 15,
     },
   ];
+  const fetchCourses = async () => {
+    const result = await apiGetMain<any>("/api/v1/Programs");
+    if (result.success) {
+      setCourses(result.data.items);
+    } else {
+      toast.error(result.error?.message || "Failed to fetch courses");
+    }
+  };
+
+  useEffect(() => {
+    fetchCourses();
+  }, []);
 
   const getCategoryBadge = (category: string) => {
     const colors: Record<string, string> = {
@@ -107,10 +125,15 @@ export default function TrainingPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Training"
-        description="Browse and enroll in maritime training courses"
-      />
+      <div className="flex items-center justify-between">
+        <PageHeader
+          title="Training"
+          description="Browse and enroll in maritime training courses"
+        />
+        <Button  className="bg-[#3EADC0] hover:bg-[#35a0b3]" onClick={() => router.push("training/enrollments")}>
+          My Enrollments
+        </Button>
+      </div>
 
       {/* Filters */}
       <div className="flex items-center gap-4">
@@ -147,14 +170,18 @@ export default function TrainingPage() {
           <Card key={course.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex items-start justify-between">
-                {getCategoryBadge(course.category)}
+                {getCategoryBadge(course.programType)}
                 <div className="text-right">
-                  <p className="text-2xl font-bold">{course.price}</p>
+                  <span>{course.currency}</span>
+                  <p className="text-2xl font-bold">{course.tuitionFee}</p>
                 </div>
               </div>
-              <CardTitle className="mt-4">{course.name}</CardTitle>
+              <CardTitle className="mt-4">{course.programName}</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                {course.institute}
+                {course.description}
+              </p>
+              <p className="text-sm text-muted-foreground h-10 mt-1">
+                {course.eligibilityCriteria}
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -165,14 +192,20 @@ export default function TrainingPage() {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4" />
-                  <span>Starts: {course.startDate}</span>
+                  <div className="flex items-center gap-2">
+                    <span>Starts: {formatDate(course.startDate)}</span>
+                    <span>Ends: {formatDate(course.applicationDeadline)}</span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Users className="h-4 w-4" />
                   <span>{course.seatsAvailable} seats available</span>
                 </div>
               </div>
-              <Button className="w-full bg-[#3EADC0] hover:bg-[#35a0b3]">
+              <Button
+                className="w-full bg-[#3EADC0] hover:bg-[#35a0b3]"
+                onClick={() => router.push(`/training/enroll?id=${course.id}`)}
+              >
                 Enroll Now
               </Button>
             </CardContent>
@@ -182,7 +215,3 @@ export default function TrainingPage() {
     </div>
   );
 }
-
-
-
-

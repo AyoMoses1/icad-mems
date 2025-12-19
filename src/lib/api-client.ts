@@ -6,7 +6,7 @@
 function getApiBaseUrl(): string {
   // In Next.js, NEXT_PUBLIC_ variables are embedded at build time
   // They should be available in both server and client contexts
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "";
+  const baseUrl = process.env.NEXT_PUBLIC_API_LOGIN_BASE_URL?.trim() || "";
 
   // Log in development to help debug
   if (typeof window !== "undefined") {
@@ -14,7 +14,7 @@ function getApiBaseUrl(): string {
       console.error(
         "❌ CRITICAL: NEXT_PUBLIC_API_BASE_URL is not set!",
         "\n  Current value:",
-        process.env.NEXT_PUBLIC_API_BASE_URL,
+        process.env.NEXT_PUBLIC_API_LOGIN_BASE_URL,
         "\n  This will cause API calls to fail or go to localhost.",
         "\n  Please:",
         "\n  1. Check your .env or .env.local file",
@@ -72,7 +72,72 @@ export async function apiClient<T>(
   // console.log({ API_BASE_URL });
 
   if (!API_BASE_URL) {
-    const errorMsg = `NEXT_PUBLIC_API_BASE_URL is not configured. Current value: "${process.env.NEXT_PUBLIC_API_BASE_URL}". Please check your .env file and restart the dev server.`;
+    const errorMsg = `NEXT_PUBLIC_API_LOGIN_BASE_URL is not configured. Current value: "${process.env.NEXT_PUBLIC_API_LOGIN_BASE_URL}". Please check your .env file and restart the dev server.`;
+    console.error("❌ API Client Error:", errorMsg);
+    throw new Error(errorMsg);
+  }
+
+  const url = `${API_BASE_URL}${endpoint}`;
+
+  // Debug logging in development
+  // if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+  //   console.log("🌐 API Request:", {
+  //     method: options.method || "GET",
+  //     url,
+  //     endpoint,
+  //     baseUrl: API_BASE_URL,
+  //   });
+  // }
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string>),
+  };
+
+  // Add authorization token if available
+  const token = getAuthToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    const data: ApiResponse<T> = await response.json();
+
+    // Handle non-2xx responses
+    if (!response.ok) {
+      throw new Error(data.error?.message || data.message || "Request failed");
+    }
+
+    return data;
+  } catch (error) {
+    // Handle network errors
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Network error. Please check your connection.");
+    }
+
+    // Re-throw if it's already an Error
+    if (error instanceof Error) {
+      throw error;
+    }
+
+    throw new Error("An unexpected error occurred");
+  }
+}
+export async function apiClientMain<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<ApiResponse<T>> {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "";
+
+  // console.log({ API_BASE_URL });
+
+  if (!API_BASE_URL) {
+    const errorMsg = `NEXT_PUBLIC_API_LOGIN_BASE_URL is not configured. Current value: "${process.env.NEXT_PUBLIC_API_LOGIN_BASE_URL}". Please check your .env file and restart the dev server.`;
     console.error("❌ API Client Error:", errorMsg);
     throw new Error(errorMsg);
   }
@@ -136,6 +201,12 @@ export async function apiGet<T>(endpoint: string): Promise<ApiResponse<T>> {
   return apiClient<T>(endpoint, { method: "GET" });
 }
 
+export async function apiGetMain<T>(endpoint: string): Promise<ApiResponse<T>> {
+  return apiClientMain<T>(endpoint, { method: "GET" });
+}
+
+
+
 /**
  * POST request helper
  */
@@ -148,25 +219,48 @@ export async function apiPost<T>(
     body: body ? JSON.stringify(body) : undefined,
   });
 }
+export async function apiPostMain<T>(
+  endpoint: string,
+  body?: unknown
+): Promise<ApiResponse<T>> {
+  return apiClientMain<T>(endpoint, {
+    method: "POST",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
 
 /**
  * PUT request helper
  */
-export async function apiPut<T>(
-  endpoint: string,
-  body?: unknown
-): Promise<ApiResponse<T>> {
-  return apiClient<T>(endpoint, {
-    method: "PUT",
-    body: body ? JSON.stringify(body) : undefined,
-  });
-}
+  export async function apiPut<T>(
+    endpoint: string,
+    body?: unknown
+  ): Promise<ApiResponse<T>> {
+    return apiClient<T>(endpoint, {
+      method: "PUT",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  export async function apiPutMain<T>(
+    endpoint: string,
+    body?: unknown
+  ): Promise<ApiResponse<T>> {
+    return apiClientMain<T>(endpoint, {
+      method: "PUT",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
 
 /**
  * DELETE request helper
  */
 export async function apiDelete<T>(endpoint: string): Promise<ApiResponse<T>> {
   return apiClient<T>(endpoint, { method: "DELETE" });
+}
+
+export async function apiDeleteMain<T>(endpoint: string): Promise<ApiResponse<T>> {
+  return apiClientMain<T>(endpoint, { method: "DELETE" });
 }
 
 /**
@@ -177,6 +271,60 @@ export async function apiPostForm<T>(
   formData: Record<string, string>
 ): Promise<T> {
   const API_BASE_URL = getApiBaseUrl();
+
+  if (!API_BASE_URL) {
+    throw new Error(
+      "NEXT_PUBLIC_API_BASE_URL is not configured. Please check your .env file and restart the dev server."
+    );
+  }
+
+  const url = `${API_BASE_URL}${endpoint}`;
+
+  // Convert object to URLSearchParams for form-urlencoded
+  const params = new URLSearchParams();
+  Object.entries(formData).forEach(([key, value]) => {
+    params.append(key, value);
+  });
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({
+        error: "Request failed",
+      }));
+      throw new Error(
+        errorData.error_description || errorData.error || "Request failed"
+      );
+    }
+
+    const data: T = await response.json();
+    return data;
+  } catch (error) {
+    // Handle network errors
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Network error. Please check your connection.");
+    }
+
+    // Re-throw if it's already an Error
+    if (error instanceof Error) {
+      throw error;
+    }
+
+    throw new Error("An unexpected error occurred");
+  }
+}
+export async function apiPostFormMain<T>(
+  endpoint: string,
+  formData: Record<string, string>
+): Promise<T> {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "";
 
   if (!API_BASE_URL) {
     throw new Error(
