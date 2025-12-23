@@ -1,26 +1,19 @@
 "use client";
 
-import React, { Fragment } from "react";
+import React, { Fragment, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  AlertTriangle,
   Award,
-  Compass,
   CreditCard,
   GraduationCap,
   LayoutDashboard,
   LogOut,
   Menu,
-  Navigation,
   Shield,
   User,
-  Users,
   X,
-  FileText,
-  Package,
-  Globe,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -39,10 +32,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuthStore, useUIStore } from "@/store";
 
-const userMenuItems = [
+type MenuItem = {
+  title: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children?: Array<{ title: string; href: string }>;
+};
+
+const userMenuItems: MenuItem[] = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
   { title: "Training", href: "/training", icon: GraduationCap },
-  { title: "Exams", href: "/exams", icon: FileText },
   {
     title: "License & Certification",
     href: "/license-certification",
@@ -51,28 +50,7 @@ const userMenuItems = [
   { title: "Profile & Documents", href: "/profile-documents", icon: User },
 ];
 
-const adminMenuItems = [
-  { title: "Dashboard", href: "/", icon: LayoutDashboard, children: [] },
-  {
-    title: "Certification & Registration",
-    href: "#",
-    icon: FileText,
-    children: [
-      { title: "Vessels", href: "/certification/vessels" },
-      { title: "Registration", href: "/certification/registration" },
-      { title: "Documents", href: "/certification/documents" },
-    ],
-  },
-  {
-    title: "Waste Management",
-    href: "#",
-    icon: Package,
-    children: [
-      { title: "Tracking", href: "/waste/tracking" },
-      { title: "Disposal", href: "/waste/disposal" },
-      { title: "Facilities", href: "/waste/facilities" },
-    ],
-  },
+const adminMenuItems: MenuItem[] = [
   {
     title: "Seafarer Certification & License",
     href: "#",
@@ -82,78 +60,6 @@ const adminMenuItems = [
       { title: "Applications", href: "/seafarer/applications" },
       { title: "Seafarer Management", href: "/seafarer/registry" },
       { title: "Accredited MTIs", href: "/seafarer/miis" },
-    ],
-  },
-  {
-    title: "Incident & Risk Management",
-    href: "#",
-    icon: AlertTriangle,
-    children: [
-      { title: "Report", href: "/incidents/report" },
-      { title: "Assessment", href: "/incidents/assessment" },
-    ],
-  },
-  {
-    title: "Levies & Fees",
-    href: "#",
-    icon: CreditCard,
-    children: [
-      { title: "Fees", href: "/levies/fees" },
-      { title: "Collection", href: "/levies/collection" },
-    ],
-  },
-  {
-    title: "Invoices & Payments",
-    href: "#",
-    icon: FileText,
-    children: [
-      { title: "Management", href: "/invoices/management" },
-      { title: "Payments", href: "/invoices/payments" },
-    ],
-  },
-  {
-    title: "Marine Environment Management",
-    href: "#",
-    icon: Globe,
-    children: [
-      { title: "Monitoring", href: "/marine/monitoring" },
-      { title: "Pollution", href: "/marine/pollution" },
-      { title: "Protected", href: "/marine/protected" },
-    ],
-  },
-  {
-    title: "Cabotage & Terminal Operation",
-    href: "#",
-    icon: Navigation,
-    children: [
-      { title: "Permits", href: "/cabotage/permits" },
-      { title: "Terminals", href: "/cabotage/terminals" },
-    ],
-  },
-  {
-    title: "Vessel Surveillance & Tracking",
-    href: "#",
-    icon: Compass,
-    children: [
-      { title: "Tracking", href: "/surveillance/tracking" },
-      { title: "Monitoring", href: "/surveillance/monitoring" },
-    ],
-  },
-  {
-    title: "Compliance Monitoring & Checks",
-    href: "#",
-    icon: Shield,
-    children: [{ title: "Checks", href: "/compliance/checks" }],
-  },
-  {
-    title: "User & Profile Management",
-    href: "#",
-    icon: Users,
-    children: [
-      { title: "Users", href: "/users" },
-      { title: "Roles", href: "/roles" },
-      { title: "Permissions", href: "/permissions" },
-      { title: "Resources", href: "/resources" },
     ],
   },
 ];
@@ -194,6 +100,22 @@ export function Sidebar() {
     return children.some((child) => isActive(child.href));
   };
 
+  // Auto-expand parent if any child is active
+  useEffect(() => {
+    const currentMenuItems =
+      viewMode === "user" ? userMenuItems : adminMenuItems;
+    currentMenuItems.forEach((item) => {
+      if (item.children && isChildActive(item.children)) {
+        setExpandedItems((prev) => {
+          if (!prev.includes(item.title)) {
+            return [...prev, item.title];
+          }
+          return prev;
+        });
+      }
+    });
+  }, [pathname, viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const getInitials = (name?: string) => {
     if (!name) return "U";
     return name
@@ -221,12 +143,12 @@ export function Sidebar() {
         <Link
           href={item.href}
           className={cn(
-            "flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors ml-6 relative",
+            "flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors ml-6 relative border",
             "before:absolute before:left-0 before:top-0 before:bottom-0 before:w-px before:bg-sidebar-muted-foreground/30",
             "before:content-['']",
             active
-              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-              : "text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted"
+              ? "bg-[#1E40AF] border-[#3B82F6] text-white font-medium"
+              : "text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted border-transparent"
           )}
           onClick={() => setMobileSidebarOpen(false)}
         >
@@ -242,7 +164,7 @@ export function Sidebar() {
         className={cn(
           "flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors",
           active
-            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+            ? "bg-[#1E40AF] border border-[#3B82F6] text-white font-medium"
             : "text-sidebar-foreground hover:bg-sidebar-muted"
         )}
         onClick={() => setMobileSidebarOpen(false)}
@@ -277,58 +199,49 @@ export function Sidebar() {
         </div>
 
         <nav className="space-y-1">
-          {viewMode === "user" ? (
-            <>
-              {userMenuItems.map((item) => {
-                const Icon = item.icon;
-                return <NavLink key={item.href} item={item} icon={Icon} />;
-              })}
-            </>
-          ) : (
-            <>
-              {adminMenuItems.map((item) => {
-                const Icon = item.icon;
-                const hasChildren = item.children && item.children.length > 0;
-                const isExpanded = expandedItems.includes(item.title);
-                const isItemActive =
-                  isActive(item.href) || isChildActive(item.children);
+          {(viewMode === "user" ? userMenuItems : adminMenuItems).map(
+            (item) => {
+              const Icon = item.icon;
+              const hasChildren = item.children && item.children.length > 0;
+              const isExpanded = expandedItems.includes(item.title);
+              const isItemActive =
+                isActive(item.href) || isChildActive(item.children);
 
-                if (hasChildren) {
-                  return (
-                    <div key={item.title}>
-                      <button
-                        onClick={() => toggleExpand(item.title)}
-                        className={cn(
-                          "flex items-center justify-between w-full px-3 py-2.5 text-sm rounded-lg transition-colors",
-                          isItemActive
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                            : "text-sidebar-foreground hover:bg-sidebar-muted"
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          {Icon && <Icon className="h-5 w-5 flex-shrink-0" />}
-                          <span>{item.title}</span>
-                        </div>
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                        )}
-                      </button>
-                      {isExpanded && (
-                        <div className="mt-1 space-y-1">
-                          {item.children?.map((child) => (
-                            <NavLink key={child.href} item={child} isChild />
-                          ))}
-                        </div>
+              if (hasChildren) {
+                return (
+                  <div key={item.title}>
+                    <button
+                      onClick={() => toggleExpand(item.title)}
+                      className={cn(
+                        "flex items-center justify-between w-full px-3 py-2.5 text-sm rounded-lg transition-colors border",
+                        isItemActive
+                          ? "bg-[#1E40AF] border-[#3B82F6] text-white font-medium"
+                          : "text-sidebar-foreground hover:bg-sidebar-muted border-transparent"
                       )}
-                    </div>
-                  );
-                }
+                    >
+                      <div className="flex items-center gap-3">
+                        {Icon && <Icon className="h-5 w-5 flex-shrink-0" />}
+                        <span>{item.title}</span>
+                      </div>
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                      )}
+                    </button>
+                    {isExpanded && (
+                      <div className="mt-1 space-y-1 ml-0">
+                        {item.children?.map((child) => (
+                          <NavLink key={child.href} item={child} isChild />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
 
-                return <NavLink key={item.href} item={item} icon={Icon} />;
-              })}
-            </>
+              return <NavLink key={item.href} item={item} icon={Icon} />;
+            }
           )}
         </nav>
       </ScrollArea>
@@ -359,12 +272,6 @@ export function Sidebar() {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <Link href="/settings">
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                Profile Settings
-              </DropdownMenuItem>
-            </Link>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleLogout}

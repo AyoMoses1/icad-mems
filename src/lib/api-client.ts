@@ -54,8 +54,20 @@ function getAuthToken(): string | null {
   try {
     // Import dynamically to avoid circular dependencies
     const { useAuthStore } = require("@/store");
-    return useAuthStore.getState().token;
-  } catch {
+    const token = useAuthStore.getState().token;
+
+    // Log warning if token is missing (only in development)
+    if (!token && process.env.NODE_ENV === "development") {
+      console.warn(
+        "⚠️ No authentication token found. Please ensure you are logged in."
+      );
+    }
+
+    return token;
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error getting auth token:", error);
+    }
     return null;
   }
 }
@@ -205,8 +217,6 @@ export async function apiGetMain<T>(endpoint: string): Promise<ApiResponse<T>> {
   return apiClientMain<T>(endpoint, { method: "GET" });
 }
 
-
-
 /**
  * POST request helper
  */
@@ -232,25 +242,48 @@ export async function apiPostMain<T>(
 /**
  * PUT request helper
  */
-  export async function apiPut<T>(
-    endpoint: string,
-    body?: unknown
-  ): Promise<ApiResponse<T>> {
-    return apiClient<T>(endpoint, {
-      method: "PUT",
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  }
+export async function apiPut<T>(
+  endpoint: string,
+  body?: unknown
+): Promise<ApiResponse<T>> {
+  return apiClient<T>(endpoint, {
+    method: "PUT",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
 
-  export async function apiPutMain<T>(
-    endpoint: string,
-    body?: unknown
-  ): Promise<ApiResponse<T>> {
-    return apiClientMain<T>(endpoint, {
-      method: "PUT",
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  }
+export async function apiPutMain<T>(
+  endpoint: string,
+  body?: unknown
+): Promise<ApiResponse<T>> {
+  return apiClientMain<T>(endpoint, {
+    method: "PUT",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
+
+/**
+ * PATCH request helper
+ */
+export async function apiPatch<T>(
+  endpoint: string,
+  body?: unknown
+): Promise<ApiResponse<T>> {
+  return apiClient<T>(endpoint, {
+    method: "PATCH",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
+
+export async function apiPatchMain<T>(
+  endpoint: string,
+  body?: unknown
+): Promise<ApiResponse<T>> {
+  return apiClientMain<T>(endpoint, {
+    method: "PATCH",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
 
 /**
  * DELETE request helper
@@ -259,7 +292,9 @@ export async function apiDelete<T>(endpoint: string): Promise<ApiResponse<T>> {
   return apiClient<T>(endpoint, { method: "DELETE" });
 }
 
-export async function apiDeleteMain<T>(endpoint: string): Promise<ApiResponse<T>> {
+export async function apiDeleteMain<T>(
+  endpoint: string
+): Promise<ApiResponse<T>> {
   return apiClientMain<T>(endpoint, { method: "DELETE" });
 }
 

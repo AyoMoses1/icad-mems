@@ -1,17 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Eye, MoreVertical, Search } from "lucide-react";
+import { Eye, MoreVertical, Search, Filter } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -21,59 +24,179 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  LoadingSpinner,
+  EmptyState,
+  DataTable,
+  DataTableColumn,
+} from "@/components/shared";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { getApplications } from "@/lib/services/application-service";
+import type { ApplicationDto } from "@/types/payment";
+
+const statusConfig: Record<
+  string,
+  {
+    label: string;
+    variant: "default" | "secondary" | "destructive" | "outline";
+  }
+> = {
+  Pending: { label: "Pending", variant: "secondary" },
+  Approved: { label: "Approved", variant: "default" },
+  Rejected: { label: "Rejected", variant: "destructive" },
+  InReview: { label: "In Review", variant: "outline" },
+  Submitted: { label: "Submitted", variant: "secondary" },
+};
 
 export default function SeafarerApplicationsPage() {
+  const [applications, setApplications] = useState<ApplicationDto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-
-  const applications = [
-    {
-      id: "1",
-      applicant: "John Doe",
-      applicationId: "APP-2024-0156",
-      serviceType: "CoC Class II",
-      date: "15 Jan 2024",
-      status: "pending",
-    },
-    {
-      id: "2",
-      applicant: "John Doe",
-      applicationId: "APP-2024-0157",
-      serviceType: "Medical Certificate",
-      date: "15 Jan 2024",
-      status: "pending",
-    },
-    {
-      id: "3",
-      applicant: "John Doe",
-      applicationId: "APP-2024-0158",
-      serviceType: "STCW Basic Safety",
-      date: "15 Jan 2024",
-      status: "pending",
-    },
-    {
-      id: "4",
-      applicant: "John Doe",
-      applicationId: "APP-2024-0159",
-      serviceType: "Endorsement - Rating",
-      date: "15 Jan 2024",
-      status: "pending",
-    },
-    {
-      id: "5",
-      applicant: "John Doe",
-      applicationId: "APP-2024-0160",
-      serviceType: "CoC Revalication",
-      date: "15 Jan 2024",
-      status: "pending",
-    },
-  ];
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const pageSize = 20;
 
   const tabs = [
     { id: "all", label: "All Applications" },
-    { id: "pending", label: "Pending Review" },
-    { id: "certified", label: "Certified" },
+    { id: "Pending", label: "Pending Review" },
+    { id: "Approved", label: "Approved" },
+  ];
+
+  useEffect(() => {
+    loadApplications();
+  }, [currentPage, searchQuery, selectedTab, statusFilter]);
+
+  const loadApplications = async () => {
+    setIsLoading(true);
+    try {
+      const statusId =
+        selectedTab !== "all"
+          ? selectedTab
+          : statusFilter !== "all"
+            ? statusFilter
+            : undefined;
+
+      const response = await getApplications({
+        pageNumber: currentPage,
+        pageSize,
+        statusId: statusId ? parseInt(statusId) : undefined,
+        searchTerm: searchQuery || undefined,
+      });
+
+      if (response.success && response.data) {
+        setApplications(response.data.items);
+        setTotalPages(response.data.totalPages);
+        setTotalCount(response.data.totalCount);
+      } else {
+        toast.error(response.message || "Failed to load applications");
+      }
+    } catch (error) {
+      console.error("Error loading applications:", error);
+      toast.error("Failed to load applications");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const columns: DataTableColumn<ApplicationDto>[] = [
+    {
+      id: "applicationNumber",
+      header: "Application Number",
+      accessorKey: "applicationNumber",
+      cell: (row) => (
+        <span className="font-mono font-medium">
+          {row.applicationNumber || `APP-${row.id}`}
+        </span>
+      ),
+    },
+    {
+      id: "applicantName",
+      header: "Applicant",
+      accessorKey: "applicantName",
+      cell: (row) => (
+        <div className="flex items-center gap-3">
+          <Avatar>
+            <AvatarFallback>
+              {row.applicantName
+                ?.split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2) || "APP"}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="font-medium">{row.applicantName || "N/A"}</div>
+            {row.programName && (
+              <div className="text-sm text-muted-foreground">
+                {row.programName}
+              </div>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "programAppliedFor",
+      header: "Program",
+      accessorKey: "programAppliedFor",
+      cell: (row) => (
+        <span className="text-sm">
+          {row.programAppliedFor || row.programName || "N/A"}
+        </span>
+      ),
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorKey: "status",
+      cell: (row) => {
+        const status = row.status || row.applicationStatusName || "Pending";
+        const config = statusConfig[status] || statusConfig.Pending;
+        return <Badge variant={config.variant}>{config.label}</Badge>;
+      },
+    },
+    {
+      id: "applicationDate",
+      header: "Date",
+      accessorKey: "applicationDate",
+      cell: (row) => (
+        <span className="text-sm">
+          {row.applicationDate ? formatDate(row.applicationDate) : "N/A"}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: (row) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link href={`/seafarer/applications/${row.id}/review`}>
+                <Eye className="mr-2 h-4 w-4" />
+                Review Application
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem>View Details</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>Assign Reviewer</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive">
+              Reject Application
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
   ];
 
   return (
@@ -90,7 +213,10 @@ export default function SeafarerApplicationsPage() {
             <Button
               key={tab.id}
               variant={selectedTab === tab.id ? "default" : "ghost"}
-              onClick={() => setSelectedTab(tab.id)}
+              onClick={() => {
+                setSelectedTab(tab.id);
+                setCurrentPage(1);
+              }}
               className={cn(
                 selectedTab === tab.id &&
                   "bg-[#3EADC0] hover:bg-[#35a0b3] text-white"
@@ -100,15 +226,22 @@ export default function SeafarerApplicationsPage() {
             </Button>
           ))}
         </div>
-        <Select defaultValue="all">
+        <Select
+          value={statusFilter}
+          onValueChange={(value) => {
+            setStatusFilter(value);
+            setCurrentPage(1);
+          }}
+        >
           <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="All Roles" />
+            <SelectValue placeholder="Filter Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Roles</SelectItem>
-            <SelectItem value="captain">Captain</SelectItem>
-            <SelectItem value="engineer">Engineer</SelectItem>
-            <SelectItem value="officer">Officer</SelectItem>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="Pending">Pending</SelectItem>
+            <SelectItem value="Approved">Approved</SelectItem>
+            <SelectItem value="Rejected">Rejected</SelectItem>
+            <SelectItem value="InReview">In Review</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -122,86 +255,40 @@ export default function SeafarerApplicationsPage() {
               <Input
                 placeholder="Search applications"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="pl-9"
               />
             </div>
           </div>
 
-          <div className="divide-y">
-            {applications.map((application) => (
-              <div
-                key={application.id}
-                className="p-4 hover:bg-accent/50 transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 flex-1">
-                    <Avatar>
-                      <AvatarFallback>JD</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{application.applicant}</p>
-                        <span className="text-sm text-muted-foreground">
-                          {application.applicationId}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 mt-1">
-                        <span className="text-sm text-muted-foreground">
-                          {application.serviceType}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          {application.date}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link
-                        href={`/seafarer/applications/${application.id}/review`}
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Review Application
-                      </Link>
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
-                        <DropdownMenuItem>Assign Reviewer</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                          Reject Application
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Pagination */}
-          <div className="p-4 border-t flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Showing 1-20 of 40 Users
-            </p>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled>
-                1
-              </Button>
-              <Button variant="outline" size="sm">
-                2
-              </Button>
-              <Button variant="outline" size="sm">
-                3
-              </Button>
+          {isLoading ? (
+            <div className="p-8">
+              <LoadingSpinner />
             </div>
-          </div>
+          ) : applications.length === 0 ? (
+            <div className="p-8">
+              <EmptyState
+                title="No applications found"
+                description="There are no applications to display"
+              />
+            </div>
+          ) : (
+            <>
+              <DataTable
+                columns={columns}
+                data={applications}
+                isLoading={isLoading}
+                currentPage={currentPage}
+                totalCount={totalCount}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                searchable={false}
+              />
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

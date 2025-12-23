@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { Sidebar, Header } from "@/components/dashboard";
-import { useAuthStore, useWorkspaceStore, useUIStore } from "@/store";
+import { useAuthStore } from "@/store";
 import { LoadingPage } from "@/components/shared";
 import { usePathname } from "next/navigation";
 
@@ -21,50 +21,6 @@ export default function DashboardLayout({
     setLoading,
     token,
   } = useAuthStore();
-  const { setWorkspaces, setCurrentWorkspaceById, currentWorkspaceId } =
-    useWorkspaceStore();
-  const { viewMode } = useUIStore();
-
-  // Redirect if on wrong view page
-  useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      const adminOnlyPaths = [
-        "/seafarer",
-        "/workspaces",
-        "/users",
-        "/roles",
-        "/permissions",
-        "/certification",
-        "/waste",
-        "/incidents",
-        "/levies",
-        "/invoices",
-        "/marine",
-        "/cabotage",
-        "/surveillance",
-        "/compliance",
-      ];
-
-      const userOnlyPaths = [
-        "/training",
-        "/exams",
-        "/license-certification",
-        "/profile-documents",
-      ];
-
-      if (
-        viewMode === "user" &&
-        adminOnlyPaths.some((path) => pathname.startsWith(path))
-      ) {
-        router.replace("/");
-      } else if (
-        viewMode === "admin" &&
-        userOnlyPaths.some((path) => pathname.startsWith(path))
-      ) {
-        router.replace("/");
-      }
-    }
-  }, [viewMode, pathname, router, authLoading, isAuthenticated]);
 
   // Check authentication on mount - wait for hydration to complete
   useEffect(() => {
@@ -94,34 +50,6 @@ export default function DashboardLayout({
       return () => clearTimeout(timer);
     }
   }, [authLoading, router, isAuthenticated, token]);
-
-  // Load workspaces when authenticated
-  useEffect(() => {
-    const loadWorkspaces = async () => {
-      try {
-        const response = await fetch("/api/workspaces");
-        const result = await response.json();
-        if (result.success) {
-          setWorkspaces(result.data);
-          // Set first workspace as current if none selected
-          if (!currentWorkspaceId && result.data.length > 0) {
-            setCurrentWorkspaceById(result.data[0].workspaceId);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load workspaces:", error);
-      }
-    };
-
-    if (isAuthenticated) {
-      loadWorkspaces();
-    }
-  }, [
-    isAuthenticated,
-    setWorkspaces,
-    setCurrentWorkspaceById,
-    currentWorkspaceId,
-  ]);
 
   // Show loading state while hydrating
   if (authLoading) {

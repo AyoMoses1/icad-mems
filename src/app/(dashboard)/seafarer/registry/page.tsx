@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Users,
@@ -10,7 +10,14 @@ import {
   Search,
   MoreVertical,
 } from "lucide-react";
-import { PageHeader } from "@/components/shared";
+import { toast } from "sonner";
+import {
+  PageHeader,
+  DataTable,
+  DataTableColumn,
+  LoadingSpinner,
+  EmptyState,
+} from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,130 +34,184 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DataTable, DataTableColumn } from "@/components/shared/data-table";
+import { ConfirmDialog } from "@/components/shared";
+import { getUsers, updateUserStatus } from "@/lib/services/user-service";
+import type { UserProfileDto } from "@/types/seafarer";
+import { formatDate, getInitials } from "@/lib/utils";
 
-interface Seafarer {
-  id: string;
-  name: string;
-  email: string;
-  cdcNumber: string;
-  rank: string;
-  lastVessel: string;
-  expiry: string;
-  status: string;
-}
+const statusConfig: Record<
+  string,
+  {
+    label: string;
+    variant: "default" | "secondary" | "destructive" | "outline";
+  }
+> = {
+  Active: { label: "Active", variant: "default" },
+  Suspended: { label: "Suspended", variant: "destructive" },
+  Expired: { label: "Expired", variant: "outline" },
+  Pending: { label: "Pending", variant: "secondary" },
+};
 
 export default function SeafarerRegistryPage() {
+  const [seafarers, setSeafarers] = useState<UserProfileDto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isSuspendDialogOpen, setIsSuspendDialogOpen] = useState(false);
+  const [selectedSeafarer, setSelectedSeafarer] =
+    useState<UserProfileDto | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const pageSize = 20;
 
-  const stats = {
-    totalRegistered: 12450,
-    activeSeafarers: 10823,
-    pendingVerification: 156,
-    expiredLicenses: 43,
+  // Stats (would ideally come from a summary endpoint)
+  const [stats, setStats] = useState({
+    totalRegistered: 0,
+    activeSeafarers: 0,
+    pendingVerification: 0,
+    expiredLicenses: 0,
+  });
+
+  useEffect(() => {
+    loadSeafarers();
+  }, [currentPage, searchQuery, statusFilter]);
+
+  const loadSeafarers = async () => {
+    setIsLoading(true);
+    try {
+      const status = statusFilter !== "all" ? statusFilter : undefined;
+      const response = await getUsers({
+        pageNumber: currentPage,
+        pageSize,
+        searchTerm: searchQuery || undefined,
+        status: status,
+        isActive:
+          status === "Active"
+            ? true
+            : status === "Suspended"
+              ? false
+              : undefined,
+      });
+
+      if (response.success && response.data) {
+        setSeafarers(response.data.items);
+        setTotalPages(response.data.totalPages);
+        setTotalCount(response.data.totalCount);
+
+        // Calculate stats from current page data (ideal would be from separate endpoint)
+        const activeCount = response.data.items.filter(
+          (u) => u.currentStatus === "Active" || u.isActive
+        ).length;
+        setStats((prev) => ({
+          ...prev,
+          totalRegistered: response.data!.totalCount,
+          activeSeafarers: activeCount,
+        }));
+      } else {
+        toast.error(response.message || "Failed to load seafarers");
+      }
+    } catch (error) {
+      console.error("Error loading seafarers:", error);
+      toast.error("Failed to load seafarers");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const seafarers: Seafarer[] = [
-    {
-      id: "1",
-      name: "John Doe",
-      email: "john@gmail.com",
-      cdcNumber: "CDC-2024-0001",
-      rank: "Master Mariner",
-      lastVessel: "MV Pacific Trader",
-      expiry: "15 Jan 2024",
-      status: "active",
-    },
-    {
-      id: "2",
-      name: "John Doe",
-      email: "john@gmail.com",
-      cdcNumber: "CDC-2024-0002",
-      rank: "Chief Engineer",
-      lastVessel: "MV Pacific Trader",
-      expiry: "15 Jan 2024",
-      status: "active",
-    },
-    {
-      id: "3",
-      name: "John Doe",
-      email: "john@gmail.com",
-      cdcNumber: "CDC-2024-0003",
-      rank: "Second Officer",
-      lastVessel: "MV Pacific Trader",
-      expiry: "15 Jan 2024",
-      status: "active",
-    },
-  ];
+  const handleSuspend = async () => {
+    if (!selectedSeafarer) return;
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, "success" | "destructive" | "warning"> = {
-      active: "success",
-      suspended: "destructive",
-      expired: "warning",
-    };
+    setIsSubmitting(true);
+    try {
+      const response = await updateUserStatus(selectedSeafarer.id || 0, {
+        status: "Suspended",
+        reason: "Suspended by administrator",
+      });
 
-    const labels: Record<string, string> = {
-      active: "Active",
-      suspended: "Suspended",
-      expired: "Expired",
-    };
+      if (response.success) {
+        toast.success("Seafarer suspended successfully");
+        setIsSuspendDialogOpen(false);
+        setSelectedSeafarer(null);
+        loadSeafarers();
+      } else {
+        toast.error(response.message || "Failed to suspend seafarer");
+      }
+    } catch (error) {
+      console.error("Error suspending seafarer:", error);
+      toast.error("Failed to suspend seafarer");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
+  const getFullName = (user: UserProfileDto) => {
     return (
-      <Badge variant={variants[status] || "default"}>
-        {labels[status] || status}
-      </Badge>
+      `${user.firstName || ""} ${user.middleName || ""} ${user.lastName || ""}`.trim() ||
+      "N/A"
     );
   };
 
-  const columns: DataTableColumn<Seafarer>[] = [
+  const columns: DataTableColumn<UserProfileDto>[] = [
     {
       id: "seafarer",
       header: "Seafarer",
       cell: (row) => (
         <div className="flex items-center gap-3">
           <Avatar>
-            <AvatarFallback>
-              {row.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
-            </AvatarFallback>
+            <AvatarFallback>{getInitials(getFullName(row))}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-medium">{row.name}</p>
-            <p className="text-sm text-muted-foreground">{row.email}</p>
+            <p className="font-medium">{getFullName(row)}</p>
+            <p className="text-sm text-muted-foreground">
+              {row.email || "N/A"}
+            </p>
           </div>
         </div>
       ),
     },
     {
-      id: "cdcNumber",
+      id: "registrationNumber",
       header: "CDC Number",
-      accessorKey: "cdcNumber",
+      accessorKey: "registrationNumber",
+      cell: (row) => (
+        <span className="font-mono text-sm">
+          {row.registrationNumber || `CDC-${row.id}`}
+        </span>
+      ),
     },
     {
-      id: "rank",
+      id: "userTypeName",
       header: "Rank",
-      accessorKey: "rank",
+      accessorKey: "userTypeName",
+      cell: (row) => (
+        <span className="text-sm">{row.userTypeName || "N/A"}</span>
+      ),
     },
     {
-      id: "lastVessel",
-      header: "Last Vessel",
-      accessorKey: "lastVessel",
-    },
-    {
-      id: "expiry",
-      header: "Expiry",
-      accessorKey: "expiry",
-    },
-    {
-      id: "status",
+      id: "currentStatus",
       header: "Status",
-      cell: (row) => getStatusBadge(row.status),
+      accessorKey: "currentStatus",
+      cell: (row) => {
+        const status =
+          row.currentStatus || (row.isActive ? "Active" : "Suspended");
+        const config = statusConfig[status] || statusConfig.Pending;
+        return <Badge variant={config.variant}>{config.label}</Badge>;
+      },
+    },
+    {
+      id: "lastLoginAt",
+      header: "Last Active",
+      accessorKey: "lastLoginAt",
+      cell: (row) => (
+        <span className="text-sm">
+          {row.lastLoginAt ? formatDate(row.lastLoginAt) : "Never"}
+        </span>
+      ),
     },
     {
       id: "actions",
@@ -167,7 +228,14 @@ export default function SeafarerRegistryPage() {
               <Link href={`/seafarer/profile/${row.id}`}>View Profile</Link>
             </DropdownMenuItem>
             <DropdownMenuItem>Edit Details</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => {
+                setSelectedSeafarer(row);
+                setIsSuspendDialogOpen(true);
+              }}
+            >
               Suspend Account
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -250,35 +318,68 @@ export default function SeafarerRegistryPage() {
             <div className="relative max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search applications"
+                placeholder="Search seafarers..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="pl-9"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value);
+                setCurrentPage(1);
+              }}
+            >
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="suspended">Suspended</SelectItem>
-                <SelectItem value="expired">Expired</SelectItem>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Suspended">Suspended</SelectItem>
+                <SelectItem value="Expired">Expired</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <DataTable
-            columns={columns}
-            data={seafarers}
-            searchable={false}
-            pageSize={20}
-            totalCount={40}
-            currentPage={1}
-          />
+          {isLoading ? (
+            <LoadingSpinner />
+          ) : seafarers.length === 0 ? (
+            <EmptyState
+              title="No seafarers found"
+              description="There are no registered seafarers to display"
+            />
+          ) : (
+            <DataTable
+              columns={columns}
+              data={seafarers}
+              isLoading={isLoading}
+              searchable={false}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </CardContent>
       </Card>
+
+      {/* Suspend Confirmation Dialog */}
+      <ConfirmDialog
+        open={isSuspendDialogOpen}
+        onOpenChange={setIsSuspendDialogOpen}
+        title="Suspend Seafarer"
+        description={`Are you sure you want to suspend ${selectedSeafarer ? getFullName(selectedSeafarer) : "this seafarer"}? This action cannot be undone.`}
+        confirmText="Suspend"
+        cancelText="Cancel"
+        onConfirm={handleSuspend}
+        variant="destructive"
+        isLoading={isSubmitting}
+      />
     </div>
   );
 }

@@ -21,95 +21,52 @@ import { useAuthStore, useUIStore } from "@/store";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
-const getPageTitle = (pathname: string, viewMode: "user" | "admin"): string => {
-  // User view routes
-  if (viewMode === "user") {
-    const userRoutes: Record<string, string> = {
-      "/": "Dashboard",
-      "/training": "Training",
-      "/training/enrollments": "My Enrollments",
-      "/exams": "Examinations",
-      "/exams/schedule": "Exam Schedule",
-      "/exams/register": "Register for Exam",
-      "/exams/history": "Exam History",
-      "/exams/results": "Results",
-      "/license-certification": "Certificates & License",
-      "/profile-documents": "Profile & Documents",
-    };
-
-    if (pathname.startsWith("/training")) {
-      return userRoutes[pathname] || "Training";
-    }
-    if (pathname.startsWith("/exams")) {
-      return userRoutes[pathname] || "Examinations";
-    }
-
-    return userRoutes[pathname] || "Dashboard";
-  }
-
-  // Admin view routes
-  const adminRoutes: Record<string, string> = {
+const getPageTitle = (
+  pathname: string,
+  viewMode: "user" | "admin" = "admin"
+): string => {
+  const routes: Record<string, string> = {
     "/": "Dashboard",
-    // User & Profile Management
-    "/workspaces": "Workspace Management",
-    "/users": "User Management",
-    "/roles": "Role Management",
-    "/permissions": "Permission Management",
-    "/resources": "Resources Management",
-    "/role-resources": "Role Resources Management",
-    "/user-roles": "User Role Management",
-    "/audit": "Audit Logs",
-    "/settings": "Settings",
-    // Certification & Registration
-    "/certification/vessels": "Vessel Certification",
-    "/certification/registration": "Registration Services",
-    "/certification/documents": "Document Management",
-    // Waste Management
-    "/waste/tracking": "Waste Tracking",
-    "/waste/disposal": "Disposal Method",
-    "/waste/facilities": "Facilities",
-    // Seafarer
+    // Training
+    "/training": "Training",
+    "/training/enrollments": "My Enrollments",
+    "/training/enroll": "Enroll in Training",
+    // License & Certification
+    "/license-certification": "Certificates & License",
+    // Profile & Documents
+    "/profile-documents": "Profile & Documents",
+    // Seafarer Management (Admin)
     "/seafarer/overview": "Seafarer Overview",
     "/seafarer/applications": "Applications",
+    "/seafarer/applications/review": "Review Application",
     "/seafarer/registry": "Seafarer Registry",
-    "/seafarer/miis": "Accredited MIIs",
-    // Incidents
-    "/incidents/report": "Incident Report",
-    "/incidents/assessment": "Risk Assessment",
-    // Levies & Fees
-    "/levies/fees": "Fee Management",
-    "/levies/collection": "Levy Collection",
+    "/seafarer/profile": "Seafarer Profile",
+    "/seafarer/add": "Add Seafarer",
+    "/seafarer/miis": "Accredited MTIs",
     // Invoices & Payments
     "/invoices/management": "Invoice Management",
     "/invoices/payments": "Payments",
-    // Marine Environment
-    "/marine/monitoring": "Environmental Monitoring",
-    "/marine/pollution": "Pollution Control",
-    "/marine/protected": "Protected Areas",
-    // Cabotage
-    "/cabotage/permits": "Cabotage Permits",
-    "/cabotage/terminals": "Terminal Operations",
-    // Surveillance
-    "/surveillance/tracking": "Vessel Tracking",
-    "/surveillance/monitoring": "Vessel Surveillance",
-    // Compliance
-    "/compliance/checks": "Compliance Checks",
   };
 
   // Check for dynamic routes
-  if (pathname.startsWith("/workspaces/")) return "Workspace Details";
-  if (pathname.startsWith("/users/")) return "User Details";
+  if (pathname.startsWith("/seafarer/applications/")) {
+    if (pathname.includes("/review")) return "Review Application";
+    return "Application Details";
+  }
+  if (pathname.startsWith("/seafarer/profile/")) return "Seafarer Profile";
+  if (pathname.startsWith("/seafarer/miis/")) return "MTI Details";
+  if (pathname.startsWith("/training/enroll")) return "Enroll in Training";
 
-  return adminRoutes[pathname] || "Dashboard";
+  return routes[pathname] || "Dashboard";
 };
 
 export function Header() {
   const pathname = usePathname();
   const { user } = useAuthStore();
-  const { setMobileSidebarOpen, viewMode, toggleViewMode } = useUIStore();
+  const { setMobileSidebarOpen, viewMode } = useUIStore();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const pageTitle = getPageTitle(pathname, viewMode);
+  const pageTitle = getPageTitle(pathname, viewMode || "admin");
 
   const getInitials = (name?: string) => {
     if (!name) return "U";

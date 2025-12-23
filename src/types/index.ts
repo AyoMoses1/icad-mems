@@ -485,3 +485,13 @@ export interface FormState {
 }
 
 export type FormMode = "create" | "edit" | "view";
+
+// ============================================================================
+// Payment & Invoice Types (re-exported from payment.ts)
+// ============================================================================
+export * from "./payment";
+
+// ============================================================================
+// Seafarer Portal Types (re-exported from seafarer.ts)
+// ============================================================================
+export * from "./seafarer";
