@@ -112,6 +112,13 @@ export async function getSeafarerRequirements(): Promise<
     `${API_BASE}/requirements`
   );
 }
+export async function getDocumentInformation({documentId}: {documentId: string}): Promise<
+  ApiResponse<any>
+> {
+  return apiGetMain<any>(
+    `${API_BASE}/document/${documentId}`
+  );
+}
 
 /**
  * Create or update seafarer profile

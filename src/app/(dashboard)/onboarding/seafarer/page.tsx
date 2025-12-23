@@ -31,6 +31,7 @@ import {
   getSeafarerDocuments,
   type SeafarerRequirement,
   type HeldDocumentDto,
+  getDocumentInformation,
 } from "@/lib/services/seafarer-onboarding-service";
 
 type Step = "requirements" | "profile" | "contacts" | "documents";
@@ -45,7 +46,7 @@ export default function SeafarerOnboardingPage() {
   // Requirements
   const [requirements, setRequirements] = useState<SeafarerRequirement[]>([]);
   const [completedRequirements, setCompletedRequirements] = useState<string[]>(
-    []
+    [],
   );
 
   // Profile
@@ -106,9 +107,11 @@ export default function SeafarerOnboardingPage() {
       const response = await getSeafarerRequirements();
       if (response.success && response.data) {
         setRequirements(response.data.requirements || []);
-        setCompletedRequirements(
-          response.data.completedRequirements || []
-        );
+        const documentInformation = await getDocumentInformation({documentId: response.data.requirements[0].documentMasterId});
+        if (response.success && response.data) {
+          setDocumentInformation(response.data);
+        }
+        setCompletedRequirements(response.data.completedRequirements || []);
       }
     } catch (error) {
       toast.error("Failed to load requirements");
@@ -181,16 +184,15 @@ export default function SeafarerOnboardingPage() {
   const handleDocumentUpload = async (
     documentTypeId: string,
     file: File,
-    documentData: any
+    documentData: any,
   ) => {
     if (!seafarerId) return;
     try {
       setIsSubmitting(true);
-      const response = await uploadSeafarerDocument(
-        seafarerId,
-        file,
-        { ...documentData, documentTypeId }
-      );
+      const response = await uploadSeafarerDocument(seafarerId, file, {
+        ...documentData,
+        documentTypeId,
+      });
       if (response.success) {
         toast.success("Document uploaded successfully");
         await loadDocuments();
@@ -229,7 +231,10 @@ export default function SeafarerOnboardingPage() {
         </CardHeader>
       </Card>
 
-      <Tabs value={currentStep} onValueChange={(v) => setCurrentStep(v as Step)}>
+      <Tabs
+        value={currentStep}
+        onValueChange={(v) => setCurrentStep(v as Step)}
+      >
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="requirements">Requirements</TabsTrigger>
           <TabsTrigger value="profile">Profile</TabsTrigger>
@@ -294,7 +299,10 @@ export default function SeafarerOnboardingPage() {
                   <Input
                     value={profileData.firstName}
                     onChange={(e) =>
-                      setProfileData({ ...profileData, firstName: e.target.value })
+                      setProfileData({
+                        ...profileData,
+                        firstName: e.target.value,
+                      })
                     }
                   />
                 </div>
@@ -303,7 +311,10 @@ export default function SeafarerOnboardingPage() {
                   <Input
                     value={profileData.middleName}
                     onChange={(e) =>
-                      setProfileData({ ...profileData, middleName: e.target.value })
+                      setProfileData({
+                        ...profileData,
+                        middleName: e.target.value,
+                      })
                     }
                   />
                 </div>
@@ -312,7 +323,10 @@ export default function SeafarerOnboardingPage() {
                   <Input
                     value={profileData.lastName}
                     onChange={(e) =>
-                      setProfileData({ ...profileData, lastName: e.target.value })
+                      setProfileData({
+                        ...profileData,
+                        lastName: e.target.value,
+                      })
                     }
                   />
                 </div>
@@ -322,7 +336,10 @@ export default function SeafarerOnboardingPage() {
                     type="date"
                     value={profileData.dateOfBirth}
                     onChange={(e) =>
-                      setProfileData({ ...profileData, dateOfBirth: e.target.value })
+                      setProfileData({
+                        ...profileData,
+                        dateOfBirth: e.target.value,
+                      })
                     }
                   />
                 </div>
@@ -353,7 +370,10 @@ export default function SeafarerOnboardingPage() {
                   <Input
                     value={profileData.address}
                     onChange={(e) =>
-                      setProfileData({ ...profileData, address: e.target.value })
+                      setProfileData({
+                        ...profileData,
+                        address: e.target.value,
+                      })
                     }
                   />
                 </div>
@@ -380,7 +400,10 @@ export default function SeafarerOnboardingPage() {
                   <Input
                     value={profileData.country}
                     onChange={(e) =>
-                      setProfileData({ ...profileData, country: e.target.value })
+                      setProfileData({
+                        ...profileData,
+                        country: e.target.value,
+                      })
                     }
                   />
                 </div>
@@ -546,4 +569,3 @@ export default function SeafarerOnboardingPage() {
     </div>
   );
 }
-

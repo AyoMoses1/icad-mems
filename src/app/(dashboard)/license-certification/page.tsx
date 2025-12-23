@@ -106,7 +106,7 @@ export default function LicenseCertificationPage() {
                     {app.programAppliedFor || app.programName || "Certificate"}
                   </CardTitle>
                   {getStatusBadge(
-                    app.applicationStatusName || app.status || "Pending"
+                    app.applicationStatusName || app.status || "Pending",
                   )}
                 </div>
               </CardHeader>
@@ -159,4 +159,3 @@ export default function LicenseCertificationPage() {
     </div>
   );
 }
-
