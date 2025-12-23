@@ -16,6 +16,16 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  Building2,
+  FileText,
+  Users,
+  Settings,
+  ClipboardList,
+  CheckCircle,
+  AlertCircle,
+  Briefcase,
+  BookOpen,
+  Stethoscope,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -31,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuthStore, useUIStore } from "@/store";
+import type { UserType } from "@/store/ui-store";
 
 type MenuItem = {
   title: string;
@@ -39,7 +50,8 @@ type MenuItem = {
   children?: Array<{ title: string; href: string }>;
 };
 
-const userMenuItems: MenuItem[] = [
+// Seafarer Menu Items
+const seafarerMenuItems: MenuItem[] = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
   { title: "Training", href: "/training", icon: GraduationCap },
   {
@@ -48,32 +60,171 @@ const userMenuItems: MenuItem[] = [
     icon: Award,
   },
   { title: "Profile & Documents", href: "/profile-documents", icon: User },
+  { title: "My Applications", href: "/seafarer/applications", icon: FileText },
+  { title: "Onboarding", href: "/onboarding/seafarer", icon: User },
 ];
 
+// Admin Menu Items
 const adminMenuItems: MenuItem[] = [
+  { title: "Dashboard", href: "/", icon: LayoutDashboard },
   {
-    title: "Seafarer Certification & License",
+    title: "Seafarer Management",
     href: "#",
     icon: User,
     children: [
       { title: "Overview", href: "/seafarer/overview" },
       { title: "Applications", href: "/seafarer/applications" },
-      { title: "Seafarer Management", href: "/seafarer/registry" },
+      { title: "Seafarer Registry", href: "/seafarer/registry" },
+      { title: "Add Seafarer", href: "/seafarer/add" },
+    ],
+  },
+  {
+    title: "Institutions",
+    href: "#",
+    icon: Building2,
+    children: [
+      { title: "All Institutions", href: "/institutions" },
       { title: "Accredited MTIs", href: "/seafarer/miis" },
     ],
   },
+  {
+    title: "Applications Review",
+    href: "#",
+    icon: ClipboardList,
+    children: [
+      { title: "Pending Applications", href: "/admin/applications/review" },
+      { title: "All Applications", href: "/seafarer/applications" },
+    ],
+  },
+  {
+    title: "Accreditations",
+    href: "#",
+    icon: CheckCircle,
+    children: [
+      { title: "Under Review", href: "/admin/accreditations/review" },
+      { title: "All Accreditations", href: "/accreditations" },
+    ],
+  },
+  {
+    title: "Financial",
+    href: "#",
+    icon: CreditCard,
+    children: [
+      { title: "Invoice Management", href: "/invoices/management" },
+      { title: "Payments", href: "/invoices/payments" },
+    ],
+  },
+  { title: "Settings", href: "/settings", icon: Settings },
 ];
+
+// Institution Menu Items
+const institutionMenuItems: MenuItem[] = [
+  { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  {
+    title: "Institution Management",
+    href: "#",
+    icon: Building2,
+    children: [
+      { title: "My Institution", href: "/institutions" },
+      { title: "Onboarding", href: "/onboarding/institution" },
+      { title: "Contacts", href: "/institutions/contacts" },
+      { title: "Staff", href: "/institutions/staff" },
+    ],
+  },
+  {
+    title: "Training Institute",
+    href: "#",
+    icon: GraduationCap,
+    children: [
+      { title: "Programs", href: "/training/programs" },
+      { title: "Courses", href: "/training/courses" },
+      { title: "Enrollments", href: "/training/enrollments" },
+    ],
+  },
+  {
+    title: "Medical Institute",
+    href: "#",
+    icon: Stethoscope,
+    children: [
+      { title: "Services", href: "/medical/services" },
+      { title: "Appointments", href: "/medical/appointments" },
+    ],
+  },
+  {
+    title: "Accreditation",
+    href: "#",
+    icon: Award,
+    children: [
+      { title: "Apply for Accreditation", href: "/accreditations/apply" },
+      { title: "My Accreditations", href: "/accreditations" },
+      { title: "Status Check", href: "/accreditations/status" },
+    ],
+  },
+  { title: "Settings", href: "/settings", icon: Settings },
+];
+
+// Staff Menu Items
+const staffMenuItems: MenuItem[] = [
+  { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  {
+    title: "Applications",
+    href: "#",
+    icon: ClipboardList,
+    children: [
+      { title: "Pending Review", href: "/admin/applications/review" },
+      { title: "All Applications", href: "/seafarer/applications" },
+    ],
+  },
+  {
+    title: "Accreditations",
+    href: "#",
+    icon: CheckCircle,
+    children: [
+      { title: "Under Review", href: "/admin/accreditations/review" },
+      { title: "Audit", href: "/admin/accreditations/audit" },
+    ],
+  },
+  {
+    title: "Institutions",
+    href: "#",
+    icon: Building2,
+    children: [
+      { title: "All Institutions", href: "/institutions" },
+      { title: "Accredited MTIs", href: "/seafarer/miis" },
+    ],
+  },
+  { title: "Settings", href: "/settings", icon: Settings },
+];
+
+// Get menu items based on user type
+const getMenuItems = (userType: UserType): MenuItem[] => {
+  switch (userType) {
+    case "admin":
+      return adminMenuItems;
+    case "seafarer":
+      return seafarerMenuItems;
+    case "institution":
+      return institutionMenuItems;
+    case "staff":
+      return staffMenuItems;
+    default:
+      return adminMenuItems;
+  }
+};
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthStore();
-  const { mobileSidebarOpen, setMobileSidebarOpen, viewMode } = useUIStore();
+  const { mobileSidebarOpen, setMobileSidebarOpen, viewMode, userType } =
+    useUIStore();
   const [expandedItems, setExpandedItems] = React.useState<string[]>([]);
+
+  const currentMenuItems = getMenuItems(userType);
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
@@ -102,8 +253,6 @@ export function Sidebar() {
 
   // Auto-expand parent if any child is active
   useEffect(() => {
-    const currentMenuItems =
-      viewMode === "user" ? userMenuItems : adminMenuItems;
     currentMenuItems.forEach((item) => {
       if (item.children && isChildActive(item.children)) {
         setExpandedItems((prev) => {
@@ -114,7 +263,7 @@ export function Sidebar() {
         });
       }
     });
-  }, [pathname, viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathname, userType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
@@ -148,7 +297,7 @@ export function Sidebar() {
             "before:content-['']",
             active
               ? "bg-[#1E40AF] border-[#3B82F6] text-white font-medium"
-              : "text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted border-transparent"
+              : "text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted border-transparent",
           )}
           onClick={() => setMobileSidebarOpen(false)}
         >
@@ -165,7 +314,7 @@ export function Sidebar() {
           "flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors",
           active
             ? "bg-[#1E40AF] border border-[#3B82F6] text-white font-medium"
-            : "text-sidebar-foreground hover:bg-sidebar-muted"
+            : "text-sidebar-foreground hover:bg-sidebar-muted",
         )}
         onClick={() => setMobileSidebarOpen(false)}
       >
@@ -199,50 +348,48 @@ export function Sidebar() {
         </div>
 
         <nav className="space-y-1">
-          {(viewMode === "user" ? userMenuItems : adminMenuItems).map(
-            (item) => {
-              const Icon = item.icon;
-              const hasChildren = item.children && item.children.length > 0;
-              const isExpanded = expandedItems.includes(item.title);
-              const isItemActive =
-                isActive(item.href) || isChildActive(item.children);
+          {currentMenuItems.map((item) => {
+            const Icon = item.icon;
+            const hasChildren = item.children && item.children.length > 0;
+            const isExpanded = expandedItems.includes(item.title);
+            const isItemActive =
+              isActive(item.href) || isChildActive(item.children);
 
-              if (hasChildren) {
-                return (
-                  <div key={item.title}>
-                    <button
-                      onClick={() => toggleExpand(item.title)}
-                      className={cn(
-                        "flex items-center justify-between w-full px-3 py-2.5 text-sm rounded-lg transition-colors border",
-                        isItemActive
-                          ? "bg-[#1E40AF] border-[#3B82F6] text-white font-medium"
-                          : "text-sidebar-foreground hover:bg-sidebar-muted border-transparent"
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        {Icon && <Icon className="h-5 w-5 flex-shrink-0" />}
-                        <span>{item.title}</span>
-                      </div>
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                      )}
-                    </button>
-                    {isExpanded && (
-                      <div className="mt-1 space-y-1 ml-0">
-                        {item.children?.map((child) => (
-                          <NavLink key={child.href} item={child} isChild />
-                        ))}
-                      </div>
+            if (hasChildren) {
+              return (
+                <div key={item.title}>
+                  <button
+                    onClick={() => toggleExpand(item.title)}
+                    className={cn(
+                      "flex items-center justify-between w-full px-3 py-2.5 text-sm rounded-lg transition-colors border",
+                      isItemActive
+                        ? "bg-[#1E40AF] border-[#3B82F6] text-white font-medium"
+                        : "text-sidebar-foreground hover:bg-sidebar-muted border-transparent",
                     )}
-                  </div>
-                );
-              }
-
-              return <NavLink key={item.href} item={item} icon={Icon} />;
+                  >
+                    <div className="flex items-center gap-3">
+                      {Icon && <Icon className="h-5 w-5 flex-shrink-0" />}
+                      <span>{item.title}</span>
+                    </div>
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                    )}
+                  </button>
+                  {isExpanded && (
+                    <div className="mt-1 space-y-1 ml-0">
+                      {item.children?.map((child) => (
+                        <NavLink key={child.href} item={child} isChild />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
             }
-          )}
+
+            return <NavLink key={item.href} item={item} icon={Icon} />;
+          })}
         </nav>
       </ScrollArea>
 
@@ -311,7 +458,7 @@ export function Sidebar() {
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out lg:hidden",
-          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <SidebarContent />

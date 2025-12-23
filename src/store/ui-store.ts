@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { BreadcrumbItem } from "@/types";
 
+export type UserType = "admin" | "seafarer" | "institution" | "staff";
+
 interface UIState {
   // Sidebar
   sidebarOpen: boolean;
@@ -9,6 +11,7 @@ interface UIState {
 
   // View Toggle
   viewMode: "user" | "admin";
+  userType: UserType;
 
   // Breadcrumbs
   breadcrumbs: BreadcrumbItem[];
@@ -30,6 +33,7 @@ interface UIState {
   setMobileSidebarOpen: (open: boolean) => void;
   setViewMode: (mode: "user" | "admin") => void;
   toggleViewMode: () => void;
+  setUserType: (type: UserType) => void;
   setBreadcrumbs: (items: BreadcrumbItem[]) => void;
   openModal: (modalId: string, data?: Record<string, unknown>) => void;
   closeModal: () => void;
@@ -52,6 +56,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   sidebarCollapsed: false,
   mobileSidebarOpen: false,
   viewMode: "admin", // Default to admin view
+  userType: "admin", // Default user type
   breadcrumbs: [],
   activeModal: null,
   modalData: null,
@@ -83,6 +88,16 @@ export const useUIStore = create<UIState>((set, get) => ({
     set((state) => ({
       viewMode: state.viewMode === "user" ? "admin" : "user",
     }));
+  },
+
+  setUserType: (type: UserType) => {
+    set({ userType: type });
+    // Auto-set viewMode based on userType
+    if (type === "admin" || type === "staff") {
+      set({ viewMode: "admin" });
+    } else {
+      set({ viewMode: "user" });
+    }
   },
 
   setBreadcrumbs: (items: BreadcrumbItem[]) => {

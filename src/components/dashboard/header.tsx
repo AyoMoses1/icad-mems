@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Bell, Search, Menu, User, Shield } from "lucide-react";
+import { Bell, Search, Menu, User, Shield, Users, Building2, Briefcase, ChevronDown, CheckCircle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuthStore, useUIStore } from "@/store";
+import type { UserType } from "@/store/ui-store";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
@@ -60,11 +61,22 @@ const getPageTitle = (
   return routes[pathname] || "Dashboard";
 };
 
+const userTypeLabels: Record<UserType, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
+  admin: { label: "Admin", icon: Shield },
+  seafarer: { label: "Seafarer", icon: User },
+  institution: { label: "Institution", icon: Building2 },
+  staff: { label: "Staff", icon: Briefcase },
+};
+
 export function Header() {
   const pathname = usePathname();
   const { user } = useAuthStore();
-  const { setMobileSidebarOpen, viewMode } = useUIStore();
+  const { setMobileSidebarOpen, viewMode, userType, setUserType } = useUIStore();
   const [searchQuery, setSearchQuery] = useState("");
+  const [userTypeMenuOpen, setUserTypeMenuOpen] = useState(false);
+  
+  const currentUserType = userTypeLabels[userType];
+  const CurrentIcon = currentUserType.icon;
 
   const pageTitle = getPageTitle(pathname, viewMode || "admin");
 
@@ -110,38 +122,44 @@ export function Header() {
         </div>
       </div>
 
-      {/* View Toggle */}
-      <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border">
-        <User
-          className={cn(
-            "h-4 w-4",
-            viewMode === "user" ? "text-primary" : "text-muted-foreground"
-          )}
-        />
-        <Switch
-          checked={viewMode === "admin"}
-          onCheckedChange={(checked) => {
-            if (checked) {
-              useUIStore.getState().setViewMode("admin");
-            } else {
-              useUIStore.getState().setViewMode("user");
-            }
-          }}
-          id="view-toggle"
-        />
-        <Shield
-          className={cn(
-            "h-4 w-4",
-            viewMode === "admin" ? "text-primary" : "text-muted-foreground"
-          )}
-        />
-        <Label
-          htmlFor="view-toggle"
-          className="text-xs font-medium cursor-pointer min-w-[40px]"
-        >
-          {viewMode === "user" ? "User" : "Admin"}
-        </Label>
-      </div>
+      {/* User Type Switcher */}
+      <DropdownMenu open={userTypeMenuOpen} onOpenChange={setUserTypeMenuOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 h-auto bg-muted/50 border"
+          >
+            <CurrentIcon className="h-4 w-4 text-primary" />
+            <span className="text-xs font-medium min-w-[80px] text-left">
+              {currentUserType.label}
+            </span>
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuLabel>Switch User Type</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {Object.entries(userTypeLabels).map(([type, { label, icon: Icon }]) => (
+            <DropdownMenuItem
+              key={type}
+              onClick={() => {
+                setUserType(type as UserType);
+                setUserTypeMenuOpen(false);
+              }}
+              className={cn(
+                "flex items-center gap-2 cursor-pointer",
+                userType === type && "bg-accent"
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{label}</span>
+              {userType === type && (
+                <CheckCircle className="h-4 w-4 ml-auto text-primary" />
+              )}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Notifications */}
       <DropdownMenu>

@@ -411,6 +411,101 @@ export async function apiPostFormMain<T>(
 }
 
 /**
+ * POST request with multipart/form-data (for file uploads)
+ */
+export async function apiPostMultipart<T>(
+  endpoint: string,
+  formData: FormData
+): Promise<ApiResponse<T>> {
+  const API_BASE_URL = getApiBaseUrl();
+
+  if (!API_BASE_URL) {
+    throw new Error(
+      "NEXT_PUBLIC_API_LOGIN_BASE_URL is not configured. Please check your .env file and restart the dev server."
+    );
+  }
+
+  const url = `${API_BASE_URL}${endpoint}`;
+  const token = getAuthToken();
+
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  // Don't set Content-Type header - browser will set it with boundary
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+
+    const data: ApiResponse<T> = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error?.message || data.message || "Request failed");
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Network error. Please check your connection.");
+    }
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("An unexpected error occurred");
+  }
+}
+
+export async function apiPostMultipartMain<T>(
+  endpoint: string,
+  formData: FormData
+): Promise<ApiResponse<T>> {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "";
+
+  if (!API_BASE_URL) {
+    throw new Error(
+      "NEXT_PUBLIC_API_BASE_URL is not configured. Please check your .env file and restart the dev server."
+    );
+  }
+
+  const url = `${API_BASE_URL}${endpoint}`;
+  const token = getAuthToken();
+
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  // Don't set Content-Type header - browser will set it with boundary
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+
+    const data: ApiResponse<T> = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error?.message || data.message || "Request failed");
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      throw new Error("Network error. Please check your connection.");
+    }
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("An unexpected error occurred");
+  }
+}
+
+/**
  * GET request helper with authentication (returns raw data, not wrapped in ApiResponse)
  */
 export async function apiGetAuth<T>(endpoint: string): Promise<T> {

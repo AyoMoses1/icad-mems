@@ -16,3 +16,8 @@ export * from "./service-service";
 export * from "./requirement-service";
 export * from "./document-service";
 
+// New services from frontend-api-integration.md
+export * from "./seafarer-onboarding-service";
+export * from "./institution-onboarding-service";
+export * from "./admin-review-service";
+

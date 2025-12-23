@@ -7,6 +7,7 @@ import {
   apiPostMain,
   apiPutMain,
   apiPatchMain,
+  apiPostMultipartMain,
   type ApiResponse,
 } from "@/lib/api-client";
 import type {
@@ -22,6 +23,7 @@ import type {
 } from "@/types/seafarer";
 
 const API_BASE = "/api/v1/Applications";
+const API_BASE_LEGACY = "/api/applications"; // For endpoints from frontend-api-integration.md
 
 /**
  * Get paginated list of applications with optional filtering
@@ -170,6 +172,114 @@ export async function reviewApplicationRequirement(
   return apiPostMain<ApplicationRequirementDto>(
     `${API_BASE}/${applicationId}/requirements/${requirementId}/review`,
     reviewData
+  );
+}
+
+// ============================================================================
+// Endpoints from frontend-api-integration.md (Seafarer Certificate Application)
+// ============================================================================
+
+export interface EligibilityCheckRequest {
+  certificateId?: string;
+  documentId?: string;
+}
+
+export interface EligibilityCheckResponse {
+  isEligible: boolean;
+  requirements?: string[];
+  missingRequirements?: string[];
+  message?: string;
+}
+
+export interface ApplicationDraftRequest {
+  certificateId?: string;
+  documentId?: string;
+  seafarerId?: string;
+}
+
+export interface ApplicationDraftResponse {
+  applicationId: string;
+  status?: string;
+  message?: string;
+}
+
+export interface FileUploadResponse {
+  fileUrl: string;
+  fileName?: string;
+  fileSize?: number;
+}
+
+export interface InvoiceDto {
+  id: string;
+  applicationId?: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
+  paymentUrl?: string;
+  createdAt?: string;
+}
+
+/**
+ * Check eligibility for certificate application
+ */
+export async function checkEligibility(
+  data: EligibilityCheckRequest
+): Promise<ApiResponse<EligibilityCheckResponse>> {
+  return apiPostMain<EligibilityCheckResponse>(
+    `${API_BASE_LEGACY}/check-eligibility`,
+    data
+  );
+}
+
+/**
+ * Create a draft application
+ */
+export async function createDraftApplication(
+  data: ApplicationDraftRequest
+): Promise<ApiResponse<ApplicationDraftResponse>> {
+  return apiPostMain<ApplicationDraftResponse>(
+    `${API_BASE_LEGACY}/draft`,
+    data
+  );
+}
+
+/**
+ * Attach files to an application (multipart/form-data)
+ */
+export async function attachFilesToApplication(
+  applicationId: string,
+  files: File[]
+): Promise<ApiResponse<FileUploadResponse[]>> {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  return apiPostMultipartMain<FileUploadResponse[]>(
+    `${API_BASE_LEGACY}/${applicationId}/attach`,
+    formData
+  );
+}
+
+/**
+ * Generate invoice for an application
+ */
+export async function generateApplicationInvoice(
+  applicationId: string
+): Promise<ApiResponse<InvoiceDto>> {
+  return apiPostMain<InvoiceDto>(
+    `${API_BASE_LEGACY}/${applicationId}/generate-invoice`
+  );
+}
+
+/**
+ * Get invoice for an application
+ */
+export async function getApplicationInvoice(
+  applicationId: string
+): Promise<ApiResponse<InvoiceDto>> {
+  return apiGetMain<InvoiceDto>(
+    `${API_BASE_LEGACY}/${applicationId}/invoice`
   );
 }
 

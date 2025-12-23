@@ -89,3 +89,65 @@ export async function recordManualPayment(
   return apiPostMain<PaymentDto>(API_BASE, paymentData);
 }
 
+// ============================================================================
+// Endpoints from frontend-api-integration.md (Payment Webhooks)
+// ============================================================================
+
+const API_BASE_LEGACY = "/api/payments"; // For endpoints from frontend-api-integration.md
+
+export interface PaymentWebhookRequest {
+  paymentReference?: string;
+  transactionId?: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
+  paymentMethod?: string;
+  gatewayResponse?: Record<string, unknown>;
+}
+
+export interface PaymentWebhookResponse {
+  success: boolean;
+  message?: string;
+  invoiceId?: string;
+  applicationId?: string;
+  accreditationId?: string;
+}
+
+export interface PaymentSimulateRequest {
+  invoiceId?: string;
+  amount?: number;
+  paymentMethod?: string;
+  simulateSuccess?: boolean;
+}
+
+export interface PaymentSimulateResponse {
+  success: boolean;
+  message?: string;
+  transactionId?: string;
+  paymentReference?: string;
+}
+
+/**
+ * Payment webhook endpoint (for production payment gateways)
+ */
+export async function paymentWebhook(
+  data: PaymentWebhookRequest
+): Promise<ApiResponse<PaymentWebhookResponse>> {
+  return apiPostMain<PaymentWebhookResponse>(
+    `${API_BASE_LEGACY}/webhook`,
+    data
+  );
+}
+
+/**
+ * Simulate payment (for non-production environments)
+ */
+export async function simulatePayment(
+  data: PaymentSimulateRequest
+): Promise<ApiResponse<PaymentSimulateResponse>> {
+  return apiPostMain<PaymentSimulateResponse>(
+    `${API_BASE_LEGACY}/simulate`,
+    data
+  );
+}
+
