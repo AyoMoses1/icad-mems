@@ -44,19 +44,35 @@ export async function getRanks(params?: {
   sortDirection?: string;
 }): Promise<PagedResult<RankDto>> {
   const queryParams = new URLSearchParams();
-  if (params?.pageNumber) queryParams.append("pageNumber", params.pageNumber.toString());
-  if (params?.pageSize) queryParams.append("pageSize", params.pageSize.toString());
-  if (params?.sortDirection) queryParams.append("sortDirection", params.sortDirection);
+  if (params?.pageNumber)
+    queryParams.append("pageNumber", params.pageNumber.toString());
+  if (params?.pageSize)
+    queryParams.append("pageSize", params.pageSize.toString());
+  if (params?.sortDirection)
+    queryParams.append("sortDirection", params.sortDirection);
 
-  const response = await apiGetMain<PagedResult<RankDto>>(
-    `/api/Ranks${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
+  const response = await apiGetMain<any>(
+    `/api/Ranks${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
   );
 
-  if (!response.success || !response.data) {
-    throw new Error(response.error?.message || "Failed to fetch ranks");
+  const ok = response.success ?? (response as any).successful;
+  if (!ok) {
+    throw new Error(
+      response.error?.message || response.message || "Failed to fetch ranks",
+    );
   }
 
-  return response.data;
+  const data = response.data;
+  const items =
+    (data && Array.isArray(data.items) && data.items) ||
+    (Array.isArray(data) ? data : []);
+
+  return {
+    items,
+    pageNumber: data?.pageNumber || params?.pageNumber || 1,
+    pageSize: data?.pageSize || params?.pageSize || items.length || 0,
+    totalNumber: data?.totalNumber || items.length,
+  };
 }
 
 export async function getRankById(id: string): Promise<RankDto> {
@@ -79,7 +95,10 @@ export async function createRank(data: CreateRankRequest): Promise<RankDto> {
   return response.data;
 }
 
-export async function updateRank(id: string, data: UpdateRankRequest): Promise<boolean> {
+export async function updateRank(
+  id: string,
+  data: UpdateRankRequest,
+): Promise<boolean> {
   const response = await apiPutMain<boolean>(`/api/Ranks/${id}`, data);
 
   if (!response.success) {
@@ -98,4 +117,3 @@ export async function deleteRank(id: string): Promise<boolean> {
 
   return response.data ?? true;
 }
-

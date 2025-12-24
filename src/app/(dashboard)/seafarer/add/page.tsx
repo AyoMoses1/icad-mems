@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,6 +20,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { createSeafarer } from "@/lib/services/seafarers";
+import {
+  getNationalities,
+  type NationalityDto,
+} from "@/lib/services/nationalities";
+import { getRanks, type RankDto } from "@/lib/services/ranks";
+import { useAuthStore } from "@/store";
 
 const addSeafarerSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -28,14 +35,25 @@ const addSeafarerSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   phoneNumber: z.string().min(1, "Phone number is required"),
   alternativePhoneNumber: z.string().optional(),
-  country: z.string().min(1, "Country is required"),
-  state: z.string().min(1, "State is required"),
-  city: z.string().min(1, "City is required"),
-  residentialAddress: z.string().min(1, "Residential address is required"),
-  meansOfIdentification: z
-    .string()
-    .min(1, "Means of identification is required"),
-  idNumber: z.string().min(1, "ID number is required"),
+  country: z.string().optional(),
+  state: z.string().optional(),
+  city: z.string().optional(),
+  residentialAddress: z.string().optional(),
+  meansOfIdentification: z.string().optional(),
+  idNumber: z.string().optional(),
+  dateOfBirth: z.string().min(1, "Date of birth is required"),
+  gender: z.string().optional(),
+  nationality: z.string().optional(),
+  ninNumber: z.string().optional(),
+  sidNumber: z.string().optional(),
+  dischargeBookNo: z.string().optional(),
+  currentRankId: z.string().optional(),
+  homeAddress: z.string().optional(),
+  isActive: z.boolean().optional(),
+  walletAddress: z.string().optional(),
+  profilePictureUrl: z.string().optional(),
+  nationalityId: z.string().optional(),
+  authUserId: z.string().optional(),
 });
 
 type AddSeafarerFormData = z.infer<typeof addSeafarerSchema>;
@@ -43,6 +61,11 @@ type AddSeafarerFormData = z.infer<typeof addSeafarerSchema>;
 export default function AddSeafarerPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [nationalities, setNationalities] = useState<NationalityDto[]>([]);
+  const [isLoadingNationalities, setIsLoadingNationalities] = useState(false);
+  const [ranks, setRanks] = useState<RankDto[]>([]);
+  const [isLoadingRanks, setIsLoadingRanks] = useState(false);
+  const { user } = useAuthStore();
 
   const {
     register,
@@ -53,28 +76,114 @@ export default function AddSeafarerPage() {
   } = useForm<AddSeafarerFormData>({
     resolver: zodResolver(addSeafarerSchema),
     defaultValues: {
-      firstName: "David",
-      middleName: "David",
-      lastName: "David",
-      email: "your@email.com",
-      phoneNumber: "+234 800 000 0000",
-      alternativePhoneNumber: "+234 000 000 0000",
-      country: "Nigeria",
-      state: "Lagos",
-      city: "Lagos",
-      residentialAddress: "15 Marina Road, Victoria Island, Lagos",
-      meansOfIdentification: "Passport",
-      idNumber: "Nigeria",
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      email: "",
+      phoneNumber: "",
+      alternativePhoneNumber: "",
+      country: "",
+      state: "",
+      city: "",
+      residentialAddress: "",
+      meansOfIdentification: "",
+      idNumber: "",
+      dateOfBirth: "",
+      gender: "",
+      nationality: "",
+      ninNumber: "",
+      sidNumber: "",
+      dischargeBookNo: "",
+      currentRankId: "",
+      homeAddress: "",
+      isActive: true,
+      walletAddress: "",
+      profilePictureUrl: "",
+      nationalityId: "",
+      authUserId: "",
     },
   });
+
+  useEffect(() => {
+    const loadNationalities = async () => {
+      setIsLoadingNationalities(true);
+      try {
+        const data = await getNationalities();
+        setNationalities(data || []);
+      } catch (error) {
+        console.error("Failed to load nationalities", error);
+      } finally {
+        setIsLoadingNationalities(false);
+      }
+    };
+    loadNationalities();
+
+    const loadRanks = async () => {
+      setIsLoadingRanks(true);
+      try {
+        const res = await getRanks({
+          pageNumber: 1,
+          pageSize: 50,
+          sortDirection: "asc",
+        });
+        const items = res.items || [];
+        console.log(res.items)
+        setRanks(items);
+      } catch (error) {
+        console.error("Failed to load ranks", error);
+      } finally {
+        setIsLoadingRanks(false);
+      }
+    };
+    loadRanks();
+  }, []);
+
+  useEffect(() => {
+    if (user?.id) {
+      setValue("authUserId", user.id);
+    }
+  }, [user?.id, setValue]);
 
   const onSubmit = async (data: AddSeafarerFormData) => {
     setIsLoading(true);
     try {
-      // TODO: Implement API call
-      console.log("Form data:", data);
-      toast.success("Seafarer created successfully");
-      router.push("/seafarer/registry");
+      const payload = {
+        firstName: data.firstName.trim(),
+        middleName: data.middleName?.trim() || undefined,
+        lastName: data.lastName.trim(),
+        email: data.email.trim(),
+        phoneNumber: data.phoneNumber.trim(),
+        alternativePhoneNumber:
+          data.alternativePhoneNumber?.trim() || undefined,
+        country: data.country?.trim() || undefined,
+        state: data.state?.trim() || undefined,
+        city: data.city?.trim() || undefined,
+        residentialAddress: data.residentialAddress?.trim() || undefined,
+        meansOfIdentification: data.meansOfIdentification?.trim() || undefined,
+        idNumber: data.idNumber?.trim() || undefined,
+        dateOfBirth: data.dateOfBirth,
+        gender: data.gender?.trim() || undefined,
+        nationality: data.nationality?.trim() || undefined,
+        ninNumber: data.ninNumber?.trim() || undefined,
+        sidNumber: data.sidNumber?.trim() || undefined,
+        dischargeBookNo: data.dischargeBookNo?.trim() || undefined,
+        currentRankId: data.currentRankId,
+        homeAddress: data.homeAddress?.trim() || undefined,
+        isActive: data.isActive,
+        walletAddress: data.walletAddress?.trim() || undefined,
+        profilePictureUrl: data.profilePictureUrl?.trim() || undefined,
+        nationalityId: data.nationalityId?.trim() || undefined,
+        authUserId: user?.id || data.authUserId?.trim() || undefined,
+      };
+
+      const response = await createSeafarer(payload);
+      const ok = response.success ?? (response as any).successful;
+      if (!ok) {
+        toast.error(response.message || "Failed to create seafarer");
+      } else {
+        toast.success("Seafarer created successfully");
+        router.push("/seafarer/registry");
+      }
     } catch (error) {
       toast.error("Failed to create seafarer", {
         description:
@@ -177,15 +286,15 @@ export default function AddSeafarerPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="idNumber">ID Number</Label>
+                  <Label htmlFor="ninNumber">NIN Number</Label>
                   <Input
-                    id="idNumber"
-                    {...register("idNumber")}
-                    error={!!errors.idNumber}
+                    id="ninNumber"
+                    {...register("ninNumber")}
+                    error={!!errors.ninNumber}
                   />
-                  {errors.idNumber && (
+                  {errors.ninNumber && (
                     <p className="text-sm text-destructive">
-                      {errors.idNumber.message}
+                      {errors.ninNumber.message}
                     </p>
                   )}
                 </div>
@@ -237,7 +346,20 @@ export default function AddSeafarerPage() {
                     </p>
                   )}
                 </div>
-
+                <div className="space-y-2">
+                  <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                  <Input
+                    id="dateOfBirth"
+                    type="date"
+                    {...register("dateOfBirth")}
+                    error={!!errors.dateOfBirth}
+                  />
+                  {errors.dateOfBirth && (
+                    <p className="text-sm text-destructive">
+                      {errors.dateOfBirth.message}
+                    </p>
+                  )}
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="meansOfIdentification">
                     Means of Identification
@@ -299,6 +421,154 @@ export default function AddSeafarerPage() {
                   {errors.residentialAddress.message}
                 </p>
               )}
+            </div>
+
+            {/* Additional Details */}
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gender</Label>
+                  <Input id="gender" {...register("gender")} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nationality">Nationality</Label>
+                  <Select
+                    value={watch("nationalityId")}
+                    onValueChange={(value) => {
+                      setValue("nationalityId", value);
+                      const selected = nationalities.find(
+                        (n) => n.id === value,
+                      );
+                      setValue(
+                        "nationality",
+                        selected?.countryName || selected?.isoCode3 || value,
+                      );
+                    }}
+                    disabled={isLoadingNationalities}
+                  >
+                    <SelectTrigger error={!!errors.nationalityId}>
+                      <SelectValue placeholder="Select nationality" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {nationalities.map((n) => (
+                        <SelectItem key={n.id} value={n.id}>
+                          {n.countryName || n.isoCode3 || n.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.nationalityId && (
+                    <p className="text-sm text-destructive">
+                      {errors.nationalityId.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sidNumber">SID Number</Label>
+                  <Input id="sidNumber" {...register("sidNumber")} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dischargeBookNo">Discharge Book No</Label>
+                  <Input
+                    id="dischargeBookNo"
+                    {...register("dischargeBookNo")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="currentRankId">Current Rank</Label>
+                  <Select
+                    value={watch("currentRankId")}
+                    onValueChange={(value) => setValue("currentRankId", value)}
+                    disabled={isLoadingRanks}
+                  >
+                    <SelectTrigger error={!!errors.currentRankId}>
+                      <SelectValue placeholder="Select rank" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ranks.map((rank) => (
+                        <SelectItem key={rank.id} value={rank.id}>
+                          {rank.title || rank.category || rank.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.currentRankId && (
+                    <p className="text-sm text-destructive">
+                      {errors.currentRankId.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="idNumber">ID Number</Label>
+                  <Input id="idNumber" {...register("idNumber")} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="homeAddress">Home Address</Label>
+                  <Input id="homeAddress" {...register("homeAddress")} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="walletAddress">Wallet Address</Label>
+                  <Input id="walletAddress" {...register("walletAddress")} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="profilePictureUrl">Profile Picture URL</Label>
+                  <Input
+                    id="profilePictureUrl"
+                    {...register("profilePictureUrl")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nationalityId">Nationality</Label>
+                  <Select
+                    value={watch("nationalityId")}
+                    onValueChange={(value) => {
+                      setValue("nationalityId", value);
+                      const selected = nationalities.find(
+                        (n) => n.id === value,
+                      );
+                      if (selected?.countryName) {
+                        setValue("nationality", selected.countryName);
+                      }
+                    }}
+                    disabled={isLoadingNationalities}
+                  >
+                    <SelectTrigger error={!!errors.nationalityId}>
+                      <SelectValue placeholder="Select nationality" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {nationalities.map((n) => (
+                        <SelectItem key={n.id} value={n.id}>
+                          {n.countryName || n.isoCode3 || n.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.nationalityId && (
+                    <p className="text-sm text-destructive">
+                      {errors.nationalityId.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="authUserId">Auth User ID</Label>
+                  <Input id="authUserId" {...register("authUserId")} />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    id="isActive"
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={watch("isActive")}
+                    onChange={(e) => setValue("isActive", e.target.checked)}
+                  />
+                  <Label htmlFor="isActive" className="cursor-pointer">
+                    Active
+                  </Label>
+                </div>
+              </div>
             </div>
 
             {/* Submit Button */}

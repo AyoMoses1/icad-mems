@@ -33,7 +33,13 @@ import {
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils";
 import { getApplications } from "@/lib/services/application-service";
+import {
+  getPendingApplications,
+  approveApplication,
+  type ApplicationDto as AdminApplicationDto,
+} from "@/lib/services/admin-review-service";
 import type { ApplicationDto } from "@/types/payment";
+import { useUIStore } from "@/store";
 
 const statusConfig: Record<
   string,
@@ -50,6 +56,7 @@ const statusConfig: Record<
 };
 
 export default function SeafarerApplicationsPage() {
+  const { userType } = useUIStore();
   const [applications, setApplications] = useState<ApplicationDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState("all");
@@ -68,11 +75,39 @@ export default function SeafarerApplicationsPage() {
 
   useEffect(() => {
     loadApplications();
-  }, [currentPage, searchQuery, selectedTab, statusFilter]);
+  }, [currentPage, searchQuery, selectedTab, statusFilter, userType]);
 
   const loadApplications = async () => {
     setIsLoading(true);
     try {
+      // Admin/Staff: use admin endpoints for pending applications
+      if (userType === "admin" || userType === "staff") {
+        const response = await getPendingApplications({
+          pageNumber: currentPage,
+          pageSize,
+          sortDirection: "asc",
+        });
+
+        const ok = response.success ?? (response as any).successful;
+        if (!ok) {
+          toast.error(response.message || "Failed to load applications");
+          return;
+        }
+
+        const items = response.data?.items || [];
+        setApplications(items as unknown as ApplicationDto[]);
+        setTotalPages(
+          response.data?.totalNumber
+            ? Math.ceil(response.data.totalNumber / pageSize)
+            : 1,
+        );
+        setTotalCount(
+          response.data?.totalNumber ?? response.data?.items?.length ?? 0,
+        );
+        return;
+      }
+
+      // User: use standard applications endpoint with filters
       const statusId =
         selectedTab !== "all"
           ? selectedTab
@@ -87,13 +122,16 @@ export default function SeafarerApplicationsPage() {
         searchTerm: searchQuery || undefined,
       });
 
-      if (response.success && response.data) {
-        setApplications(response.data.items);
-        setTotalPages(response.data.totalPages);
-        setTotalCount(response.data.totalCount);
-      } else {
+      const ok = response.success ?? (response as any).successful;
+      if (!ok) {
         toast.error(response.message || "Failed to load applications");
+        return;
       }
+
+      const items = response.data?.items || [];
+      setApplications(items);
+      setTotalPages(response.data?.totalPages || 1);
+      setTotalCount(response.data?.totalCount || items.length);
     } catch (error) {
       console.error("Error loading applications:", error);
       toast.error("Failed to load applications");
@@ -187,12 +225,40 @@ export default function SeafarerApplicationsPage() {
                 Review Application
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>View Details</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Assign Reviewer</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">
-              Reject Application
-            </DropdownMenuItem>
+            {userType === "admin" || userType === "staff" ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={async () => {
+                    try {
+                      const res = await approveApplication(`${row.id}`, {
+                        approved: true,
+                        comments: "Approved via dashboard",
+                      });
+                      if (res.success) {
+                        toast.success("Application approved");
+                        loadApplications();
+                      } else {
+                        toast.error(res.message || "Approval failed");
+                      }
+                    } catch (err: any) {
+                      toast.error(err.message || "Approval failed");
+                    }
+                  }}
+                >
+                  Approve
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <>
+                <DropdownMenuItem>View Details</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>Assign Reviewer</DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive">
+                  Reject Application
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -219,7 +285,7 @@ export default function SeafarerApplicationsPage() {
               }}
               className={cn(
                 selectedTab === tab.id &&
-                  "bg-[#3EADC0] hover:bg-[#35a0b3] text-white"
+                  "bg-[#3EADC0] hover:bg-[#35a0b3] text-white",
               )}
             >
               {tab.label}
@@ -268,7 +334,7 @@ export default function SeafarerApplicationsPage() {
             <div className="p-8">
               <LoadingSpinner />
             </div>
-          ) : applications.length === 0 ? (
+          ) : applications?.length === 0 ? (
             <div className="p-8">
               <EmptyState
                 title="No applications found"
@@ -279,7 +345,7 @@ export default function SeafarerApplicationsPage() {
             <>
               <DataTable
                 columns={columns}
-                data={applications}
+                data={applications ? applications : []}
                 isLoading={isLoading}
                 currentPage={currentPage}
                 totalCount={totalCount}

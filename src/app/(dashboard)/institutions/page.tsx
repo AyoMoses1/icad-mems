@@ -26,6 +26,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   PageHeader,
   DataTable,
   DataTableColumn,
@@ -51,14 +58,16 @@ export default function InstitutionsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: "",
-    institutionType: "",
-    nimasaAccreditationNo: "",
-    accreditationExpiry: "",
-    physicalAddress: "",
-    email: "",
-    isActive: true,
-    authUserId: "",
+  
+      name: "",
+      institutionType: "",
+      nimasaAccreditationNo: "",
+      accreditationExpiry: "",
+      physicalAddress: "",
+      email: "",
+      isActive: true,
+      authUserId: ""
+    
   });
 
   useEffect(() => {
@@ -68,11 +77,44 @@ export default function InstitutionsPage() {
   const loadInstitutions = async () => {
     setIsLoading(true);
     try {
-      const result = await getInstitutions({ pageNumber: 1, pageSize: 100 });
-      setInstitutions(result.items || []);
-    } catch (error) {
-      console.error("Failed to load institutions:", error);
-      toast.error("Failed to load institutions");
+      // Fetch first page
+      const firstPage = await getInstitutions({
+        pageNumber: 1,
+        pageSize: 100,
+        sortDirection: "asc",
+      });
+
+      let allInstitutions = firstPage.items || [];
+      console.log(firstPage);
+
+      // If there are more pages, fetch them all
+      if (firstPage.totalNumber > firstPage.items.length) {
+        const totalPages = Math.ceil(firstPage.totalNumber / 100);
+        const remainingPages = [];
+
+        for (let page = 2; page <= totalPages; page++) {
+          remainingPages.push(
+            getInstitutions({
+              pageNumber: page,
+              pageSize: 100,
+              sortDirection: "asc",
+            }),
+          );
+        }
+
+        const remainingResults = await Promise.all(remainingPages);
+        const remainingItems = remainingResults.flatMap((r) => r.items || []);
+        allInstitutions = [...allInstitutions, ...remainingItems];
+      }
+
+      setInstitutions(allInstitutions);
+      console.log(
+        `✅ Loaded ${allInstitutions.length} institutions from /api/Institutions`,
+      );
+    } catch (error: any) {
+      console.error("❌ Failed to load institutions:", error);
+      toast.error(error.message || "Failed to load institutions");
+      setInstitutions([]);
     } finally {
       setIsLoading(false);
     }
@@ -116,7 +158,36 @@ export default function InstitutionsPage() {
   const handleSubmitCreate = async () => {
     setIsSubmitting(true);
     try {
-      await createInstitution(formData);
+      const payload = {
+        name: formData.name.trim(),
+        institutionType: formData.institutionType || undefined,
+        nimasaAccreditationNo: formData.nimasaAccreditationNo.trim(),
+        accreditationExpiry: formData.accreditationExpiry || undefined,
+        physicalAddress: formData.physicalAddress.trim() || undefined,
+        email: formData.email.trim() || undefined,
+        isActive: formData.isActive,
+        authUserId: formData.authUserId?.trim() || undefined,
+      };
+
+      if (!payload.name) {
+        toast.error("Institution name is required");
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!payload.nimasaAccreditationNo) {
+        toast.error("NIMASA Accreditation No is required");
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!payload.institutionType) {
+        toast.error("Institution type is required");
+        setIsSubmitting(false);
+        return;
+      }
+
+      await createInstitution(payload);
       toast.success("Institution created successfully");
       setIsCreateOpen(false);
       loadInstitutions();
@@ -132,7 +203,36 @@ export default function InstitutionsPage() {
 
     setIsSubmitting(true);
     try {
-      await updateInstitution(selectedInstitution.id, formData);
+      const payload = {
+        name: formData.name.trim(),
+        institutionType: formData.institutionType || undefined,
+        nimasaAccreditationNo: formData.nimasaAccreditationNo.trim(),
+        accreditationExpiry: formData.accreditationExpiry || undefined,
+        physicalAddress: formData.physicalAddress.trim() || undefined,
+        email: formData.email.trim() || undefined,
+        isActive: formData.isActive,
+        authUserId: formData.authUserId?.trim() || undefined,
+      };
+
+      if (!payload.name) {
+        toast.error("Institution name is required");
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!payload.nimasaAccreditationNo) {
+        toast.error("NIMASA Accreditation No is required");
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!payload.institutionType) {
+        toast.error("Institution type is required");
+        setIsSubmitting(false);
+        return;
+      }
+
+      await updateInstitution(selectedInstitution.id, payload);
       toast.success("Institution updated successfully");
       setIsEditOpen(false);
       loadInstitutions();
@@ -279,17 +379,20 @@ export default function InstitutionsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="institutionType">Institution Type</Label>
-                <Input
-                  id="institutionType"
+                <Select
                   value={formData.institutionType}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      institutionType: e.target.value,
-                    })
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, institutionType: value })
                   }
-                  placeholder="Type"
-                />
+                >
+                  <SelectTrigger id="institutionType">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="medical">Medical</SelectItem>
+                    <SelectItem value="training">MTI</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -398,17 +501,20 @@ export default function InstitutionsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-institutionType">Institution Type</Label>
-                <Input
-                  id="edit-institutionType"
+                <Select
                   value={formData.institutionType}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      institutionType: e.target.value,
-                    })
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, institutionType: value })
                   }
-                  placeholder="Type"
-                />
+                >
+                  <SelectTrigger id="edit-institutionType">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="medical">Medical</SelectItem>
+                    <SelectItem value="training">MTI</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-email">Email</Label>

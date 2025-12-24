@@ -19,11 +19,13 @@ const API_MEDICAL_BASE = "/api/medicalinstitutes";
 export interface InstitutionContactRequest {
   firstName?: string;
   lastName?: string;
+  jobTitle?: string;
   email?: string;
-  phoneNumber?: string;
-  position?: string;
-  department?: string;
-  isPrimary?: boolean;
+  phoneNumberPrimary?: string;
+  phoneNumberSecondary?: string;
+  officeExtension?: string;
+  isPrimaryContact?: boolean;
+  isActive?: boolean;
 }
 
 export interface InstitutionContactDto {
@@ -31,11 +33,13 @@ export interface InstitutionContactDto {
   institutionId?: string;
   firstName?: string;
   lastName?: string;
+  jobTitle?: string;
   email?: string;
-  phoneNumber?: string;
-  position?: string;
-  department?: string;
-  isPrimary?: boolean;
+  phoneNumberPrimary?: string;
+  phoneNumberSecondary?: string;
+  officeExtension?: string;
+  isPrimaryContact?: boolean;
+  isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -45,9 +49,13 @@ export interface InstitutionStaffRequest {
   firstName?: string;
   lastName?: string;
   email?: string;
-  phoneNumber?: string;
-  position?: string;
-  department?: string;
+  staffType?: string;
+  medicalLicenseNo?: string;
+  nimasaAuthorizedExaminerId?: string;
+  specialization?: string;
+  imoModel609CertNo?: string;
+  highestCocHeldId?: string;
+  yearsOfSeaExperience?: number;
   isActive?: boolean;
 }
 
@@ -57,9 +65,13 @@ export interface InstitutionStaffDto {
   firstName?: string;
   lastName?: string;
   email?: string;
-  phoneNumber?: string;
-  position?: string;
-  department?: string;
+  staffType?: string;
+  medicalLicenseNo?: string;
+  nimasaAuthorizedExaminerId?: string;
+  specialization?: string;
+  imoModel609CertNo?: string;
+  highestCocHeldId?: string;
+  yearsOfSeaExperience?: number;
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;

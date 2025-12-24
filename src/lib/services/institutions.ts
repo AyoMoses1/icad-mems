@@ -61,7 +61,7 @@ export async function getInstitutions(params?: {
     `/api/Institutions${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
   );
 
-  if (!response.success || !response.data) {
+  if (!response.successful || !response.data) {
     throw new Error(response.error?.message || "Failed to fetch institutions");
   }
 
@@ -81,7 +81,7 @@ export async function getInstitutionById(id: string): Promise<InstitutionDto> {
 export async function createInstitution(data: CreateInstitutionRequest): Promise<InstitutionDto> {
   const response = await apiPostMain<InstitutionDto>("/api/Institutions", data);
 
-  if (!response.success || !response.data) {
+  if (!response.successful|| !response.data) {
     throw new Error(response.error?.message || "Failed to create institution");
   }
 

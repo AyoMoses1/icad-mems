@@ -101,8 +101,8 @@ const adminMenuItems: MenuItem[] = [
     href: "#",
     icon: CheckCircle,
     children: [
-      { title: "Under Review", href: "/admin/accreditations/review" },
-      { title: "All Accreditations", href: "/accreditations" },
+      { title: "All Accreditations", href: "/admin/accreditations" },
+      { title: "Review Accreditations", href: "/admin/accreditations/review" },
     ],
   },
   {
@@ -120,6 +120,7 @@ const adminMenuItems: MenuItem[] = [
 // Institution Menu Items
 const institutionMenuItems: MenuItem[] = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  { title: "Onboarding Institutions", href: "/onboarding/institution", icon: Building2 },
   {
     title: "Institution Management",
     href: "#",
@@ -127,8 +128,6 @@ const institutionMenuItems: MenuItem[] = [
     children: [
       { title: "My Institution", href: "/institutions" },
       { title: "Onboarding", href: "/onboarding/institution" },
-      { title: "Contacts", href: "/institutions/contacts" },
-      { title: "Staff", href: "/institutions/staff" },
     ],
   },
   {

@@ -31,7 +31,6 @@ import {
   getSeafarerDocuments,
   type SeafarerRequirement,
   type HeldDocumentDto,
-  getDocumentInformation,
 } from "@/lib/services/seafarer-onboarding-service";
 
 type Step = "requirements" | "profile" | "contacts" | "documents";
@@ -107,10 +106,6 @@ export default function SeafarerOnboardingPage() {
       const response = await getSeafarerRequirements();
       if (response.success && response.data) {
         setRequirements(response.data.requirements || []);
-        const documentInformation = await getDocumentInformation({documentId: response.data.requirements[0].documentMasterId});
-        if (response.success && response.data) {
-          setDocumentInformation(response.data);
-        }
         setCompletedRequirements(response.data.completedRequirements || []);
       }
     } catch (error) {

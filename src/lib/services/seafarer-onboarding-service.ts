@@ -108,23 +108,21 @@ export interface FileUploadResponse {
 export async function getSeafarerRequirements(): Promise<
   ApiResponse<SeafarerRequirementsResponse>
 > {
-  return apiGetMain<SeafarerRequirementsResponse>(
-    `${API_BASE}/requirements`
-  );
+  return apiGetMain<SeafarerRequirementsResponse>(`${API_BASE}/requirements`);
 }
-export async function getDocumentInformation({documentId}: {documentId: string}): Promise<
-  ApiResponse<any>
-> {
-  return apiGetMain<any>(
-    `${API_BASE}/document/${documentId}`
-  );
+export async function getDocumentInformation({
+  documentId,
+}: {
+  documentId: string;
+}): Promise<ApiResponse<any>> {
+  return apiGetMain<any>(`${API_BASE}/document/${documentId}`);
 }
 
 /**
  * Create or update seafarer profile
  */
 export async function createSeafarerProfile(
-  data: SeafarerProfileRequest
+  data: SeafarerProfileRequest,
 ): Promise<ApiResponse<SeafarerProfileResponse>> {
   return apiPostMain<SeafarerProfileResponse>(`${API_BASE}/profile`, data);
 }
@@ -134,12 +132,9 @@ export async function createSeafarerProfile(
  */
 export async function addSeafarerContact(
   seafarerId: string,
-  data: ContactRequest
+  data: ContactRequest,
 ): Promise<ApiResponse<ContactDto>> {
-  return apiPostMain<ContactDto>(
-    `${API_BASE}/${seafarerId}/contacts`,
-    data
-  );
+  return apiPostMain<ContactDto>(`${API_BASE}/${seafarerId}/contacts`, data);
 }
 
 /**
@@ -148,7 +143,7 @@ export async function addSeafarerContact(
 export async function uploadSeafarerDocument(
   seafarerId: string,
   file: File,
-  documentData: HeldDocumentRequest
+  documentData: HeldDocumentRequest,
 ): Promise<ApiResponse<HeldDocumentDto>> {
   const formData = new FormData();
   formData.append("file", file);
@@ -174,7 +169,7 @@ export async function uploadSeafarerDocument(
 
   return apiPostMultipartMain<HeldDocumentDto>(
     `${API_BASE}/${seafarerId}/documents`,
-    formData
+    formData,
   );
 }
 
@@ -182,10 +177,7 @@ export async function uploadSeafarerDocument(
  * Get all held documents for a seafarer
  */
 export async function getSeafarerDocuments(
-  seafarerId: string
+  seafarerId: string,
 ): Promise<ApiResponse<HeldDocumentDto[]>> {
-  return apiGetMain<HeldDocumentDto[]>(
-    `${API_BASE}/${seafarerId}/documents`
-  );
+  return apiGetMain<HeldDocumentDto[]>(`${API_BASE}/${seafarerId}/documents`);
 }
-

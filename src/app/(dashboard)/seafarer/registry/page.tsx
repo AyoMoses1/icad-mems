@@ -38,7 +38,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/shared";
-import { getUsers, updateUserStatus } from "@/lib/services/user-service";
+import { getSeafarers } from "@/lib/services/seafarers";
+import { updateUserStatus } from "@/lib/services/user-service";
 import type { UserProfileDto } from "@/types/seafarer";
 import { formatDate, getInitials } from "@/lib/utils";
 
@@ -85,31 +86,31 @@ export default function SeafarerRegistryPage() {
     setIsLoading(true);
     try {
       const status = statusFilter !== "all" ? statusFilter : undefined;
-      const response = await getUsers({
+      const response = await getSeafarers({
         pageNumber: currentPage,
         pageSize,
         searchTerm: searchQuery || undefined,
-        status: status,
-        isActive:
-          status === "Active"
-            ? true
-            : status === "Suspended"
-              ? false
-              : undefined,
+        status,
       });
 
-      if (response.success && response.data) {
+      const ok = response.success ?? (response as any).successful;
+      if (ok && response.data) {
         setSeafarers(response.data.items);
-        setTotalPages(response.data.totalPages);
-        setTotalCount(response.data.totalCount);
+        const total = response.data.totalNumber ?? response.data.items.length;
+        setTotalPages(
+          response.data.pageSize
+            ? Math.ceil(total / response.data.pageSize)
+            : 1,
+        );
+        setTotalCount(total);
 
         // Calculate stats from current page data (ideal would be from separate endpoint)
         const activeCount = response.data.items.filter(
-          (u) => u.currentStatus === "Active" || u.isActive
+          (u) => u.currentStatus === "Active" || u.isActive,
         ).length;
         setStats((prev) => ({
           ...prev,
-          totalRegistered: response.data!.totalCount,
+          totalRegistered: total,
           activeSeafarers: activeCount,
         }));
       } else {
@@ -374,8 +375,6 @@ export default function SeafarerRegistryPage() {
         onOpenChange={setIsSuspendDialogOpen}
         title="Suspend Seafarer"
         description={`Are you sure you want to suspend ${selectedSeafarer ? getFullName(selectedSeafarer) : "this seafarer"}? This action cannot be undone.`}
-        confirmText="Suspend"
-        cancelText="Cancel"
         onConfirm={handleSuspend}
         variant="destructive"
         isLoading={isSubmitting}

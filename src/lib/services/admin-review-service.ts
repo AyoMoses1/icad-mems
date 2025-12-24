@@ -3,13 +3,9 @@
  * Based on frontend-api-integration.md
  */
 
-import {
-  apiGetMain,
-  apiPatchMain,
-  type ApiResponse,
-} from "@/lib/api-client";
+import { apiGetMain, apiPatchMain, type ApiResponse } from "@/lib/api-client";
 
-const API_BASE_APPS = "/api/admin/applications";
+const API_BASE_APPS = "/api/admin/AdminApplications";
 const API_BASE_ACCREDS = "/api/admin/accreditations";
 
 export interface ApplicationDto {
@@ -85,6 +81,13 @@ export interface ActivateAccreditationResponse {
   message?: string;
 }
 
+export interface PagedAccreditationResult<T> {
+  items: T[];
+  pageNumber: number;
+  pageSize: number;
+  totalNumber: number;
+}
+
 // ============================================================================
 // Admin Application Review
 // ============================================================================
@@ -109,7 +112,7 @@ export async function getPendingApplications(params?: {
   }
 
   return apiGetMain<PagedResult<ApplicationDto>>(
-    `${API_BASE_APPS}/pending${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
+    `${API_BASE_APPS}/pending${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
   );
 }
 
@@ -118,11 +121,11 @@ export async function getPendingApplications(params?: {
  */
 export async function approveApplication(
   applicationId: string,
-  data: ApproveApplicationRequest
+  data: ApproveApplicationRequest,
 ): Promise<ApiResponse<ApproveApplicationResponse>> {
   return apiPatchMain<ApproveApplicationResponse>(
     `${API_BASE_APPS}/${applicationId}/approve`,
-    data
+    data,
   );
 }
 
@@ -150,7 +153,31 @@ export async function getAccreditationsUnderReview(params?: {
   }
 
   return apiGetMain<PagedResult<AccreditationDto>>(
-    `${API_BASE_ACCREDS}/under-review${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
+    `${API_BASE_ACCREDS}/under-review${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
+  );
+}
+
+/**
+ * Get all accreditations (admin)
+ */
+export async function getAllAccreditations(params?: {
+  pageNumber?: number;
+  pageSize?: number;
+  sortDirection?: string;
+}): Promise<ApiResponse<PagedAccreditationResult<AccreditationDto>>> {
+  const queryParams = new URLSearchParams();
+  if (params?.pageNumber) {
+    queryParams.append("pageNumber", params.pageNumber.toString());
+  }
+  if (params?.pageSize) {
+    queryParams.append("pageSize", params.pageSize.toString());
+  }
+  if (params?.sortDirection) {
+    queryParams.append("sortDirection", params.sortDirection);
+  }
+
+  return apiGetMain<PagedAccreditationResult<AccreditationDto>>(
+    `${API_BASE_ACCREDS}${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
   );
 }
 
@@ -159,12 +186,12 @@ export async function getAccreditationsUnderReview(params?: {
  */
 export async function auditAccreditation(
   accreditationId: string,
-  data: AuditAccreditationRequest
+  data: AuditAccreditationRequest,
 ): Promise<ApiResponse<AuditAccreditationResponse>> {
-  return apiPatchMain<AuditAccreditationResponse>(
-    `${API_BASE_ACCREDS}/audit`,
-    { ...data, accreditationId }
-  );
+  return apiPatchMain<AuditAccreditationResponse>(`${API_BASE_ACCREDS}/audit`, {
+    ...data,
+    accreditationId,
+  });
 }
 
 /**
@@ -172,11 +199,10 @@ export async function auditAccreditation(
  */
 export async function activateAccreditation(
   accreditationId: string,
-  data: ActivateAccreditationRequest
+  data: ActivateAccreditationRequest,
 ): Promise<ApiResponse<ActivateAccreditationResponse>> {
   return apiPatchMain<ActivateAccreditationResponse>(
     `${API_BASE_ACCREDS}/${accreditationId}/activate`,
-    data
+    data,
   );
 }
-

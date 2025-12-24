@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, UserPlus, Building2, GraduationCap, Stethoscope } from "lucide-react";
+import {
+  ArrowLeft,
+  UserPlus,
+  Building2,
+  GraduationCap,
+  Stethoscope,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,11 +17,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import {
   addInstitutionContact,
   addInstitutionStaff,
   createTrainingInstitute,
   createMedicalInstitute,
 } from "@/lib/services/institution-onboarding-service";
+import {
+  getInstitutions,
+  type InstitutionDto,
+} from "@/lib/services/institutions";
+import { getRanks, type RankDto } from "@/lib/services/ranks";
 
 type Step = "contacts" | "staff" | "training" | "medical";
 
@@ -23,18 +41,25 @@ export default function InstitutionOnboardingPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Step>("contacts");
   const [institutionId, setInstitutionId] = useState<string | null>(null);
+  const [institutionType, setInstitutionType] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [institutions, setInstitutions] = useState<InstitutionDto[]>([]);
+  const [isLoadingInstitutions, setIsLoadingInstitutions] = useState(false);
+  const [ranks, setRanks] = useState<RankDto[]>([]);
+  const [isLoadingRanks, setIsLoadingRanks] = useState(false);
 
   // Contacts
   const [contacts, setContacts] = useState([
     {
       firstName: "",
       lastName: "",
+      jobTitle: "",
       email: "",
-      phoneNumber: "",
-      position: "",
-      department: "",
-      isPrimary: false,
+      phoneNumberPrimary: "",
+      phoneNumberSecondary: "",
+      officeExtension: "",
+      isPrimaryContact: false,
+      isActive: true,
     },
   ]);
 
@@ -44,9 +69,13 @@ export default function InstitutionOnboardingPage() {
       firstName: "",
       lastName: "",
       email: "",
-      phoneNumber: "",
-      position: "",
-      department: "",
+      staffType: "",
+      medicalLicenseNo: "",
+      nimasaAuthorizedExaminerId: "",
+      specialization: "",
+      imoModel609CertNo: "",
+      highestCocHeldId: "",
+      yearsOfSeaExperience: "",
       isActive: true,
     },
   ]);
@@ -75,14 +104,56 @@ export default function InstitutionOnboardingPage() {
       {
         firstName: "",
         lastName: "",
+        jobTitle: "",
         email: "",
-        phoneNumber: "",
-        position: "",
-        department: "",
-        isPrimary: false,
+        phoneNumberPrimary: "",
+        phoneNumberSecondary: "",
+        officeExtension: "",
+        isPrimaryContact: false,
+        isActive: true,
       },
     ]);
   };
+
+  useEffect(() => {
+    const loadInstitutions = async () => {
+      setIsLoadingInstitutions(true);
+      try {
+        const res = await getInstitutions({
+          pageNumber: 1,
+          pageSize: 100,
+          sortDirection: "asc",
+        });
+        setInstitutions(res.items || []);
+      } catch (error) {
+        console.error("Failed to load institutions", error);
+        toast.error("Failed to load institutions");
+      } finally {
+        setIsLoadingInstitutions(false);
+      }
+    };
+    loadInstitutions();
+  }, []);
+
+  useEffect(() => {
+    const loadRanks = async () => {
+      setIsLoadingRanks(true);
+      try {
+        const res = await getRanks({
+          pageNumber: 1,
+          pageSize: 100,
+          sortDirection: "asc",
+        });
+        setRanks(res.items || []);
+      } catch (error) {
+        console.error("Failed to load ranks", error);
+        toast.error("Failed to load ranks");
+      } finally {
+        setIsLoadingRanks(false);
+      }
+    };
+    loadRanks();
+  }, []);
 
   const handleContactSubmit = async () => {
     if (!institutionId) {
@@ -112,9 +183,13 @@ export default function InstitutionOnboardingPage() {
         firstName: "",
         lastName: "",
         email: "",
-        phoneNumber: "",
-        position: "",
-        department: "",
+        staffType: "",
+        medicalLicenseNo: "",
+        nimasaAuthorizedExaminerId: "",
+        specialization: "",
+        imoModel609CertNo: "",
+        highestCocHeldId: "",
+        yearsOfSeaExperience: "",
         isActive: true,
       },
     ]);
@@ -125,14 +200,48 @@ export default function InstitutionOnboardingPage() {
       toast.error("Please select an institution first");
       return;
     }
+    const isTrainingInstitution = institutionType === "training";
+    const isMedicalInstitution = institutionType === "medical";
     try {
       setIsSubmitting(true);
       for (const staffMember of staff) {
         if (staffMember.firstName && staffMember.lastName) {
-          await addInstitutionStaff({
-            ...staffMember,
+          if (isMedicalInstitution && !staffMember.medicalLicenseNo) {
+            toast.error(
+              "Medical License No is required for medical institutions",
+            );
+            setIsSubmitting(false);
+            return;
+          }
+
+          const payload = {
             institutionId,
-          });
+            firstName: staffMember.firstName,
+            lastName: staffMember.lastName,
+            email: staffMember.email,
+            staffType: staffMember.staffType,
+            isActive: staffMember.isActive,
+            medicalLicenseNo: isMedicalInstitution
+              ? staffMember.medicalLicenseNo || undefined
+              : undefined,
+            nimasaAuthorizedExaminerId: isMedicalInstitution
+              ? staffMember.nimasaAuthorizedExaminerId || undefined
+              : undefined,
+            specialization: isMedicalInstitution
+              ? staffMember.specialization || undefined
+              : undefined,
+            imoModel609CertNo: isTrainingInstitution
+              ? staffMember.imoModel609CertNo || undefined
+              : undefined,
+            highestCocHeldId: isTrainingInstitution
+              ? staffMember.highestCocHeldId || undefined
+              : undefined,
+            yearsOfSeaExperience: isTrainingInstitution
+              ? Number(staffMember.yearsOfSeaExperience) || 0
+              : undefined,
+          };
+
+          await addInstitutionStaff(payload);
         }
       }
       toast.success("Staff added successfully");
@@ -189,6 +298,9 @@ export default function InstitutionOnboardingPage() {
     }
   };
 
+  const isTrainingInstitution = institutionType === "training";
+  const isMedicalInstitution = institutionType === "medical";
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -196,12 +308,61 @@ export default function InstitutionOnboardingPage() {
         description="Complete your institution setup"
       />
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Select Institution</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Institution</Label>
+            <Select
+              value={institutionId || ""}
+              onValueChange={(value) => {
+                setInstitutionId(value);
+                const selected = institutions.find((inst) => inst.id === value);
+                setInstitutionType(
+                  selected?.institutionType
+                    ? selected.institutionType.toLowerCase()
+                    : null,
+                );
+              }}
+              disabled={isLoadingInstitutions}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Choose an institution" />
+              </SelectTrigger>
+              <SelectContent>
+                {institutions.map((inst) => (
+                  <SelectItem key={inst.id} value={inst.id}>
+                    {inst.name || inst.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => router.push("/institutions")}
+            >
+              Go to Institutions
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push("/onboarding/institution")}
+            >
+              Refresh
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Step)}>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="contacts">Contacts</TabsTrigger>
           <TabsTrigger value="staff">Staff</TabsTrigger>
-          <TabsTrigger value="training">Training</TabsTrigger>
-          <TabsTrigger value="medical">Medical</TabsTrigger>
+          {/* <TabsTrigger value="training">Training</TabsTrigger>
+          <TabsTrigger value="medical">Medical</TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="contacts" className="space-y-4">
@@ -243,6 +404,17 @@ export default function InstitutionOnboardingPage() {
                         />
                       </div>
                       <div>
+                        <Label>Job Title</Label>
+                        <Input
+                          value={contact.jobTitle}
+                          onChange={(e) => {
+                            const newContacts = [...contacts];
+                            newContacts[index].jobTitle = e.target.value;
+                            setContacts(newContacts);
+                          }}
+                        />
+                      </div>
+                      <div>
                         <Label>Email</Label>
                         <Input
                           type="email"
@@ -255,37 +427,64 @@ export default function InstitutionOnboardingPage() {
                         />
                       </div>
                       <div>
-                        <Label>Phone Number</Label>
+                        <Label>Phone Number (Primary)</Label>
                         <Input
-                          value={contact.phoneNumber}
+                          value={contact.phoneNumberPrimary}
                           onChange={(e) => {
                             const newContacts = [...contacts];
-                            newContacts[index].phoneNumber = e.target.value;
+                            newContacts[index].phoneNumberPrimary =
+                              e.target.value;
                             setContacts(newContacts);
                           }}
                         />
                       </div>
                       <div>
-                        <Label>Position</Label>
+                        <Label>Phone Number (Secondary)</Label>
                         <Input
-                          value={contact.position}
+                          value={contact.phoneNumberSecondary}
                           onChange={(e) => {
                             const newContacts = [...contacts];
-                            newContacts[index].position = e.target.value;
+                            newContacts[index].phoneNumberSecondary =
+                              e.target.value;
                             setContacts(newContacts);
                           }}
                         />
                       </div>
                       <div>
-                        <Label>Department</Label>
+                        <Label>Office Extension</Label>
                         <Input
-                          value={contact.department}
+                          value={contact.officeExtension}
                           onChange={(e) => {
                             const newContacts = [...contacts];
-                            newContacts[index].department = e.target.value;
+                            newContacts[index].officeExtension = e.target.value;
                             setContacts(newContacts);
                           }}
                         />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={contact.isPrimaryContact}
+                          onChange={(e) => {
+                            const newContacts = [...contacts];
+                            newContacts[index].isPrimaryContact =
+                              e.target.checked;
+                            setContacts(newContacts);
+                          }}
+                        />
+                        <Label>Primary Contact</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={contact.isActive}
+                          onChange={(e) => {
+                            const newContacts = [...contacts];
+                            newContacts[index].isActive = e.target.checked;
+                            setContacts(newContacts);
+                          }}
+                        />
+                        <Label>Active</Label>
                       </div>
                     </div>
                   </CardContent>
@@ -349,37 +548,118 @@ export default function InstitutionOnboardingPage() {
                         />
                       </div>
                       <div>
-                        <Label>Phone Number</Label>
+                        <Label>Staff Type</Label>
                         <Input
-                          value={staffMember.phoneNumber}
+                          value={staffMember.staffType}
                           onChange={(e) => {
                             const newStaff = [...staff];
-                            newStaff[index].phoneNumber = e.target.value;
+                            newStaff[index].staffType = e.target.value;
                             setStaff(newStaff);
                           }}
                         />
                       </div>
-                      <div>
-                        <Label>Position</Label>
-                        <Input
-                          value={staffMember.position}
+                      {isMedicalInstitution && (
+                        <>
+                          <div>
+                            <Label>Medical License No *</Label>
+                            <Input
+                              value={staffMember.medicalLicenseNo}
+                              onChange={(e) => {
+                                const newStaff = [...staff];
+                                newStaff[index].medicalLicenseNo =
+                                  e.target.value;
+                                setStaff(newStaff);
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <Label>NIMASA Authorized Examiner ID</Label>
+                            <Input
+                              value={staffMember.nimasaAuthorizedExaminerId}
+                              onChange={(e) => {
+                                const newStaff = [...staff];
+                                newStaff[index].nimasaAuthorizedExaminerId =
+                                  e.target.value;
+                                setStaff(newStaff);
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <Label>Specialization</Label>
+                            <Input
+                              value={staffMember.specialization}
+                              onChange={(e) => {
+                                const newStaff = [...staff];
+                                newStaff[index].specialization = e.target.value;
+                                setStaff(newStaff);
+                              }}
+                            />
+                          </div>
+                        </>
+                      )}
+                      {isTrainingInstitution && (
+                        <>
+                          <div>
+                            <Label>IMO Model 609 Cert No</Label>
+                            <Input
+                              value={staffMember.imoModel609CertNo}
+                              onChange={(e) => {
+                                const newStaff = [...staff];
+                                newStaff[index].imoModel609CertNo =
+                                  e.target.value;
+                                setStaff(newStaff);
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <Label>Highest CoC Held</Label>
+                            <Select
+                              value={staffMember.highestCocHeldId}
+                              onValueChange={(value) => {
+                                const newStaff = [...staff];
+                                newStaff[index].highestCocHeldId = value;
+                                setStaff(newStaff);
+                              }}
+                              disabled={isLoadingRanks}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select rank" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {ranks.map((rank) => (
+                                  <SelectItem key={rank.id} value={rank.id}>
+                                    {rank.title || rank.id}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Years of Sea Experience</Label>
+                            <Input
+                              type="number"
+                              value={staffMember.yearsOfSeaExperience}
+                              onChange={(e) => {
+                                const newStaff = [...staff];
+                                newStaff[index].yearsOfSeaExperience =
+                                  e.target.value;
+                                setStaff(newStaff);
+                              }}
+                            />
+                          </div>
+                        </>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={staffMember.isActive}
                           onChange={(e) => {
                             const newStaff = [...staff];
-                            newStaff[index].position = e.target.value;
+                            newStaff[index].isActive = e.target.checked;
                             setStaff(newStaff);
                           }}
                         />
-                      </div>
-                      <div>
-                        <Label>Department</Label>
-                        <Input
-                          value={staffMember.department}
-                          onChange={(e) => {
-                            const newStaff = [...staff];
-                            newStaff[index].department = e.target.value;
-                            setStaff(newStaff);
-                          }}
-                        />
+                        <Label>Active</Label>
                       </div>
                     </div>
                   </CardContent>
@@ -555,4 +835,3 @@ export default function InstitutionOnboardingPage() {
     </div>
   );
 }
-

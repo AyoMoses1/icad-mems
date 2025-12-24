@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell, Search, Menu, User, Shield, Users, Building2, Briefcase, ChevronDown, CheckCircle } from "lucide-react";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import { useAuthStore, useUIStore } from "@/store";
 import type { UserType } from "@/store/ui-store";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { getMySeafarerOnboardingStatus } from "@/lib/services/seafarers";
 
 const getPageTitle = (
   pathname: string,
@@ -69,6 +71,7 @@ const userTypeLabels: Record<UserType, { label: string; icon: React.ComponentTyp
 };
 
 export function Header() {
+  const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuthStore();
   const { setMobileSidebarOpen, viewMode, userType, setUserType } = useUIStore();
@@ -88,6 +91,40 @@ export function Header() {
       .join("")
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const handleUserTypeSelect = async (type: UserType) => {
+    setUserType(type);
+    setUserTypeMenuOpen(false);
+
+    if (type !== "seafarer") return;
+
+    try {
+      const response = await getMySeafarerOnboardingStatus();
+      const ok = response.success ?? (response as any).successful;
+
+      if (!ok) {
+        const msg =
+          response.message ||
+          (response as any).error?.message ||
+          "Failed to check onboarding status";
+        toast.error(msg);
+        return;
+      }
+
+      const completed = response.data?.completed;
+      if (!completed) {
+        const msg =
+          response.data?.message ||
+          response.message ||
+          "Complete your onboarding to continue.";
+        toast.info(msg);
+        router.push("/onboarding/seafarer");
+      }
+    } catch (error) {
+      console.error("Failed to fetch onboarding status:", error);
+      toast.error("Could not check onboarding status");
+    }
   };
 
   return (
@@ -143,8 +180,7 @@ export function Header() {
             <DropdownMenuItem
               key={type}
               onClick={() => {
-                setUserType(type as UserType);
-                setUserTypeMenuOpen(false);
+                void handleUserTypeSelect(type as UserType);
               }}
               className={cn(
                 "flex items-center gap-2 cursor-pointer",
