@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import {
-  Plus,
   Eye,
   Edit,
   Trash2,
@@ -36,6 +35,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   PageHeader,
   DataTable,
   DataTableColumn,
@@ -48,7 +54,6 @@ import { formatDate } from "@/lib/utils";
 import {
   getInvoices,
   getInvoiceById,
-  createInvoice,
   updateInvoice,
   deleteInvoice,
 } from "@/lib/services/invoice-service";
@@ -70,7 +75,6 @@ const statusConfig: Record<
 export default function InvoiceManagementPage() {
   const [invoices, setInvoices] = useState<ApplicationInvoiceDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] =
@@ -121,38 +125,6 @@ export default function InvoiceManagementPage() {
     }
   };
 
-  const handleCreate = async () => {
-    if (!formData.applicationId || !formData.amount) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const response = await createInvoice({
-        applicationId: parseInt(formData.applicationId),
-        amount: parseFloat(formData.amount),
-        currency: formData.currency,
-        description: formData.description || undefined,
-        dueDate: formData.dueDate || undefined,
-      });
-
-      if (response.success && response.data) {
-        toast.success("Invoice created successfully");
-        setIsCreateOpen(false);
-        resetForm();
-        loadInvoices();
-      } else {
-        toast.error(response.message || "Failed to create invoice");
-      }
-    } catch (error) {
-      console.error("Error creating invoice:", error);
-      toast.error("Failed to create invoice");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleEdit = async () => {
     if (!selectedInvoice) return;
 
@@ -188,7 +160,8 @@ export default function InvoiceManagementPage() {
     setIsSubmitting(true);
     try {
       const response = await deleteInvoice(selectedInvoice.id);
-      if (response.success) {
+      const ok = response.success ?? (response as any).successful;
+      if (ok) {
         toast.success("Invoice deleted successfully");
         setIsDeleteOpen(false);
         setSelectedInvoice(null);
@@ -381,7 +354,7 @@ export default function InvoiceManagementPage() {
             />
           </div>
           <Select
-            value={statusFilter}
+            value={statusFilter || "all"}
             onValueChange={(value) => {
               setStatusFilter(value);
               setCurrentPage(1);
@@ -399,10 +372,6 @@ export default function InvoiceManagementPage() {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Invoice
-        </Button>
       </div>
 
       {/* Invoices Table */}
@@ -411,7 +380,7 @@ export default function InvoiceManagementPage() {
       ) : invoices.length === 0 ? (
         <EmptyState
           title="No invoices found"
-          description="There are no invoices to display. Create your first invoice to get started."
+          description="There are no invoices to display."
         />
       ) : (
         <>
@@ -427,86 +396,6 @@ export default function InvoiceManagementPage() {
           />
         </>
       )}
-
-      {/* Create Invoice Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Create Invoice</DialogTitle>
-            <DialogDescription>
-              Generate a new invoice for an application
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="applicationId">Application ID *</Label>
-              <Input
-                id="applicationId"
-                type="number"
-                placeholder="123"
-                value={formData.applicationId}
-                onChange={(e) =>
-                  setFormData({ ...formData, applicationId: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="amount">Amount *</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                placeholder="5000.00"
-                value={formData.amount}
-                onChange={(e) =>
-                  setFormData({ ...formData, amount: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="currency">Currency</Label>
-              <Input
-                id="currency"
-                placeholder="NGN"
-                value={formData.currency}
-                onChange={(e) =>
-                  setFormData({ ...formData, currency: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="dueDate">Due Date</Label>
-              <Input
-                id="dueDate"
-                type="date"
-                value={formData.dueDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, dueDate: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Invoice description (optional)"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Invoice"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Edit Invoice Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>

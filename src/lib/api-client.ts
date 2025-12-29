@@ -118,11 +118,35 @@ export async function apiClient<T>(
       headers,
     });
 
-    const data: ApiResponse<T> = await response.json();
+    // Check if response has content and is JSON
+    const contentType = response.headers.get("content-type");
+    const isJson = contentType?.includes("application/json");
+    
+    let data: ApiResponse<T>;
+    
+    if (isJson) {
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : ({} as ApiResponse<T>);
+      } catch (jsonError) {
+        // If JSON parsing fails, create a default error response
+        data = {
+          success: false,
+          message: `Failed to parse JSON response: ${jsonError instanceof Error ? jsonError.message : "Unknown error"}`,
+        } as ApiResponse<T>;
+      }
+    } else {
+      // If response is not JSON, create a default error response
+      const text = await response.text();
+      data = {
+        success: false,
+        message: text || `Server returned non-JSON response (${response.status} ${response.statusText})`,
+      } as ApiResponse<T>;
+    }
 
     // Handle non-2xx responses
     if (!response.ok) {
-      throw new Error(data.error?.message || data.message || "Request failed");
+      throw new Error(data.error?.message || data.message || `Request failed with status ${response.status}`);
     }
 
     return data;
@@ -183,11 +207,35 @@ export async function apiClientMain<T>(
       headers,
     });
 
-    const data: ApiResponse<T> = await response.json();
+    // Check if response has content and is JSON
+    const contentType = response.headers.get("content-type");
+    const isJson = contentType?.includes("application/json");
+    
+    let data: ApiResponse<T>;
+    
+    if (isJson) {
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : ({} as ApiResponse<T>);
+      } catch (jsonError) {
+        // If JSON parsing fails, create a default error response
+        data = {
+          success: false,
+          message: `Failed to parse JSON response: ${jsonError instanceof Error ? jsonError.message : "Unknown error"}`,
+        } as ApiResponse<T>;
+      }
+    } else {
+      // If response is not JSON, create a default error response
+      const text = await response.text();
+      data = {
+        success: false,
+        message: text || `Server returned non-JSON response (${response.status} ${response.statusText})`,
+      } as ApiResponse<T>;
+    }
 
     // Handle non-2xx responses
     if (!response.ok) {
-      throw new Error(data.error?.message || data.message || "Request failed");
+      throw new Error(data.error?.message || data.message || `Request failed with status ${response.status}`);
     }
 
     return data;

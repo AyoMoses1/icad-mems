@@ -42,7 +42,7 @@ import {
   createVessel,
   updateVessel,
   deleteVessel,
-} from "@/lib/services/vessels";
+} from "@/lib/services/vessels-service";
 import { formatDate } from "@/lib/utils";
 
 export default function VesselsPage() {
@@ -68,8 +68,12 @@ export default function VesselsPage() {
   const loadVessels = async () => {
     setIsLoading(true);
     try {
-      const result = await getVessels({ pageNumber: 1, pageSize: 100 });
-      setVessels(result.items || []);
+      const response = await getVessels({ pageNumber: 1, pageSize: 100 });
+      if (response.success ?? (response as any).successful) {
+        setVessels(response.data?.items || []);
+      } else {
+        toast.error("Failed to load vessels");
+      }
     } catch (error) {
       console.error("Failed to load vessels:", error);
       toast.error("Failed to load vessels");
@@ -106,15 +110,25 @@ export default function VesselsPage() {
   };
 
   const handleSubmitCreate = async () => {
+    if (!formData.name || !formData.builtDate) {
+      toast.error("Name and Built Date are required");
+      return;
+    }
     setIsSubmitting(true);
     try {
-      await createVessel({
-        ...formData,
+      const response = await createVessel({
+        name: formData.name.trim() || undefined,
+        imoNumber: formData.imoNumber.trim() || undefined,
         builtDate: new Date(formData.builtDate).toISOString(),
+        isActive: formData.isActive,
       });
-      toast.success("Vessel created successfully");
-      setIsCreateOpen(false);
-      loadVessels();
+      if (response.success ?? (response as any).successful) {
+        toast.success("Vessel created successfully");
+        setIsCreateOpen(false);
+        loadVessels();
+      } else {
+        toast.error("Failed to create vessel");
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to create vessel");
     } finally {
@@ -127,13 +141,19 @@ export default function VesselsPage() {
 
     setIsSubmitting(true);
     try {
-      await updateVessel(selectedVessel.id, {
-        ...formData,
+      const response = await updateVessel(selectedVessel.id, {
+        name: formData.name.trim() || undefined,
+        imoNumber: formData.imoNumber.trim() || undefined,
         builtDate: formData.builtDate ? new Date(formData.builtDate).toISOString() : undefined,
+        isActive: formData.isActive,
       });
-      toast.success("Vessel updated successfully");
-      setIsEditOpen(false);
-      loadVessels();
+      if (response.success ?? (response as any).successful) {
+        toast.success("Vessel updated successfully");
+        setIsEditOpen(false);
+        loadVessels();
+      } else {
+        toast.error("Failed to update vessel");
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to update vessel");
     } finally {
@@ -146,10 +166,14 @@ export default function VesselsPage() {
 
     setIsSubmitting(true);
     try {
-      await deleteVessel(selectedVessel.id);
-      toast.success("Vessel deleted successfully");
-      setIsDeleteOpen(false);
-      loadVessels();
+      const response = await deleteVessel(selectedVessel.id);
+      if (response.success ?? (response as any).successful) {
+        toast.success("Vessel deleted successfully");
+        setIsDeleteOpen(false);
+        loadVessels();
+      } else {
+        toast.error("Failed to delete vessel");
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to delete vessel");
     } finally {

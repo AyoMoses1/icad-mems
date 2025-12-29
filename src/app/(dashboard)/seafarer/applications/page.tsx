@@ -1,20 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { Eye, MoreVertical, Search, Filter } from "lucide-react";
+import { Eye, MoreVertical, Search } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -25,101 +22,53 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   LoadingSpinner,
   EmptyState,
   DataTable,
   DataTableColumn,
 } from "@/components/shared";
-import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils";
-import { getApplications } from "@/lib/services/application-service";
 import {
-  getPendingApplications,
-  approveApplication,
-  type ApplicationDto as AdminApplicationDto,
-} from "@/lib/services/admin-review-service";
-import type { ApplicationDto } from "@/types/payment";
-import { useUIStore } from "@/store";
-
-const statusConfig: Record<
-  string,
-  {
-    label: string;
-    variant: "default" | "secondary" | "destructive" | "outline";
-  }
-> = {
-  Pending: { label: "Pending", variant: "secondary" },
-  Approved: { label: "Approved", variant: "default" },
-  Rejected: { label: "Rejected", variant: "destructive" },
-  InReview: { label: "In Review", variant: "outline" },
-  Submitted: { label: "Submitted", variant: "secondary" },
-};
+  getPreviousCertificates,
+  getPreviousCertificateById,
+  type PreviousCertificateDto,
+} from "@/lib/services/previous-certificates-service";
 
 export default function SeafarerApplicationsPage() {
-  const { userType } = useUIStore();
-  const [applications, setApplications] = useState<ApplicationDto[]>([]);
+  const [applications, setApplications] = useState<PreviousCertificateDto[]>(
+    [],
+  );
+  const [selectedApplication, setSelectedApplication] =
+    useState<PreviousCertificateDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedTab, setSelectedTab] = useState("all");
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const pageSize = 20;
-
-  const tabs = [
-    { id: "all", label: "All Applications" },
-    { id: "Pending", label: "Pending Review" },
-    { id: "Approved", label: "Approved" },
-  ];
 
   useEffect(() => {
     loadApplications();
-  }, [currentPage, searchQuery, selectedTab, statusFilter, userType]);
+  }, [currentPage, searchQuery]);
 
   const loadApplications = async () => {
     setIsLoading(true);
     try {
-      // Admin/Staff: use admin endpoints for pending applications
-      if (userType === "admin" || userType === "staff") {
-        const response = await getPendingApplications({
-          pageNumber: currentPage,
-          pageSize,
-          sortDirection: "asc",
-        });
-
-        const ok = response.success ?? (response as any).successful;
-        if (!ok) {
-          toast.error(response.message || "Failed to load applications");
-          return;
-        }
-
-        const items = response.data?.items || [];
-        setApplications(items as unknown as ApplicationDto[]);
-        setTotalPages(
-          response.data?.totalNumber
-            ? Math.ceil(response.data.totalNumber / pageSize)
-            : 1,
-        );
-        setTotalCount(
-          response.data?.totalNumber ?? response.data?.items?.length ?? 0,
-        );
-        return;
-      }
-
-      // User: use standard applications endpoint with filters
-      const statusId =
-        selectedTab !== "all"
-          ? selectedTab
-          : statusFilter !== "all"
-            ? statusFilter
-            : undefined;
-
-      const response = await getApplications({
+      // Use PreviousCertificates endpoint for all users
+      const response = await getPreviousCertificates({
         pageNumber: currentPage,
         pageSize,
-        statusId: statusId ? parseInt(statusId) : undefined,
-        searchTerm: searchQuery || undefined,
+        sortDirection: "asc",
       });
 
       const ok = response.success ?? (response as any).successful;
@@ -130,8 +79,14 @@ export default function SeafarerApplicationsPage() {
 
       const items = response.data?.items || [];
       setApplications(items);
-      setTotalPages(response.data?.totalPages || 1);
-      setTotalCount(response.data?.totalCount || items.length);
+      setTotalPages(
+        response.data?.totalNumber
+          ? Math.ceil(response.data.totalNumber / pageSize)
+          : 1,
+      );
+      setTotalCount(
+        response.data?.totalNumber ?? response.data?.items?.length ?? 0,
+      );
     } catch (error) {
       console.error("Error loading applications:", error);
       toast.error("Failed to load applications");
@@ -140,78 +95,85 @@ export default function SeafarerApplicationsPage() {
     }
   };
 
-  const columns: DataTableColumn<ApplicationDto>[] = [
+  const loadApplicationDetail = async (id: string) => {
+    setIsLoadingDetail(true);
+    try {
+      const response = await getPreviousCertificateById(id);
+      const ok = response.success ?? (response as any).successful;
+      if (ok && response.data) {
+        setSelectedApplication(response.data);
+        setDetailDialogOpen(true);
+      } else {
+        toast.error(response.message || "Failed to load application details");
+      }
+    } catch (error: any) {
+      console.error("Error loading application detail:", error);
+      toast.error(error.message || "Failed to load application details");
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
+
+  const columns: DataTableColumn<PreviousCertificateDto>[] = [
     {
-      id: "applicationNumber",
-      header: "Application Number",
-      accessorKey: "applicationNumber",
-      cell: (row) => (
+      id: "certificateNumber",
+      header: "Certificate Number",
+      accessorKey: "certificateNumber",
+      cell: ({ row }) => (
         <span className="font-mono font-medium">
-          {row.applicationNumber || `APP-${row.id}`}
+          {row.certificateNumber || `CERT-${row.id.slice(0, 8)}`}
         </span>
       ),
     },
     {
-      id: "applicantName",
-      header: "Applicant",
-      accessorKey: "applicantName",
-      cell: (row) => (
-        <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarFallback>
-              {row.applicantName
-                ?.split(" ")
-                .map((n) => n[0])
-                .join("")
-                .toUpperCase()
-                .slice(0, 2) || "APP"}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <div className="font-medium">{row.applicantName || "N/A"}</div>
-            {row.programName && (
-              <div className="text-sm text-muted-foreground">
-                {row.programName}
-              </div>
+      id: "certificateType",
+      header: "Certificate Type",
+      accessorKey: "certificateType",
+      cell: ({ row }) => (
+        <span className="text-sm">{row.certificateType || "N/A"}</span>
+      ),
+    },
+    {
+      id: "issuingAuthority",
+      header: "Issuing Authority",
+      accessorKey: "issuingAuthority",
+      cell: ({ row }) => (
+        <span className="text-sm">{row.issuingAuthority || "N/A"}</span>
+      ),
+    },
+    {
+      id: "issueDate",
+      header: "Issue Date",
+      accessorKey: "issueDate",
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {row.issueDate ? formatDate(row.issueDate) : "N/A"}
+        </span>
+      ),
+    },
+    {
+      id: "expiryDate",
+      header: "Expiry Date",
+      accessorKey: "expiryDate",
+      cell: ({ row }) => {
+        const expiryDate = row.expiryDate ? new Date(row.expiryDate) : null;
+        const isExpired = expiryDate && expiryDate < new Date();
+        return (
+          <span className={`text-sm ${isExpired ? "text-destructive" : ""}`}>
+            {row.expiryDate ? formatDate(row.expiryDate) : "N/A"}
+            {isExpired && (
+              <Badge variant="destructive" className="ml-2">
+                Expired
+              </Badge>
             )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: "programAppliedFor",
-      header: "Program",
-      accessorKey: "programAppliedFor",
-      cell: (row) => (
-        <span className="text-sm">
-          {row.programAppliedFor || row.programName || "N/A"}
-        </span>
-      ),
-    },
-    {
-      id: "status",
-      header: "Status",
-      accessorKey: "status",
-      cell: (row) => {
-        const status = row.status || row.applicationStatusName || "Pending";
-        const config = statusConfig[status] || statusConfig.Pending;
-        return <Badge variant={config.variant}>{config.label}</Badge>;
+          </span>
+        );
       },
-    },
-    {
-      id: "applicationDate",
-      header: "Date",
-      accessorKey: "applicationDate",
-      cell: (row) => (
-        <span className="text-sm">
-          {row.applicationDate ? formatDate(row.applicationDate) : "N/A"}
-        </span>
-      ),
     },
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
+      cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -219,46 +181,13 @@ export default function SeafarerApplicationsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <Link href={`/seafarer/applications/${row.id}/review`}>
-                <Eye className="mr-2 h-4 w-4" />
-                Review Application
-              </Link>
+            <DropdownMenuItem
+              onClick={() => loadApplicationDetail(row.id)}
+              disabled={isLoadingDetail}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              View Details
             </DropdownMenuItem>
-            {userType === "admin" || userType === "staff" ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={async () => {
-                    try {
-                      const res = await approveApplication(`${row.id}`, {
-                        approved: true,
-                        comments: "Approved via dashboard",
-                      });
-                      if (res.success) {
-                        toast.success("Application approved");
-                        loadApplications();
-                      } else {
-                        toast.error(res.message || "Approval failed");
-                      }
-                    } catch (err: any) {
-                      toast.error(err.message || "Approval failed");
-                    }
-                  }}
-                >
-                  Approve
-                </DropdownMenuItem>
-              </>
-            ) : (
-              <>
-                <DropdownMenuItem>View Details</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>Assign Reviewer</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive">
-                  Reject Application
-                </DropdownMenuItem>
-              </>
-            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -268,49 +197,9 @@ export default function SeafarerApplicationsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Applications"
-        description="All applications awaiting initial review and assignment"
+        title="Previous Certificates"
+        description="View all your previous certificates and applications"
       />
-
-      {/* Filter Tabs */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {tabs.map((tab) => (
-            <Button
-              key={tab.id}
-              variant={selectedTab === tab.id ? "default" : "ghost"}
-              onClick={() => {
-                setSelectedTab(tab.id);
-                setCurrentPage(1);
-              }}
-              className={cn(
-                selectedTab === tab.id &&
-                  "bg-[#3EADC0] hover:bg-[#35a0b3] text-white",
-              )}
-            >
-              {tab.label}
-            </Button>
-          ))}
-        </div>
-        <Select
-          value={statusFilter}
-          onValueChange={(value) => {
-            setStatusFilter(value);
-            setCurrentPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Filter Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
-            <SelectItem value="Approved">Approved</SelectItem>
-            <SelectItem value="Rejected">Rejected</SelectItem>
-            <SelectItem value="InReview">In Review</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
 
       {/* Applications Table */}
       <Card>
@@ -357,6 +246,83 @@ export default function SeafarerApplicationsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Application Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Application Details</DialogTitle>
+          </DialogHeader>
+          {isLoadingDetail ? (
+            <div className="flex items-center justify-center py-8">
+              <LoadingSpinner />
+            </div>
+          ) : selectedApplication ? (
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">
+                    Certificate Number
+                  </Label>
+                  <p className="font-medium">
+                    {selectedApplication.certificateNumber || "N/A"}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">
+                    Certificate Type
+                  </Label>
+                  <p className="font-medium">
+                    {selectedApplication.certificateType || "N/A"}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">
+                    Issuing Authority
+                  </Label>
+                  <p className="font-medium">
+                    {selectedApplication.issuingAuthority || "N/A"}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Issue Date</Label>
+                  <p className="font-medium">
+                    {selectedApplication.issueDate
+                      ? formatDate(selectedApplication.issueDate)
+                      : "N/A"}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Expiry Date</Label>
+                  <p className="font-medium">
+                    {selectedApplication.expiryDate
+                      ? formatDate(selectedApplication.expiryDate)
+                      : "N/A"}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Seafarer ID</Label>
+                  <p className="font-medium font-mono text-sm">
+                    {selectedApplication.seafarerId || "N/A"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No details available</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDetailDialogOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

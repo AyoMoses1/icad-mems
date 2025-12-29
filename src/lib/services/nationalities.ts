@@ -10,10 +10,10 @@ export interface NationalityDto {
 export async function getNationalities(): Promise<NationalityDto[]> {
   const response = await apiGetMain<NationalityDto[]>("/api/Nationalities");
 
-  if (!response.success || !response.data) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok || !response.data) {
     throw new Error(response.error?.message || "Failed to fetch nationalities");
   }
 
   return response.data || [];
 }
-

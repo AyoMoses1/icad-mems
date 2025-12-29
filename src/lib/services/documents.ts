@@ -58,7 +58,8 @@ export async function getDocuments(params?: {
     `/api/Documents${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
   );
 
-  if (!response.success || !response.data) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok || !response.data) {
     throw new Error(response.error?.message || "Failed to fetch documents");
   }
 
@@ -71,7 +72,8 @@ export async function getDocuments(params?: {
 export async function getDocumentById(id: string): Promise<DocumentMasterDto> {
   const response = await apiGetMain<DocumentMasterDto>(`/api/Documents/${id}`);
 
-  if (!response.success || !response.data) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok || !response.data) {
     throw new Error(response.error?.message || "Failed to fetch document");
   }
 
@@ -86,7 +88,8 @@ export async function createDocument(
 ): Promise<DocumentMasterDto> {
   const response = await apiPostMain<DocumentMasterDto>("/api/Documents", data);
 
-  if (!response.success || !response.data) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok || !response.data) {
     throw new Error(response.error?.message || "Failed to create document");
   }
 
@@ -102,7 +105,8 @@ export async function updateDocument(
 ): Promise<boolean> {
   const response = await apiPutMain<boolean>(`/api/Documents/${id}`, data);
 
-  if (!response.success) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok) {
     throw new Error(response.error?.message || "Failed to update document");
   }
 
@@ -115,7 +119,8 @@ export async function updateDocument(
 export async function deleteDocument(id: string): Promise<boolean> {
   const response = await apiDeleteMain<boolean>(`/api/Documents/${id}`);
 
-  if (!response.success) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok) {
     throw new Error(response.error?.message || "Failed to delete document");
   }
 

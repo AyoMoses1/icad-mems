@@ -54,16 +54,16 @@ import {
   updateCourse,
   deleteCourse,
 } from "@/lib/services/course-service";
-import { getPrograms } from "@/lib/services/program-service";
-import type { CourseDto, CreateCourseDto, ProgramDto } from "@/types/seafarer";
+import { getCertificates } from "@/lib/services/certificates-service";
+import type { CourseDto, CreateCourseDto } from "@/types/seafarer";
+import type { CertificateDto } from "@/lib/services/certificates-service";
 import { formatDate } from "@/lib/utils";
 
 export default function CoursesManagementPage() {
   const [courses, setCourses] = useState<CourseDto[]>([]);
-  const [programs, setPrograms] = useState<ProgramDto[]>([]);
+  const [certificates, setCertificates] = useState<CertificateDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [programFilter, setProgramFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -72,50 +72,56 @@ export default function CoursesManagementPage() {
   const [selectedCourse, setSelectedCourse] = useState<CourseDto | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<CreateCourseDto>({
-    courseCode: "",
-    courseName: "",
+    name: "",
+    stcwCode: "",
+    courseType: "",
+    approvalStatus: "",
+    durationValue: 0,
+    durationUnit: "",
     description: "",
-    credits: 0,
-    semesterOffered: "",
-    department: "",
-    programId: 0,
+    maxStudentTeacherRatio: 0,
+    certificateId: "",
   });
   const pageSize = 20;
 
   useEffect(() => {
     loadCourses();
-    loadPrograms();
-  }, [currentPage, searchQuery, programFilter]);
+    loadCertificates();
+  }, [currentPage, searchQuery]);
 
-  const loadPrograms = async () => {
+  const loadCertificates = async () => {
     try {
-      const response = await getPrograms({ pageNumber: 1, pageSize: 1000 });
-      if (response.success && response.data) {
-        setPrograms(response.data.items);
+      const response = await getCertificates({ pageNumber: 1, pageSize: 100 });
+      const ok = response.success ?? (response as any).successful;
+      if (ok && response.data) {
+        setCertificates(response.data.items || []);
       }
     } catch (error) {
-      console.error("Error loading programs:", error);
+      console.error("Error loading certificates:", error);
     }
   };
 
   const loadCourses = async () => {
     setIsLoading(true);
     try {
-      const programId =
-        programFilter !== "all" ? Number(programFilter) : undefined;
       const response = await getCourses({
         pageNumber: currentPage,
         pageSize,
         searchTerm: searchQuery || undefined,
-        programId,
       });
 
-      if (response.success && response.data) {
-        setCourses(response.data.items);
-        setTotalPages(response.data.totalPages);
-        setTotalCount(response.data.totalCount);
+      if ((response.success ?? (response as any).successful) && response.data) {
+        const data = response.data;
+        const items =
+          data && "items" in data
+            ? data.items
+            : Array.isArray(data)
+              ? data
+              : [];
+        setCourses(items || []);
       } else {
         toast.error(response.message || "Failed to load courses");
+        setCourses([]);
       }
     } catch (error) {
       console.error("Error loading courses:", error);
@@ -128,13 +134,15 @@ export default function CoursesManagementPage() {
   const handleCreate = () => {
     setSelectedCourse(null);
     setFormData({
-      courseCode: "",
-      courseName: "",
+      name: "",
+      stcwCode: "",
+      courseType: "",
+      approvalStatus: "",
+      durationValue: 0,
+      durationUnit: "",
       description: "",
-      credits: 0,
-      semesterOffered: "",
-      department: "",
-      programId: programs[0]?.id || 0,
+      maxStudentTeacherRatio: 0,
+      certificateId: "",
     });
     setIsDialogOpen(true);
   };
@@ -142,13 +150,15 @@ export default function CoursesManagementPage() {
   const handleEdit = (course: CourseDto) => {
     setSelectedCourse(course);
     setFormData({
-      courseCode: course.courseCode || "",
-      courseName: course.courseName || "",
+      name: (course as any).name || "",
+      stcwCode: (course as any).stcwCode || "",
+      courseType: (course as any).courseType || "",
+      approvalStatus: (course as any).approvalStatus || "",
+      durationValue: (course as any).durationValue || 0,
+      durationUnit: (course as any).durationUnit || "",
       description: course.description || "",
-      credits: course.credits || 0,
-      semesterOffered: course.semesterOffered || "",
-      department: course.department || "",
-      programId: course.programId || 0,
+      maxStudentTeacherRatio: (course as any).maxStudentTeacherRatio || 0,
+      certificateId: (course as any).certificateId || "",
     });
     setIsDialogOpen(true);
   };
@@ -159,8 +169,8 @@ export default function CoursesManagementPage() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.courseName || !formData.programId) {
-      toast.error("Course name and program are required");
+    if (!formData.name || !formData.certificateId) {
+      toast.error("Course name and certificate are required");
       return;
     }
 
@@ -173,11 +183,12 @@ export default function CoursesManagementPage() {
         response = await createCourse(formData);
       }
 
-      if (response.success) {
+      const ok = response.success ?? (response as any).successful;
+      if (ok) {
         toast.success(
           selectedCourse
             ? "Course updated successfully"
-            : "Course created successfully"
+            : "Course created successfully",
         );
         setIsDialogOpen(false);
         loadCourses();
@@ -186,7 +197,7 @@ export default function CoursesManagementPage() {
           response.message ||
             (selectedCourse
               ? "Failed to update course"
-              : "Failed to create course")
+              : "Failed to create course"),
         );
       }
     } catch (error) {
@@ -204,7 +215,8 @@ export default function CoursesManagementPage() {
     try {
       const response = await deleteCourse(selectedCourse.id);
 
-      if (response.success) {
+      const ok = response.success ?? (response as any).successful;
+      if (ok) {
         toast.success("Course deleted successfully");
         setIsDeleteDialogOpen(false);
         setSelectedCourse(null);
@@ -222,22 +234,12 @@ export default function CoursesManagementPage() {
 
   const columns: DataTableColumn<CourseDto>[] = [
     {
-      id: "courseCode",
-      header: "Code",
-      accessorKey: "courseCode",
-      cell: (row) => (
-        <span className="font-mono text-sm font-medium">
-          {row.courseCode || "N/A"}
-        </span>
-      ),
-    },
-    {
-      id: "courseName",
+      id: "name",
       header: "Course Name",
-      accessorKey: "courseName",
-      cell: (row) => (
+      accessorKey: "name",
+      cell: ({ row }) => (
         <div>
-          <p className="font-medium">{row.courseName || "N/A"}</p>
+          <p className="font-medium">{(row as any).name || "N/A"}</p>
           {row.description && (
             <p className="text-sm text-muted-foreground line-clamp-1">
               {row.description}
@@ -247,39 +249,70 @@ export default function CoursesManagementPage() {
       ),
     },
     {
-      id: "programName",
-      header: "Program",
-      accessorKey: "programName",
-      cell: (row) => (
-        <span className="text-sm">{row.programName || "N/A"}</span>
+      id: "stcwCode",
+      header: "STCW Code",
+      accessorKey: "stcwCode",
+      cell: ({ row }) => (
+        <span className="font-mono text-sm font-medium">
+          {(row as any).stcwCode || "N/A"}
+        </span>
       ),
     },
     {
-      id: "department",
-      header: "Department",
-      accessorKey: "department",
-      cell: (row) => <span className="text-sm">{row.department || "N/A"}</span>,
-    },
-    {
-      id: "credits",
-      header: "Credits",
-      accessorKey: "credits",
-      cell: (row) => (
-        <Badge variant="outline">{row.credits || 0} credits</Badge>
+      id: "courseType",
+      header: "Course Type",
+      accessorKey: "courseType",
+      cell: ({ row }) => (
+        <span className="text-sm">{(row as any).courseType || "N/A"}</span>
       ),
     },
     {
-      id: "enrollmentCount",
-      header: "Enrollments",
-      accessorKey: "enrollmentCount",
-      cell: (row) => (
-        <span className="text-sm">{row.enrollmentCount || 0}</span>
-      ),
+      id: "approvalStatus",
+      header: "Status",
+      accessorKey: "approvalStatus",
+      cell: ({ row }) => {
+        const status = (row as any).approvalStatus || "Pending";
+        return (
+          <Badge
+            variant={
+              status === "Approved"
+                ? "default"
+                : status === "Rejected" || status === "Revoked"
+                  ? "destructive"
+                  : "secondary"
+            }
+          >
+            {status}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: "duration",
+      header: "Duration",
+      cell: ({ row }) => {
+        const value = (row as any).durationValue || 0;
+        const unit = (row as any).durationUnit || "";
+        return (
+          <span className="text-sm">
+            {value > 0 && unit ? `${value} ${unit}` : "N/A"}
+          </span>
+        );
+      },
+    },
+    {
+      id: "certificate",
+      header: "Certificate",
+      cell: ({ row }) => {
+        const certId = (row as any).certificateId;
+        const cert = certificates.find((c) => c.id === certId);
+        return <span className="text-sm">{cert?.name || certId || "N/A"}</span>;
+      },
     },
     {
       id: "actions",
       header: "",
-      cell: (row) => (
+      cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -335,25 +368,6 @@ export default function CoursesManagementPage() {
             className="pl-9"
           />
         </div>
-        <Select
-          value={programFilter}
-          onValueChange={(value) => {
-            setProgramFilter(value);
-            setCurrentPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="All Programs" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Programs</SelectItem>
-            {programs.map((program) => (
-              <SelectItem key={program.id} value={program.id.toString()}>
-                {program.programName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Courses Table */}
@@ -363,22 +377,16 @@ export default function CoursesManagementPage() {
         <EmptyState
           title="No courses found"
           description="Create your first course to get started"
-          action={
-            <Button
-              onClick={handleCreate}
-              className="bg-[#3EADC0] hover:bg-[#35a0b3]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Course
-            </Button>
-          }
+          action={{
+            label: "Add Course",
+            onClick: handleCreate,
+          }}
         />
       ) : (
         <DataTable
           columns={columns}
           data={courses}
           currentPage={currentPage}
-          totalPages={totalPages}
           totalCount={totalCount}
           pageSize={pageSize}
           onPageChange={setCurrentPage}
@@ -400,50 +408,146 @@ export default function CoursesManagementPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="programId">
-                Program <span className="text-destructive">*</span>
+              <Label htmlFor="name">
+                Course Name <span className="text-destructive">*</span>
               </Label>
-              <Select
-                value={formData.programId?.toString() || ""}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, programId: Number(value) })
+              <Input
+                id="name"
+                value={formData.name || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
                 }
-              >
-                <SelectTrigger id="programId">
-                  <SelectValue placeholder="Select a program" />
-                </SelectTrigger>
-                <SelectContent>
-                  {programs.map((program) => (
-                    <SelectItem key={program.id} value={program.id.toString()}>
-                      {program.programName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="e.g., Basic Navigation"
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="courseCode">Course Code</Label>
+                <Label htmlFor="stcwCode">STCW Code</Label>
                 <Input
-                  id="courseCode"
-                  value={formData.courseCode || ""}
+                  id="stcwCode"
+                  value={formData.stcwCode || ""}
                   onChange={(e) =>
-                    setFormData({ ...formData, courseCode: e.target.value })
+                    setFormData({ ...formData, stcwCode: e.target.value })
                   }
-                  placeholder="e.g., MAR101"
+                  placeholder="e.g., STCW A-II/1"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="courseName">
-                  Course Name <span className="text-destructive">*</span>
+                <Label htmlFor="courseType">Course Type</Label>
+                <Select
+                  value={formData.courseType || ""}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, courseType: value })
+                  }
+                >
+                  <SelectTrigger id="courseType">
+                    <SelectValue placeholder="Select course type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Mandatory">Mandatory</SelectItem>
+                    <SelectItem value="Preparatory">Preparatory</SelectItem>
+                    <SelectItem value="Non-Conventional">
+                      Non-Conventional
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="approvalStatus">Approval Status</Label>
+                <Select
+                  value={formData.approvalStatus || ""}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, approvalStatus: value })
+                  }
+                >
+                  <SelectTrigger id="approvalStatus">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Approved">Approved</SelectItem>
+                    <SelectItem value="Rejected">Rejected</SelectItem>
+                    <SelectItem value="Revoked">Revoked</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="certificateId">
+                  Certificate <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={formData.certificateId || ""}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, certificateId: value })
+                  }
+                >
+                  <SelectTrigger id="certificateId">
+                    <SelectValue placeholder="Select a certificate" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {certificates.map((cert) => (
+                      <SelectItem key={cert.id} value={cert.id}>
+                        {cert.name || cert.stcwCode || cert.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="durationValue">Duration Value</Label>
+                <Input
+                  id="durationValue"
+                  type="number"
+                  value={formData.durationValue || 0}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      durationValue: Number(e.target.value),
+                    })
+                  }
+                  min="0"
+                  placeholder="0"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="durationUnit">Duration Unit</Label>
+                <Select
+                  value={formData.durationUnit || ""}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, durationUnit: value })
+                  }
+                >
+                  <SelectTrigger id="durationUnit">
+                    <SelectValue placeholder="Select unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="days">Days</SelectItem>
+                    <SelectItem value="weeks">Weeks</SelectItem>
+                    <SelectItem value="months">Months</SelectItem>
+                    <SelectItem value="hours">Hours</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="maxStudentTeacherRatio">
+                  Max Student/Teacher Ratio
                 </Label>
                 <Input
-                  id="courseName"
-                  value={formData.courseName || ""}
+                  id="maxStudentTeacherRatio"
+                  type="number"
+                  value={formData.maxStudentTeacherRatio || 0}
                   onChange={(e) =>
-                    setFormData({ ...formData, courseName: e.target.value })
+                    setFormData({
+                      ...formData,
+                      maxStudentTeacherRatio: Number(e.target.value),
+                    })
                   }
-                  placeholder="e.g., Basic Navigation"
+                  min="0"
+                  placeholder="0"
                 />
               </div>
             </div>
@@ -458,48 +562,6 @@ export default function CoursesManagementPage() {
                 placeholder="Course description..."
                 rows={3}
               />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="credits">Credits</Label>
-                <Input
-                  id="credits"
-                  type="number"
-                  value={formData.credits || 0}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      credits: Number(e.target.value),
-                    })
-                  }
-                  min="0"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="semesterOffered">Semester</Label>
-                <Input
-                  id="semesterOffered"
-                  value={formData.semesterOffered || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      semesterOffered: e.target.value,
-                    })
-                  }
-                  placeholder="e.g., Fall 2024"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="department">Department</Label>
-                <Input
-                  id="department"
-                  value={formData.department || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, department: e.target.value })
-                  }
-                  placeholder="e.g., Navigation"
-                />
-              </div>
             </div>
           </div>
           <DialogFooter>
@@ -530,14 +592,13 @@ export default function CoursesManagementPage() {
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         title="Delete Course"
-        description={`Are you sure you want to delete "${selectedCourse?.courseName}"? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
+        description={`Are you sure you want to delete "${(selectedCourse as any)?.name || "this course"}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
         onConfirm={handleConfirmDelete}
-        isDestructive
+        variant="destructive"
         isLoading={isSubmitting}
       />
     </div>
   );
 }
-

@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { createSeafarer } from "@/lib/services/seafarers";
+import { createSeafarer } from "@/lib/services";
 import {
   getNationalities,
   type NationalityDto,
@@ -40,7 +40,6 @@ const addSeafarerSchema = z.object({
   city: z.string().optional(),
   residentialAddress: z.string().optional(),
   meansOfIdentification: z.string().optional(),
-  idNumber: z.string().optional(),
   dateOfBirth: z.string().min(1, "Date of birth is required"),
   gender: z.string().optional(),
   nationality: z.string().optional(),
@@ -87,7 +86,6 @@ export default function AddSeafarerPage() {
       city: "",
       residentialAddress: "",
       meansOfIdentification: "",
-      idNumber: "",
       dateOfBirth: "",
       gender: "",
       nationality: "",
@@ -127,7 +125,7 @@ export default function AddSeafarerPage() {
           sortDirection: "asc",
         });
         const items = res.items || [];
-        console.log(res.items)
+        console.log(res.items);
         setRanks(items);
       } catch (error) {
         console.error("Failed to load ranks", error);
@@ -160,7 +158,6 @@ export default function AddSeafarerPage() {
         city: data.city?.trim() || undefined,
         residentialAddress: data.residentialAddress?.trim() || undefined,
         meansOfIdentification: data.meansOfIdentification?.trim() || undefined,
-        idNumber: data.idNumber?.trim() || undefined,
         dateOfBirth: data.dateOfBirth,
         gender: data.gender?.trim() || undefined,
         nationality: data.nationality?.trim() || undefined,
@@ -428,7 +425,24 @@ export default function AddSeafarerPage() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="gender">Gender</Label>
-                  <Input id="gender" {...register("gender")} />
+                  <Select
+                    value={watch("gender")}
+                    onValueChange={(value) => setValue("gender", value)}
+                  >
+                    <SelectTrigger error={!!errors.gender}>
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.gender && (
+                    <p className="text-sm text-destructive">
+                      {errors.gender.message}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="nationality">Nationality</Label>
@@ -501,10 +515,6 @@ export default function AddSeafarerPage() {
               </div>
 
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="idNumber">ID Number</Label>
-                  <Input id="idNumber" {...register("idNumber")} />
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="homeAddress">Home Address</Label>
                   <Input id="homeAddress" {...register("homeAddress")} />

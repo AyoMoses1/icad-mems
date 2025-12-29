@@ -1,306 +1,450 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Ship, FileCheck, FileText } from "lucide-react";
-
+import Link from "next/link";
+import {
+  Users,
+  Building2,
+  FileCheck,
+  AlertCircle,
+  Clock,
+  CheckCircle2,
+  ArrowRight,
+  TrendingUp,
+  Shield,
+  Award,
+  FileText,
+  Activity,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthStore } from "@/store";
 import { formatDate } from "@/lib/utils";
-import Link from "next/link";
 import {
-  Calendar,
-  ClipboardList,
-  Trophy,
-  ArrowRight,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
-} from "lucide-react";
+  getAdminStats,
+  getPendingApplications,
+  getAccreditationsUnderReview,
+  type AdminStatsDto,
+  type ApplicationDto,
+  type AccreditationDto,
+} from "@/lib/services/admin-review-service";
+import { LoadingSpinner } from "@/components/shared";
+import { toast } from "sonner";
 
-interface RecentActivity {
-  id: string;
-  action: string;
-  description: string;
-  timestamp: string;
-  icon: React.ComponentType<{ className?: string }>;
-  iconBg: string;
-}
-
-export default function DashboardPage() {
+export default function AdminDashboardPage() {
   const { user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
-
-  const [recentActivity] = useState<RecentActivity[]>([
-    {
-      id: "1",
-      action: "Certificate Issued",
-      description: "STCW Basic Safety Training",
-      timestamp: new Date().toISOString(),
-      icon: FileCheck,
-      iconBg: "bg-green-100 text-green-600",
-    },
-    {
-      id: "2",
-      action: "Exam Completed",
-      description: "Navigation Officer Grade II",
-      timestamp: new Date(Date.now() - 604800000).toISOString(),
-      icon: FileText,
-      iconBg: "bg-blue-100 text-blue-600",
-    },
-    {
-      id: "3",
-      action: "Application Submitted",
-      description: "Deck Officer License",
-      timestamp: new Date(Date.now() - 1209600000).toISOString(),
-      icon: FileText,
-      iconBg: "bg-purple-100 text-purple-600",
-    },
-  ]);
+  const [stats, setStats] = useState<AdminStatsDto | null>(null);
+  const [recentApplications, setRecentApplications] = useState<
+    ApplicationDto[]
+  >([]);
+  const [recentAccreditations, setRecentAccreditations] = useState<
+    AccreditationDto[]
+  >([]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 500);
-    return () => clearTimeout(timer);
+    loadDashboardData();
   }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      setIsLoading(true);
+
+      // Load stats
+      const statsResponse = await getAdminStats();
+      if (statsResponse.success ?? (statsResponse as any).successful) {
+        setStats(statsResponse.data || null);
+      }
+
+      // Load recent pending applications
+      const appsResponse = await getPendingApplications({
+        pageNumber: 1,
+        pageSize: 5,
+      });
+      if (appsResponse.success ?? (appsResponse as any).successful) {
+        setRecentApplications(appsResponse.data || []);
+      }
+
+      // Load recent accreditations under review
+      const accredsResponse = await getAccreditationsUnderReview({
+        pageNumber: 1,
+        pageSize: 5,
+      });
+      if (accredsResponse.success ?? (accredsResponse as any).successful) {
+        setRecentAccreditations(accredsResponse.data?.items || []);
+      }
+    } catch (error) {
+      console.error("Failed to load dashboard data:", error);
+      toast.error("Failed to load dashboard data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
       <div>
         <h1 className="text-3xl font-bold">
-          Welcome back, {user?.firstName || "John"}
+          Welcome back, {user?.firstName || "Admin"}
         </h1>
         <p className="text-muted-foreground mt-1">
-          Here&apos;s an overview of your seafarer profile and status
+          Here&apos;s an overview of your system administration dashboard
         </p>
       </div>
 
-      {/* Stats Cards */}
+      {/* Key Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Days at Sea</p>
-                <p className="text-3xl font-bold">1,562</p>
-              </div>
-              <div className="p-3 rounded-lg bg-blue-50 text-blue-600">
-                <Ship className="h-5 w-5" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Active Certificate
-                </p>
-                <p className="text-3xl font-bold">4</p>
-              </div>
-              <div className="p-3 rounded-lg bg-green-50 text-green-600">
-                <FileCheck className="h-5 w-5" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
+        <Card className="border-l-4 border-l-blue-500">
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
                   Pending Applications
                 </p>
-                <p className="text-3xl font-bold">4</p>
+                <p className="text-3xl font-bold">
+                  {stats?.pendingApplications || 0}
+                </p>
+                {stats && stats.newApplicationsLastWeek > 0 && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3 text-green-600" />+
+                    {stats.newApplicationsLastWeek} this week
+                  </p>
+                )}
               </div>
-              <div className="p-3 rounded-lg bg-purple-50 text-purple-600">
-                <FileText className="h-5 w-5" />
+              <div className="p-3 rounded-lg bg-blue-50 text-blue-600">
+                <FileCheck className="h-5 w-5" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-orange-500">
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Expiring Soon</p>
-                <p className="text-3xl font-bold">1</p>
+                <p className="text-sm text-muted-foreground">
+                  Pending Accreditations
+                </p>
+                <p className="text-3xl font-bold">
+                  {stats?.pendingAccreditations || 0}
+                </p>
+                <p className="text-xs text-muted-foreground">Requires review</p>
               </div>
-              <div className="p-3 rounded-lg bg-yellow-50 text-yellow-600">
-                <Clock className="h-5 w-5" />
+              <div className="p-3 rounded-lg bg-orange-50 text-orange-600">
+                <Award className="h-5 w-5" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Total Seafarers</p>
+                <p className="text-3xl font-bold">
+                  {stats?.totalSeafarers?.toLocaleString() || 0}
+                </p>
+                {stats && stats.newSeafarersLastWeek > 0 && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3 text-green-600" />+
+                    {stats.newSeafarersLastWeek} this week
+                  </p>
+                )}
+              </div>
+              <div className="p-3 rounded-lg bg-green-50 text-green-600">
+                <Users className="h-5 w-5" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-purple-500">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Total Institutions
+                </p>
+                <p className="text-3xl font-bold">
+                  {stats?.totalInstitutions?.toLocaleString() || 0}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {stats?.accreditedInstitutions || 0} accredited
+                  {stats && stats.newInstitutionsLastWeek > 0 && (
+                    <span className="flex items-center gap-1 mt-1">
+                      <TrendingUp className="h-3 w-3 text-green-600" />+
+                      {stats.newInstitutionsLastWeek} this week
+                    </span>
+                  )}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-purple-50 text-purple-600">
+                <Building2 className="h-5 w-5" />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Profile Completion and Quick Actions */}
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <Link href="/seafarer/applications">
+              <Button
+                variant="outline"
+                className="w-full justify-start h-auto p-4 hover:bg-accent/50"
+              >
+                <FileCheck className="mr-3 h-5 w-5 text-blue-600" />
+                <div className="text-left">
+                  <p className="font-medium">Review Applications</p>
+                  <p className="text-xs text-muted-foreground">
+                    {stats?.pendingApplications || 0} pending
+                  </p>
+                </div>
+                <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground" />
+              </Button>
+            </Link>
+
+            <Link href="/admin/accreditations/review">
+              <Button
+                variant="outline"
+                className="w-full justify-start h-auto p-4 hover:bg-accent/50"
+              >
+                <Award className="mr-3 h-5 w-5 text-orange-600" />
+                <div className="text-left">
+                  <p className="font-medium">Review Accreditations</p>
+                  <p className="text-xs text-muted-foreground">
+                    {stats?.pendingAccreditations || 0} pending
+                  </p>
+                </div>
+                <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground" />
+              </Button>
+            </Link>
+
+            <Link href="/seafarer/registry">
+              <Button
+                variant="outline"
+                className="w-full justify-start h-auto p-4 hover:bg-accent/50"
+              >
+                <Users className="mr-3 h-5 w-5 text-green-600" />
+                <div className="text-left">
+                  <p className="font-medium">Seafarer Registry</p>
+                  <p className="text-xs text-muted-foreground">
+                    Manage seafarers
+                  </p>
+                </div>
+                <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground" />
+              </Button>
+            </Link>
+
+            <Link href="/institutions">
+              <Button
+                variant="outline"
+                className="w-full justify-start h-auto p-4 hover:bg-accent/50"
+              >
+                <Building2 className="mr-3 h-5 w-5 text-purple-600" />
+                <div className="text-left">
+                  <p className="font-medium">Manage Institutions</p>
+                  <p className="text-xs text-muted-foreground">
+                    View all institutions
+                  </p>
+                </div>
+                <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground" />
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Activity - Applications and Accreditations */}
       <div className="grid gap-6 lg:grid-cols-2">
+        {/* Pending Applications */}
         <Card>
-          <CardHeader>
-            <CardTitle>Profile Completion</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Pending Applications</CardTitle>
+            <Link href="/seafarer/applications">
+              <Button variant="ghost" size="sm">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Overall Progress</span>
-                <span className="text-sm font-bold">75%</span>
+          <CardContent>
+            {recentApplications.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No pending applications</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {recentApplications.map((app) => (
+                  <Link
+                    key={app.id}
+                    href={`/seafarer/applications/${app.id}`}
+                    className="flex items-start gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {app.seafarerName || "Unknown Seafarer"}
+                      </p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {app.certificateName ||
+                          app.documentName ||
+                          "Application"}
+                      </p>
+                      {app.submittedAt && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Submitted {formatDate(app.submittedAt)}
+                        </p>
+                      )}
+                    </div>
+                    <Badge variant="outline" className="bg-yellow-50">
+                      <Clock className="mr-1 h-3 w-3" />
+                      Pending
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Accreditations Under Review */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Accreditations Under Review</CardTitle>
+            <Link href="/admin/accreditations/review">
+              <Button variant="ghost" size="sm">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {recentAccreditations.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Award className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No accreditations under review</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {recentAccreditations.map((accred) => (
+                  <Link
+                    key={accred.id}
+                    href={`/admin/accreditations/${accred.id}`}
+                    className="flex items-start gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="p-2 rounded-lg bg-orange-100 text-orange-600">
+                      <Building2 className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {accred.institutionName || "Unknown Institution"}
+                      </p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {accred.accreditationType || "Accreditation"}
+                      </p>
+                      {accred.submittedAt && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Submitted {formatDate(accred.submittedAt)}
+                        </p>
+                      )}
+                    </div>
+                    <Badge variant="outline" className="bg-orange-50">
+                      <AlertCircle className="mr-1 h-3 w-3" />
+                      Review
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* System Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            System Overview
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Accredited Institutions
+                </span>
+                <span className="text-2xl font-bold">
+                  {stats?.accreditedInstitutions || 0}
+                </span>
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-primary rounded-full"
-                  style={{ width: "75%" }}
+                  className="h-full bg-green-500 rounded-full"
+                  style={{
+                    width:
+                      stats && stats.totalInstitutions > 0
+                        ? `${(stats.accreditedInstitutions / stats.totalInstitutions) * 100}%`
+                        : "0%",
+                  }}
                 />
               </div>
+              <p className="text-xs text-muted-foreground">
+                of {stats?.totalInstitutions || 0} total institutions
+              </p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-2 p-2 rounded border">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <span className="text-sm">Personal Information</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 rounded border">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <span className="text-sm">Educational Background</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 rounded border">
-                <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                <span className="text-sm">Update Sea Service Records</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
             <div className="space-y-2">
-              <Link
-                href="/training"
-                className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors"
-              >
-                <span className="text-sm font-medium">
-                  Find Training Course
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">
+                  New Seafarers (Week)
                 </span>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-              <Link
-                href="/license-certification"
-                className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors"
-              >
-                <span className="text-sm font-medium">Apply for License</span>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-              <Link
-                href="/training/enrollments"
-                className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent/50 transition-colors"
-              >
-                <span className="text-sm font-medium">My Enrolment</span>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
+                <span className="text-2xl font-bold text-green-600">
+                  +{stats?.newSeafarersLastWeek || 0}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Total: {stats?.totalSeafarers?.toLocaleString() || 0} seafarers
+              </p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Recent Activity and Upcoming */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-green-100 text-green-600">
-                  <FileCheck className="h-4 w-4" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium">Certificate Issued</p>
-                  <p className="text-sm text-muted-foreground">
-                    STCW Basic Safety Training
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    2 days ago
-                  </p>
-                </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">
+                  New Applications (Week)
+                </span>
+                <span className="text-2xl font-bold text-blue-600">
+                  +{stats?.newApplicationsLastWeek || 0}
+                </span>
               </div>
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
-                  <ClipboardList className="h-4 w-4" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium">Exam Completed</p>
-                  <p className="text-sm text-muted-foreground">
-                    Navigation Officer Grade II
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    1 week ago
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-purple-100 text-purple-600">
-                  <FileText className="h-4 w-4" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium">Application Submitted</p>
-                  <p className="text-sm text-muted-foreground">
-                    Deck Officer License
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    2 weeks ago
-                  </p>
-                </div>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                {stats?.pendingApplications || 0} pending review
+              </p>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Upcoming</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-lg border">
-                <div>
-                  <p className="font-medium">STCW Refresher Course</p>
-                  <p className="text-sm text-muted-foreground">
-                    Training • Dec 20, 2024
-                  </p>
-                </div>
-                <Badge variant="info">Enrolled</Badge>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border">
-                <div>
-                  <p className="font-medium">Navigation Written Exam</p>
-                  <p className="text-sm text-muted-foreground">
-                    Examination • Jan 5, 2025
-                  </p>
-                </div>
-                <Badge variant="info">Enrolled</Badge>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border">
-                <div>
-                  <p className="font-medium">Medical Certificate</p>
-                  <p className="text-sm text-muted-foreground">
-                    Renewal • Feb 15, 2025
-                  </p>
-                </div>
-                <Badge variant="warning">Expiring</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

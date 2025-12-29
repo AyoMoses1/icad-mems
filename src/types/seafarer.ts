@@ -159,24 +159,28 @@ export interface CourseFilters {
 }
 
 export interface CreateCourseDto {
-  courseCode?: string | null;
-  courseName?: string | null;
+  name?: string | null;
+  stcwCode?: string | null;
+  courseType?: string | null;
+  approvalStatus?: string | null;
+  durationValue?: number;
+  durationUnit?: string | null;
   description?: string | null;
-  credits?: number;
-  semesterOffered?: string | null;
-  department?: string | null;
-  programId: number;
+  maxStudentTeacherRatio?: number;
+  certificateId?: string | null;
   [key: string]: unknown;
 }
 
 export interface UpdateCourseDto {
-  courseCode?: string | null;
-  courseName?: string | null;
+  name?: string | null;
+  stcwCode?: string | null;
+  courseType?: string | null;
+  approvalStatus?: string | null;
+  durationValue?: number;
+  durationUnit?: string | null;
   description?: string | null;
-  credits?: number;
-  semesterOffered?: string | null;
-  department?: string | null;
-  programId?: number;
+  maxStudentTeacherRatio?: number;
+  certificateId?: string | null;
   [key: string]: unknown;
 }
 
@@ -185,7 +189,7 @@ export interface UpdateCourseDto {
 // ============================================================================
 
 export interface EnrollmentDto {
-  id: number;
+  id: string;
   enrollmentDate?: string;
   status?: string | null;
   completionDate?: string | null;

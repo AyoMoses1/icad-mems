@@ -42,7 +42,10 @@ export default function AdminAccreditationsReviewPage() {
   const handleApprove = async (id: string) => {
     setIsSubmitting(true);
     try {
-      const res = await auditAccreditation(id, { approved: true });
+      const res = await auditAccreditation({
+        accreditationId: id,
+        auditDate: new Date().toISOString().split("T")[0], // Today's date
+      });
       const ok = res.success ?? (res as any).successful;
       if (ok) {
         toast.success("Accreditation approved");

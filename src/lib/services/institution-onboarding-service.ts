@@ -12,6 +12,7 @@ import {
 } from "@/lib/api-client";
 
 const API_BASE = "/api/institutions";
+const API_ONBOARDING_BASE = "/api/onboarding/institution";
 const API_STAFF_BASE = "/api/institutionstaffs";
 const API_TRAINING_BASE = "/api/traininginstitutes";
 const API_MEDICAL_BASE = "/api/medicalinstitutes";
@@ -77,50 +78,84 @@ export interface InstitutionStaffDto {
   updatedAt?: string;
 }
 
-export interface TrainingInstituteRequest {
-  institutionId?: string;
-  accreditationNumber?: string;
-  accreditationExpiry?: string;
-  coursesOffered?: string[];
-  capacity?: number;
-  facilities?: string[];
-  isActive?: boolean;
+// Training Institute Onboarding Request (creates institution + training institute)
+export interface TrainingInstituteOnboardingRequest {
+  name: string;
+  nimasaAccreditationNo: string;
+  accreditationExpiry?: string | null; // date format (YYYY-MM-DD)
+  physicalAddress: string;
+  email: string;
+  isActive: boolean;
+  authUserId: string;
+  mtiCategory: string;
+  hasSimulators: boolean;
+  totalClassrooms: number;
 }
 
-export interface TrainingInstituteDto {
-  id: string;
-  institutionId?: string;
-  accreditationNumber?: string;
-  accreditationExpiry?: string;
-  coursesOffered?: string[];
-  capacity?: number;
-  facilities?: string[];
-  isActive?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+export interface TrainingInstituteOnboardingResponse {
+  id: string; // institutionId
+  name?: string | null;
+  institutionType?: string | null;
+  nimasaAccreditationNo?: string | null;
+  physicalAddress?: string | null;
+  email?: string | null;
+  isActive?: boolean | null;
+  createdAt?: string | null;
+  mtiCategory?: string | null;
+  hasSimulators?: boolean | null;
+  totalClassrooms?: number | null;
 }
 
-export interface MedicalInstituteRequest {
-  institutionId?: string;
-  accreditationNumber?: string;
-  accreditationExpiry?: string;
-  servicesOffered?: string[];
-  capacity?: number;
-  facilities?: string[];
-  isActive?: boolean;
+// Medical Institute Onboarding Request (creates institution + medical institute)
+export interface MedicalInstituteOnboardingRequest {
+  name: string;
+  nimasaAccreditationNo: string;
+  accreditationExpiry?: string | null; // date format (YYYY-MM-DD)
+  physicalAddress: string;
+  email: string;
+  isActive: boolean;
+  authUserId: string;
+  clinicLicenseNo: string;
+  numApprovedDoctors: number;
+  laboratoryEquipped: boolean;
 }
 
-export interface MedicalInstituteDto {
-  id: string;
-  institutionId?: string;
-  accreditationNumber?: string;
-  accreditationExpiry?: string;
-  servicesOffered?: string[];
-  capacity?: number;
-  facilities?: string[];
-  isActive?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+export interface MedicalInstituteOnboardingResponse {
+  id: string; // institutionId
+  name?: string | null;
+  institutionType?: string | null;
+  nimasaAccreditationNo?: string | null;
+  physicalAddress?: string | null;
+  email?: string | null;
+  isActive?: boolean | null;
+  createdAt?: string | null;
+  clinicLicenseNo?: string | null;
+  numApprovedDoctors?: number | null;
+  laboratoryEquipped?: boolean | null;
+}
+
+// Training Institution Staff Request (for training institutes)
+export interface TrainingInstitutionStaffRequest {
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  staffType?: string | null;
+  imoModel609CertNo?: string | null;
+  highestCocHeldId?: string | null; // UUID
+  yearsOfSeaExperience?: number | null;
+  isActive?: boolean | null;
+}
+
+// Medical Institution Staff Request (for medical institutes)
+export interface MedicalInstitutionStaffRequest {
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  staffType?: string | null;
+  medicalLicenseNo?: string | null;
+  nimasaAuthorizedExaminerId?: string | null;
+  specialization?: string | null;
+  isActive?: boolean | null;
 }
 
 export interface PagedResult<T> {
@@ -128,6 +163,77 @@ export interface PagedResult<T> {
   pageNumber: number;
   pageSize: number;
   totalNumber: number;
+}
+
+export interface InstitutionOnboardingStatus {
+  completed?: boolean;
+  message?: string;
+}
+
+export interface OnboardingRequirement {
+  id: string;
+  userType?: string;
+  documentMasterId?: string;
+  isMandatory: boolean;
+  categoryType?: string;
+  name: string;
+}
+
+/**
+ * Get institution onboarding requirements
+ * GET /api/onboarding/institution/requirements
+ */
+export async function getInstitutionOnboardingRequirements(params?: {
+  institutionType?: string;
+}): Promise<ApiResponse<OnboardingRequirement[]>> {
+  const queryParams = new URLSearchParams();
+  if (params?.institutionType) {
+    queryParams.append("institutionType", params.institutionType);
+  }
+
+  return apiGetMain<OnboardingRequirement[]>(
+    `${API_ONBOARDING_BASE}/requirements${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
+  );
+}
+
+/**
+ * Get institution onboarding status
+ * GET /api/onboarding/institution/onboarding-status
+ */
+export async function getInstitutionOnboardingStatus(): Promise<
+  ApiResponse<InstitutionOnboardingStatus>
+> {
+  return apiGetMain<InstitutionOnboardingStatus>(
+    `${API_ONBOARDING_BASE}/onboarding-status`,
+  );
+}
+
+/**
+ * Accept an enrollment
+ * PATCH /api/Institutions/enrollments/{enrollmentId}/accept
+ */
+export async function acceptEnrollment(
+  enrollmentId: string,
+  data?: { remarks?: string | null }
+): Promise<ApiResponse<boolean>> {
+  return apiPutMain<boolean>(
+    `/api/Institutions/enrollments/${enrollmentId}/accept`,
+    data || {}
+  );
+}
+
+/**
+ * Reject an enrollment
+ * PATCH /api/Institutions/enrollments/{enrollmentId}/reject
+ */
+export async function rejectEnrollment(
+  enrollmentId: string,
+  data?: { remarks?: string | null }
+): Promise<ApiResponse<boolean>> {
+  return apiPutMain<boolean>(
+    `/api/Institutions/enrollments/${enrollmentId}/reject`,
+    data || {}
+  );
 }
 
 // ============================================================================
@@ -146,14 +252,15 @@ export async function getInstitutionContacts(
 }
 
 /**
- * Add a contact to an institution
+ * Add a contact to an institution (onboarding)
+ * POST /api/onboarding/institution/{institutionId}/contacts
  */
 export async function addInstitutionContact(
   institutionId: string,
   data: InstitutionContactRequest
 ): Promise<ApiResponse<InstitutionContactDto>> {
   return apiPostMain<InstitutionContactDto>(
-    `${API_BASE}/${institutionId}/contacts`,
+    `${API_ONBOARDING_BASE}/${institutionId}/contacts`,
     data
   );
 }
@@ -213,12 +320,45 @@ export async function getInstitutionStaff(
 }
 
 /**
- * Add a staff member to an institution
+ * Add a staff member to an institution (onboarding - general)
+ * POST /api/onboarding/institution/{institutionId}/staffs
  */
 export async function addInstitutionStaff(
+  institutionId: string,
   data: InstitutionStaffRequest
 ): Promise<ApiResponse<InstitutionStaffDto>> {
-  return apiPostMain<InstitutionStaffDto>(API_STAFF_BASE, data);
+  return apiPostMain<InstitutionStaffDto>(
+    `${API_ONBOARDING_BASE}/${institutionId}/staffs`,
+    data
+  );
+}
+
+/**
+ * Add a staff member to a training institution (onboarding)
+ * POST /api/onboarding/institution/training/{institutionId}/staffs
+ */
+export async function addTrainingInstitutionStaff(
+  institutionId: string,
+  data: TrainingInstitutionStaffRequest
+): Promise<ApiResponse<any>> {
+  return apiPostMain<any>(
+    `${API_ONBOARDING_BASE}/training/${institutionId}/staffs`,
+    data
+  );
+}
+
+/**
+ * Add a staff member to a medical institution (onboarding)
+ * POST /api/onboarding/institution/medical/{institutionId}/staffs
+ */
+export async function addMedicalInstitutionStaff(
+  institutionId: string,
+  data: MedicalInstitutionStaffRequest
+): Promise<ApiResponse<any>> {
+  return apiPostMain<any>(
+    `${API_ONBOARDING_BASE}/medical/${institutionId}/staffs`,
+    data
+  );
 }
 
 /**
@@ -245,12 +385,16 @@ export async function deleteInstitutionStaff(
 // ============================================================================
 
 /**
- * Create a training institute
+ * Create institution + training institute (onboarding)
+ * POST /api/onboarding/institution/training
  */
 export async function createTrainingInstitute(
-  data: TrainingInstituteRequest
-): Promise<ApiResponse<TrainingInstituteDto>> {
-  return apiPostMain<TrainingInstituteDto>(API_TRAINING_BASE, data);
+  data: TrainingInstituteOnboardingRequest
+): Promise<ApiResponse<TrainingInstituteOnboardingResponse>> {
+  return apiPostMain<TrainingInstituteOnboardingResponse>(
+    `${API_ONBOARDING_BASE}/training`,
+    data,
+  );
 }
 
 /**
@@ -291,12 +435,16 @@ export async function deleteTrainingInstitute(
 // ============================================================================
 
 /**
- * Create a medical institute
+ * Create institution + medical institute (onboarding)
+ * POST /api/onboarding/institution/medical
  */
 export async function createMedicalInstitute(
-  data: MedicalInstituteRequest
-): Promise<ApiResponse<MedicalInstituteDto>> {
-  return apiPostMain<MedicalInstituteDto>(API_MEDICAL_BASE, data);
+  data: MedicalInstituteOnboardingRequest
+): Promise<ApiResponse<MedicalInstituteOnboardingResponse>> {
+  return apiPostMain<MedicalInstituteOnboardingResponse>(
+    `${API_ONBOARDING_BASE}/medical`,
+    data,
+  );
 }
 
 /**

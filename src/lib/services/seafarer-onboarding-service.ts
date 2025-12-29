@@ -11,35 +11,33 @@ import {
 } from "@/lib/api-client";
 
 const API_BASE = "/api/onboarding/seafarer";
+const API_BASE_V2 = "/api/Seafarers";
 
 export interface SeafarerRequirement {
   id: string;
+  userType?: string;
+  documentMasterId?: string;
+  isMandatory: boolean;
+  categoryType?: string;
   name: string;
-  description?: string;
-  isRequired: boolean;
-  category?: string;
-}
-
-export interface SeafarerRequirementsResponse {
-  requirements: SeafarerRequirement[];
-  completedRequirements?: string[];
-  pendingRequirements?: string[];
 }
 
 export interface SeafarerProfileRequest {
-  firstName?: string;
-  lastName?: string;
-  middleName?: string;
-  dateOfBirth?: string;
-  nationalityId?: string;
-  rankId?: string;
-  email?: string;
-  phoneNumber?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  postalCode?: string;
+  FirstName?: string;
+  LastName?: string;
+  DateOfBirth?: string;
+  Gender?: string;
+  Nationality?: string;
+  NationalityId?: string;
+  NinNumber?: string;
+  SidNumber?: string;
+  DischargeBookNo?: string;
+  CurrentRankId?: string;
+  Email?: string;
+  PhoneNumber?: string;
+  HomeAddress?: string;
+  IsActive?: boolean;
+  WalletAddress?: string;
 }
 
 export interface SeafarerProfileResponse {
@@ -51,49 +49,40 @@ export interface SeafarerProfileResponse {
 }
 
 export interface ContactRequest {
-  firstName?: string;
-  lastName?: string;
+  fullName?: string;
   relationship?: string;
   phoneNumber?: string;
-  email?: string;
-  address?: string;
-  isEmergencyContact?: boolean;
+  isPrimary?: boolean;
 }
 
 export interface ContactDto {
   id: string;
   seafarerId?: string;
-  firstName?: string;
-  lastName?: string;
+  fullName?: string;
   relationship?: string;
   phoneNumber?: string;
-  email?: string;
-  address?: string;
-  isEmergencyContact?: boolean;
-  createdAt?: string;
+  isPrimary?: boolean;
 }
 
 export interface HeldDocumentRequest {
-  documentTypeId?: string;
-  documentNumber?: string;
-  issueDate?: string;
-  expiryDate?: string;
-  issuingAuthority?: string;
-  notes?: string;
+  DocumentMasterId: string; // Required
+  DocumentNumber: string; // Required
+  IssueDate: string; // Required (date format)
+  ExpiryDate?: string; // Optional (date format)
 }
 
 export interface HeldDocumentDto {
   id: string;
   seafarerId?: string;
-  documentTypeId?: string;
-  documentTypeName?: string;
+  documentMasterId?: string;
   documentNumber?: string;
   issueDate?: string;
   expiryDate?: string;
-  issuingAuthority?: string;
   fileUrl?: string;
-  notes?: string;
-  createdAt?: string;
+  verificationStatus?: string;
+  ipfsHash?: string;
+  dateVerified?: string;
+  status?: string;
 }
 
 export interface FileUploadResponse {
@@ -106,9 +95,9 @@ export interface FileUploadResponse {
  * Get seafarer onboarding requirements
  */
 export async function getSeafarerRequirements(): Promise<
-  ApiResponse<SeafarerRequirementsResponse>
+  ApiResponse<SeafarerRequirement[]>
 > {
-  return apiGetMain<SeafarerRequirementsResponse>(`${API_BASE}/requirements`);
+  return apiGetMain<SeafarerRequirement[]>(`${API_BASE}/requirements`);
 }
 export async function getDocumentInformation({
   documentId,
@@ -120,11 +109,33 @@ export async function getDocumentInformation({
 
 /**
  * Create or update seafarer profile
+ * Note: This endpoint uses multipart/form-data (even without ProfilePicture file)
  */
 export async function createSeafarerProfile(
   data: SeafarerProfileRequest,
+  profilePictureFile?: File,
 ): Promise<ApiResponse<SeafarerProfileResponse>> {
-  return apiPostMain<SeafarerProfileResponse>(`${API_BASE}/profile`, data);
+  const formData = new FormData();
+  
+  // Add all fields to FormData (PascalCase keys as per API)
+  if (data.FirstName) formData.append("FirstName", data.FirstName);
+  if (data.LastName) formData.append("LastName", data.LastName);
+  if (data.DateOfBirth) formData.append("DateOfBirth", data.DateOfBirth);
+  if (data.Gender) formData.append("Gender", data.Gender);
+  if (data.Nationality) formData.append("Nationality", data.Nationality);
+  if (data.NinNumber) formData.append("NinNumber", data.NinNumber);
+  if (data.SidNumber) formData.append("SidNumber", data.SidNumber);
+  if (data.DischargeBookNo) formData.append("DischargeBookNo", data.DischargeBookNo);
+  if (data.CurrentRankId) formData.append("CurrentRankId", data.CurrentRankId);
+  if (data.Email) formData.append("Email", data.Email);
+  if (data.PhoneNumber) formData.append("PhoneNumber", data.PhoneNumber);
+  if (data.HomeAddress) formData.append("HomeAddress", data.HomeAddress);
+  if (data.IsActive !== undefined) formData.append("IsActive", data.IsActive.toString());
+  if (data.WalletAddress) formData.append("WalletAddress", data.WalletAddress);
+  if (data.NationalityId) formData.append("NationalityId", data.NationalityId);
+  if (profilePictureFile) formData.append("ProfilePicture", profilePictureFile);
+
+  return apiPostMultipartMain<SeafarerProfileResponse>(`${API_BASE}/profile`, formData);
 }
 
 /**
@@ -139,6 +150,7 @@ export async function addSeafarerContact(
 
 /**
  * Upload held document for a seafarer (multipart/form-data)
+ * Required fields: DocumentMasterId, DocumentNumber, IssueDate, File
  */
 export async function uploadSeafarerDocument(
   seafarerId: string,
@@ -146,25 +158,16 @@ export async function uploadSeafarerDocument(
   documentData: HeldDocumentRequest,
 ): Promise<ApiResponse<HeldDocumentDto>> {
   const formData = new FormData();
-  formData.append("file", file);
-
-  if (documentData.documentTypeId) {
-    formData.append("documentTypeId", documentData.documentTypeId);
-  }
-  if (documentData.documentNumber) {
-    formData.append("documentNumber", documentData.documentNumber);
-  }
-  if (documentData.issueDate) {
-    formData.append("issueDate", documentData.issueDate);
-  }
-  if (documentData.expiryDate) {
-    formData.append("expiryDate", documentData.expiryDate);
-  }
-  if (documentData.issuingAuthority) {
-    formData.append("issuingAuthority", documentData.issuingAuthority);
-  }
-  if (documentData.notes) {
-    formData.append("notes", documentData.notes);
+  
+  // Required fields
+  formData.append("File", file);
+  formData.append("DocumentMasterId", documentData.DocumentMasterId);
+  formData.append("DocumentNumber", documentData.DocumentNumber);
+  formData.append("IssueDate", documentData.IssueDate);
+  
+  // Optional fields
+  if (documentData.ExpiryDate) {
+    formData.append("ExpiryDate", documentData.ExpiryDate);
   }
 
   return apiPostMultipartMain<HeldDocumentDto>(

@@ -166,7 +166,8 @@ export default function AccreditedMTIsPage() {
           reason: "Suspended by administrator",
         });
 
-        if (response.success) {
+        const ok = response.success ?? (response as any).successful;
+        if (ok) {
           toast.success("Institution suspended successfully");
           setIsSuspendDialogOpen(false);
           setSelectedOrg(null);

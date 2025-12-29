@@ -78,7 +78,8 @@ export async function getRanks(params?: {
 export async function getRankById(id: string): Promise<RankDto> {
   const response = await apiGetMain<RankDto>(`/api/Ranks/${id}`);
 
-  if (!response.success || !response.data) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok || !response.data) {
     throw new Error(response.error?.message || "Failed to fetch rank");
   }
 
@@ -88,7 +89,8 @@ export async function getRankById(id: string): Promise<RankDto> {
 export async function createRank(data: CreateRankRequest): Promise<RankDto> {
   const response = await apiPostMain<RankDto>("/api/Ranks", data);
 
-  if (!response.success || !response.data) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok || !response.data) {
     throw new Error(response.error?.message || "Failed to create rank");
   }
 
@@ -101,7 +103,8 @@ export async function updateRank(
 ): Promise<boolean> {
   const response = await apiPutMain<boolean>(`/api/Ranks/${id}`, data);
 
-  if (!response.success) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok) {
     throw new Error(response.error?.message || "Failed to update rank");
   }
 
@@ -111,7 +114,8 @@ export async function updateRank(
 export async function deleteRank(id: string): Promise<boolean> {
   const response = await apiDeleteMain<boolean>(`/api/Ranks/${id}`);
 
-  if (!response.success) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok) {
     throw new Error(response.error?.message || "Failed to delete rank");
   }
 

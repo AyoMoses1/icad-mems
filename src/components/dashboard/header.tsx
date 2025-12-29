@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Search, Menu, User, Shield, Users, Building2, Briefcase, ChevronDown, CheckCircle } from "lucide-react";
+import { Bell, Search, Menu, User, Shield, Users, Building2, ChevronDown, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ import type { UserType } from "@/store/ui-store";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { getMySeafarerOnboardingStatus } from "@/lib/services/seafarers";
+import { getInstitutionOnboardingStatus } from "@/lib/services/institution-onboarding-service";
 
 const getPageTitle = (
   pathname: string,
@@ -30,6 +31,8 @@ const getPageTitle = (
 ): string => {
   const routes: Record<string, string> = {
     "/": "Dashboard",
+    "/seafarer/dashboard": "Seafarer Dashboard",
+    "/institution/dashboard": "Institution Dashboard",
     // Training
     "/training": "Training",
     "/training/enrollments": "My Enrollments",
@@ -46,6 +49,9 @@ const getPageTitle = (
     "/seafarer/profile": "Seafarer Profile",
     "/seafarer/add": "Add Seafarer",
     "/seafarer/miis": "Accredited MTIs",
+    // Medical
+    "/medical/services": "Medical Services",
+    "/medical/appointments": "Medical Appointments",
     // Invoices & Payments
     "/invoices/management": "Invoice Management",
     "/invoices/payments": "Payments",
@@ -64,10 +70,9 @@ const getPageTitle = (
 };
 
 const userTypeLabels: Record<UserType, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
-  admin: { label: "Admin", icon: Shield },
+  admin: { label: "Staff", icon: Shield },
   seafarer: { label: "Seafarer", icon: User },
   institution: { label: "Institution", icon: Building2 },
-  staff: { label: "Staff", icon: Briefcase },
 };
 
 export function Header() {
@@ -97,33 +102,92 @@ export function Header() {
     setUserType(type);
     setUserTypeMenuOpen(false);
 
-    if (type !== "seafarer") return;
+    // Map user types to their dashboard routes
+    const dashboardRoutes: Record<UserType, string> = {
+      admin: "/",
+      seafarer: "/seafarer/dashboard",
+      institution: "/institution/dashboard",
+    };
 
-    try {
-      const response = await getMySeafarerOnboardingStatus();
-      const ok = response.success ?? (response as any).successful;
-
-      if (!ok) {
-        const msg =
-          response.message ||
-          (response as any).error?.message ||
-          "Failed to check onboarding status";
-        toast.error(msg);
-        return;
-      }
-
-      const completed = response.data?.completed;
-      if (!completed) {
-        const msg =
-          response.data?.message ||
-          response.message ||
-          "Complete your onboarding to continue.";
-        toast.info(msg);
+    // Only gate flows that require onboarding
+    const checkSeafarer = async () => {
+      try {
+        const response = await getMySeafarerOnboardingStatus();
+        const ok = response.success ?? (response as any).successful;
+        if (!ok) {
+          const msg =
+            response.message ||
+            (response as any).error?.message ||
+            "Failed to check onboarding status";
+          toast.error(msg);
+          // Route to onboarding if we can't verify completion
+          router.push("/onboarding/seafarer");
+          return;
+        }
+        // Only route to dashboard if onboarding is explicitly completed
+        if (response.data?.completed === true) {
+          router.push(dashboardRoutes.seafarer);
+        } else {
+          const msg =
+            response.data?.message ||
+            response.message ||
+            "Complete your onboarding to continue.";
+          toast.info(msg);
+          router.push("/onboarding/seafarer");
+        }
+      } catch (error) {
+        console.error("Failed to fetch onboarding status:", error);
+        toast.error("Could not check onboarding status");
+        // Route to onboarding on error (safer default)
         router.push("/onboarding/seafarer");
       }
+    };
+
+    const checkInstitution = async () => {
+      try {
+        const response = await getInstitutionOnboardingStatus();
+        const ok = response.success ?? (response as any).successful;
+        if (!ok) {
+          const msg =
+            response.message ||
+            (response as any).error?.message ||
+            "Failed to check onboarding status";
+          toast.error(msg);
+          // Route to onboarding if we can't verify completion
+          router.push("/onboarding/institution");
+          return;
+        }
+        // Only route to dashboard if onboarding is explicitly completed
+        if (response.data?.completed === true) {
+          router.push(dashboardRoutes.institution);
+        } else {
+          const msg =
+            response.data?.message ||
+            response.message ||
+            "Complete your onboarding to continue.";
+          toast.info(msg);
+          router.push("/onboarding/institution");
+        }
+      } catch (error) {
+        console.error("Failed to fetch onboarding status:", error);
+        toast.error("Could not check onboarding status");
+        // Route to onboarding on error (safer default)
+        router.push("/onboarding/institution");
+      }
+    };
+
+    try {
+      if (type === "seafarer") {
+        await checkSeafarer();
+      } else if (type === "institution") {
+        await checkInstitution();
+      } else {
+        // For admin, directly navigate to dashboard (no onboarding required)
+        router.push(dashboardRoutes[type]);
+      }
     } catch (error) {
-      console.error("Failed to fetch onboarding status:", error);
-      toast.error("Could not check onboarding status");
+      console.error("Failed to handle user type switch:", error);
+      toast.error("Could not switch user type");
     }
   };
 

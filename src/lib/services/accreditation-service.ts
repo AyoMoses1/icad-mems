@@ -1,5 +1,6 @@
 /**
- * Accreditation Service - API integration for accreditation operations (Officer/Admin only)
+ * Accreditation Service - API integration for accreditation operations
+ * Based on swagger.txt API definitions
  */
 
 import {
@@ -10,312 +11,239 @@ import {
   type ApiResponse,
 } from "@/lib/api-client";
 
-const API_BASE = "/api/v1/Accreditations";
-const API_BASE_LEGACY = "/api/accreditations"; // For endpoints from frontend-api-integration.md
-
-export interface AccreditationDto {
-  id: number;
-  userOrganizationId?: number;
-  organizationName?: string | null;
-  applicationNumber?: string | null;
-  applicationDate?: string;
-  accreditationStatusId?: number;
-  accreditationStatusName?: string | null;
-  accreditationStartDate?: string | null;
-  accreditationEndDate?: string | null;
-  accreditationExpiryDate?: string | null;
-  accreditationNumber?: string | null;
-  certificateNumber?: string | null;
-  [key: string]: unknown;
-}
-
-export interface AccreditationFilters {
-  pageNumber?: number;
-  pageSize?: number;
-  organizationId?: number;
-  statusId?: number;
-  isActive?: boolean;
-}
-
-export interface PaginatedResponse<T> {
-  items: T[];
-  pageNumber: number;
-  pageSize: number;
-  totalCount: number;
-  totalPages: number;
-  hasPreviousPage: boolean;
-  hasNextPage: boolean;
-}
-
-/**
- * Get paginated list of accreditations (Officer/Admin only)
- */
-export async function getAccreditations(
-  filters: AccreditationFilters = {}
-): Promise<ApiResponse<PaginatedResponse<AccreditationDto>>> {
-  const {
-    pageNumber = 1,
-    pageSize = 20,
-    organizationId,
-    statusId,
-    isActive,
-  } = filters;
-
-  const params = new URLSearchParams({
-    pageNumber: pageNumber.toString(),
-    pageSize: pageSize.toString(),
-  });
-
-  if (organizationId)
-    params.append("organizationId", organizationId.toString());
-  if (statusId) params.append("statusId", statusId.toString());
-  if (isActive !== undefined) params.append("isActive", isActive.toString());
-
-  return apiGetMain<PaginatedResponse<AccreditationDto>>(
-    `${API_BASE}?${params.toString()}`
-  );
-}
-
-/**
- * Get accreditation by ID
- */
-export async function getAccreditationById(
-  accredId: number
-): Promise<ApiResponse<AccreditationDto>> {
-  return apiGetMain<AccreditationDto>(`${API_BASE}/${accredId}`);
-}
-
-/**
- * Approve accreditation (Officer/Admin only)
- */
-export async function approveAccreditation(
-  accredId: number,
-  approvalData: {
-    accreditationStartDate: string;
-    accreditationEndDate: string;
-    accreditationNumber: string;
-    certificateNumber?: string;
-    [key: string]: unknown;
-  }
-): Promise<ApiResponse<AccreditationDto>> {
-  return apiPostMain<AccreditationDto>(
-    `${API_BASE}/${accredId}/approve`,
-    approvalData
-  );
-}
-
-/**
- * Reject accreditation (Officer/Admin only)
- */
-export async function rejectAccreditation(
-  accredId: number,
-  rejectionData: { reason?: string; [key: string]: unknown }
-): Promise<ApiResponse<AccreditationDto>> {
-  return apiPostMain<AccreditationDto>(
-    `${API_BASE}/${accredId}/reject`,
-    rejectionData
-  );
-}
-
-/**
- * Suspend accreditation (Officer/Admin only)
- */
-export async function suspendAccreditation(
-  accredId: number,
-  suspensionData: { reason?: string; [key: string]: unknown }
-): Promise<ApiResponse<AccreditationDto>> {
-  return apiPostMain<AccreditationDto>(
-    `${API_BASE}/${accredId}/suspend`,
-    suspensionData
-  );
-}
+const API_BASE = "/api/Accreditations";
 
 // ============================================================================
-// Endpoints from frontend-api-integration.md (Accreditation Flow)
+// DTOs from Swagger
 // ============================================================================
+
+export interface InstitutionAccreditationDto {
+  id: string;
+  institutionId?: string;
+  accreditationType?: string;
+  certificateNumber?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  status?: string;
+  lastAuditDate?: string;
+  fileUrl?: string;
+  invoiceId?: string;
+}
+
+export interface FinalizeAccreditationRequest {
+  remarks?: string;
+}
+
+export interface GenerateAccreditationInvoiceRequest {
+  totalAmount: number;
+  currency?: string;
+  dueDate: string; // date format
+  billingCategory?: string;
+}
 
 export interface AccreditationRequirement {
   id: string;
+  userType?: string;
+  documentMasterId?: string;
+  isMandatory: boolean;
+  categoryType?: string;
   name: string;
-  description?: string;
-  isRequired: boolean;
-  category?: string;
 }
 
-export interface AccreditationRequirementsResponse {
-  requirements: AccreditationRequirement[];
-}
-
-export interface AccreditationStatusCheckResponse {
-  isEligible: boolean;
+export interface AccreditationGapAnalysisDto {
+  isEligible?: boolean;
   completedRequirements?: string[];
   missingRequirements?: string[];
   gaps?: string[];
   message?: string;
 }
 
-export interface AccreditationApplyRequest {
-  institutionId?: string;
-  accreditationType?: string;
-  requestedServices?: string[];
-}
-
-export interface AccreditationApplyResponse {
-  accreditationId: string;
-  status?: string;
-  message?: string;
-}
-
-export interface FileUploadResponse {
-  fileUrl: string;
-  fileName?: string;
-  fileSize?: number;
-}
-
-export interface InvoiceDto {
-  id: string;
-  accreditationId?: string;
-  amount?: number;
-  currency?: string;
-  status?: string;
-  paymentUrl?: string;
-  createdAt?: string;
-}
-
-export interface VerifyPaymentRequest {
-  paymentReference?: string;
-  transactionId?: string;
-}
-
-export interface VerifyPaymentResponse {
-  isVerified: boolean;
-  message?: string;
-}
-
-export interface AccreditationDetailDto {
-  id: string;
-  institutionId?: string;
-  accreditationType?: string;
-  status?: string;
-  requestedServices?: string[];
-  submittedAt?: string;
-  finalizedAt?: string;
-  reviewedAt?: string;
-  activatedAt?: string;
-  createdAt?: string;
-}
+// ============================================================================
+// Accreditation Requirements
+// ============================================================================
 
 /**
  * Get accreditation requirements
+ * GET /api/Accreditations/requirements
  */
-export async function getAccreditationRequirements(): Promise<
-  ApiResponse<AccreditationRequirementsResponse>
-> {
-  return apiGetMain<AccreditationRequirementsResponse>(
-    `${API_BASE_LEGACY}/requirements`
+export async function getAccreditationRequirements(params?: {
+  userType?: string;
+  authUserId?: string;
+  institutionId?: string;
+}): Promise<ApiResponse<AccreditationRequirement[]>> {
+  const queryParams = new URLSearchParams();
+  if (params?.userType) {
+    queryParams.append("UserType", params.userType);
+  }
+  if (params?.authUserId) {
+    queryParams.append("authUserId", params.authUserId);
+  }
+  if (params?.institutionId) {
+    queryParams.append("institutionId", params.institutionId);
+  }
+
+  return apiGetMain<AccreditationRequirement[]>(
+    `${API_BASE}/requirements${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
   );
 }
 
 /**
  * Check accreditation status and gaps
+ * GET /api/Accreditations/check-status
  */
-export async function checkAccreditationStatus(
-  institutionId?: string
-): Promise<ApiResponse<AccreditationStatusCheckResponse>> {
-  const queryParams = institutionId ? `?institutionId=${institutionId}` : "";
-  return apiGetMain<AccreditationStatusCheckResponse>(
-    `${API_BASE_LEGACY}/check-status${queryParams}`
+export async function checkAccreditationStatus(params?: {
+  institutionId?: string;
+  userType?: string;
+}): Promise<ApiResponse<AccreditationGapAnalysisDto>> {
+  const queryParams = new URLSearchParams();
+  if (params?.institutionId) {
+    queryParams.append("InstitutionId", params.institutionId);
+  }
+  if (params?.userType) {
+    queryParams.append("UserType", params.userType);
+  }
+
+  return apiGetMain<AccreditationGapAnalysisDto>(
+    `${API_BASE}/check-status${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
   );
 }
+
+// ============================================================================
+// Apply for Accreditation
+// ============================================================================
 
 /**
  * Apply for accreditation
+ * POST /api/Accreditations/apply
+ * multipart/form-data: AccreditationType (required), File (required)
  */
 export async function applyForAccreditation(
-  data: AccreditationApplyRequest
-): Promise<ApiResponse<AccreditationApplyResponse>> {
-  return apiPostMain<AccreditationApplyResponse>(
-    `${API_BASE_LEGACY}/apply`,
-    data
+  accreditationType: string,
+  file: File,
+): Promise<ApiResponse<InstitutionAccreditationDto>> {
+  const formData = new FormData();
+  formData.append("AccreditationType", accreditationType);
+  formData.append("File", file);
+
+  return apiPostMultipartMain<InstitutionAccreditationDto>(
+    `${API_BASE}/apply`,
+    formData,
   );
 }
 
 /**
- * Upload evidence for accreditation (multipart/form-data)
+ * Upload evidence/document for accreditation
+ * POST /api/Accreditations/{id}/upload
+ * multipart/form-data: File (required)
  */
 export async function uploadAccreditationEvidence(
   accreditationId: string,
-  files: File[],
-  requirementId?: string
-): Promise<ApiResponse<FileUploadResponse[]>> {
+  file: File,
+): Promise<ApiResponse<InstitutionAccreditationDto>> {
   const formData = new FormData();
-  files.forEach((file) => {
-    formData.append("files", file);
-  });
-  if (requirementId) {
-    formData.append("requirementId", requirementId);
-  }
+  formData.append("File", file);
 
-  return apiPostMultipartMain<FileUploadResponse[]>(
-    `${API_BASE_LEGACY}/${accreditationId}/upload`,
-    formData
+  return apiPostMultipartMain<InstitutionAccreditationDto>(
+    `${API_BASE}/${accreditationId}/upload`,
+    formData,
   );
 }
 
 /**
  * Finalize accreditation application
+ * PATCH /api/Accreditations/{id}/finalize
  */
 export async function finalizeAccreditation(
-  accreditationId: string
+  accreditationId: string,
+  data?: FinalizeAccreditationRequest,
 ): Promise<ApiResponse<boolean>> {
   return apiPatchMain<boolean>(
-    `${API_BASE_LEGACY}/${accreditationId}/finalize`
+    `${API_BASE}/${accreditationId}/finalize`,
+    data || {},
   );
 }
 
 /**
  * Generate invoice for accreditation
+ * POST /api/Accreditations/{id}/invoice
  */
 export async function generateAccreditationInvoice(
-  accreditationId: string
-): Promise<ApiResponse<InvoiceDto>> {
-  return apiPostMain<InvoiceDto>(
-    `${API_BASE_LEGACY}/${accreditationId}/invoice`
-  );
+  accreditationId: string,
+  data: GenerateAccreditationInvoiceRequest,
+): Promise<ApiResponse<any>> {
+  return apiPostMain<any>(`${API_BASE}/${accreditationId}/invoice`, data);
 }
 
 /**
  * Get invoice for accreditation
+ * GET /api/Accreditations/{id}/invoice
  */
 export async function getAccreditationInvoice(
-  accreditationId: string
-): Promise<ApiResponse<InvoiceDto>> {
-  return apiGetMain<InvoiceDto>(
-    `${API_BASE_LEGACY}/${accreditationId}/invoice`
-  );
+  accreditationId: string,
+): Promise<ApiResponse<any>> {
+  return apiGetMain<any>(`${API_BASE}/${accreditationId}/invoice`);
 }
 
 /**
  * Verify payment for accreditation
+ * POST /api/Accreditations/{id}/verify-payment
  */
+export interface VerifyAccreditationPaymentRequest {
+  paymentReference?: string;
+  transactionId?: string;
+}
+
+export interface VerifyAccreditationPaymentResponse {
+  isVerified?: boolean;
+  message?: string;
+}
+
 export async function verifyAccreditationPayment(
   accreditationId: string,
-  data: VerifyPaymentRequest
-): Promise<ApiResponse<VerifyPaymentResponse>> {
-  return apiPostMain<VerifyPaymentResponse>(
-    `${API_BASE_LEGACY}/${accreditationId}/verify-payment`,
-    data
+  data: VerifyAccreditationPaymentRequest,
+): Promise<ApiResponse<VerifyAccreditationPaymentResponse>> {
+  return apiPostMain<VerifyAccreditationPaymentResponse>(
+    `${API_BASE}/${accreditationId}/verify-payment`,
+    data,
   );
 }
 
 /**
  * Get accreditation details
+ * GET /api/Accreditations/{id}
  */
 export async function getAccreditationDetails(
-  accreditationId: string
-): Promise<ApiResponse<AccreditationDetailDto>> {
-  return apiGetMain<AccreditationDetailDto>(
-    `${API_BASE_LEGACY}/${accreditationId}`
+  accreditationId: string,
+): Promise<ApiResponse<InstitutionAccreditationDto>> {
+  return apiGetMain<InstitutionAccreditationDto>(
+    `${API_BASE}/${accreditationId}`,
   );
 }
 
+/**
+ * Get all accreditations for the current user/institution
+ * This endpoint may vary based on backend implementation
+ * For now, we'll use a generic approach that can be adjusted
+ */
+export async function getAllAccreditations(params?: {
+  pageNumber?: number;
+  pageSize?: number;
+  sortDirection?: string;
+}): Promise<ApiResponse<InstitutionAccreditationDto[]>> {
+  const queryParams = new URLSearchParams();
+  if (params?.pageNumber) {
+    queryParams.append("pageNumber", params.pageNumber.toString());
+  }
+  if (params?.pageSize) {
+    queryParams.append("pageSize", params.pageSize.toString());
+  }
+  if (params?.sortDirection) {
+    queryParams.append("sortDirection", params.sortDirection);
+  }
+
+  const url = queryParams.toString()
+    ? `${API_BASE}?${queryParams.toString()}`
+    : API_BASE;
+
+  return apiGetMain<InstitutionAccreditationDto[]>(url);
+}

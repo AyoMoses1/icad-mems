@@ -38,9 +38,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/shared";
-import { getSeafarers } from "@/lib/services/seafarers";
+import { getSeafarers, type SeafarerDto } from "@/lib/services/seafarers";
 import { updateUserStatus } from "@/lib/services/user-service";
-import type { UserProfileDto } from "@/types/seafarer";
 import { formatDate, getInitials } from "@/lib/utils";
 
 const statusConfig: Record<
@@ -57,7 +56,7 @@ const statusConfig: Record<
 };
 
 export default function SeafarerRegistryPage() {
-  const [seafarers, setSeafarers] = useState<UserProfileDto[]>([]);
+  const [seafarers, setSeafarers] = useState<SeafarerDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -65,8 +64,9 @@ export default function SeafarerRegistryPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isSuspendDialogOpen, setIsSuspendDialogOpen] = useState(false);
-  const [selectedSeafarer, setSelectedSeafarer] =
-    useState<UserProfileDto | null>(null);
+  const [selectedSeafarer, setSelectedSeafarer] = useState<SeafarerDto | null>(
+    null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const pageSize = 20;
 
@@ -99,14 +99,14 @@ export default function SeafarerRegistryPage() {
         const total = response.data.totalNumber ?? response.data.items.length;
         setTotalPages(
           response.data.pageSize
-            ? Math.ceil(total / response.data.pageSize)
+            ? Math.ceil(total / Number(response.data.pageSize))
             : 1,
         );
         setTotalCount(total);
 
         // Calculate stats from current page data (ideal would be from separate endpoint)
         const activeCount = response.data.items.filter(
-          (u) => u.currentStatus === "Active" || u.isActive,
+          (u) => u.isActive === true,
         ).length;
         setStats((prev) => ({
           ...prev,
@@ -125,16 +125,29 @@ export default function SeafarerRegistryPage() {
   };
 
   const handleSuspend = async () => {
-    if (!selectedSeafarer) return;
+    if (!selectedSeafarer || !selectedSeafarer.authUserId) return;
 
     setIsSubmitting(true);
     try {
-      const response = await updateUserStatus(selectedSeafarer.id || 0, {
+      // Note: updateUserStatus expects a number, but authUserId might be a string
+      // This may need to be adjusted based on the actual API implementation
+      const userId =
+        typeof selectedSeafarer.authUserId === "string"
+          ? parseInt(selectedSeafarer.authUserId, 10)
+          : selectedSeafarer.authUserId;
+
+      if (isNaN(userId)) {
+        toast.error("Invalid user ID");
+        return;
+      }
+
+      const response = await updateUserStatus(userId, {
         status: "Suspended",
         reason: "Suspended by administrator",
       });
 
-      if (response.success) {
+      const ok = response.success ?? (response as any).successful;
+      if (ok) {
         toast.success("Seafarer suspended successfully");
         setIsSuspendDialogOpen(false);
         setSelectedSeafarer(null);
@@ -150,18 +163,17 @@ export default function SeafarerRegistryPage() {
     }
   };
 
-  const getFullName = (user: UserProfileDto) => {
+  const getFullName = (seafarer: SeafarerDto) => {
     return (
-      `${user.firstName || ""} ${user.middleName || ""} ${user.lastName || ""}`.trim() ||
-      "N/A"
+      `${seafarer.firstName || ""} ${seafarer.lastName || ""}`.trim() || "N/A"
     );
   };
 
-  const columns: DataTableColumn<UserProfileDto>[] = [
+  const columns: DataTableColumn<SeafarerDto>[] = [
     {
       id: "seafarer",
       header: "Seafarer",
-      cell: (row) => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <Avatar>
             <AvatarFallback>{getInitials(getFullName(row))}</AvatarFallback>
@@ -178,46 +190,41 @@ export default function SeafarerRegistryPage() {
     {
       id: "registrationNumber",
       header: "CDC Number",
-      accessorKey: "registrationNumber",
-      cell: (row) => (
+      cell: ({ row }) => (
         <span className="font-mono text-sm">
-          {row.registrationNumber || `CDC-${row.id}`}
+          {row.ninNumber || row.sidNumber || `CDC-${row.id}`}
         </span>
       ),
     },
     {
-      id: "userTypeName",
+      id: "rank",
       header: "Rank",
-      accessorKey: "userTypeName",
-      cell: (row) => (
-        <span className="text-sm">{row.userTypeName || "N/A"}</span>
+      cell: ({ row }) => (
+        <span className="text-sm">{row.currentRankId || "N/A"}</span>
       ),
     },
     {
-      id: "currentStatus",
+      id: "status",
       header: "Status",
-      accessorKey: "currentStatus",
-      cell: (row) => {
-        const status =
-          row.currentStatus || (row.isActive ? "Active" : "Suspended");
+      cell: ({ row }) => {
+        const status = row.isActive ? "Active" : "Suspended";
         const config = statusConfig[status] || statusConfig.Pending;
         return <Badge variant={config.variant}>{config.label}</Badge>;
       },
     },
     {
-      id: "lastLoginAt",
+      id: "lastModified",
       header: "Last Active",
-      accessorKey: "lastLoginAt",
-      cell: (row) => (
+      cell: ({ row }) => (
         <span className="text-sm">
-          {row.lastLoginAt ? formatDate(row.lastLoginAt) : "Never"}
+          {row.lastModified ? formatDate(row.lastModified) : "Never"}
         </span>
       ),
     },
     {
       id: "actions",
       header: "",
-      cell: (row) => (
+      cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">

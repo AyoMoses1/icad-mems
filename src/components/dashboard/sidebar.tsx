@@ -52,16 +52,25 @@ type MenuItem = {
 
 // Seafarer Menu Items
 const seafarerMenuItems: MenuItem[] = [
-  { title: "Dashboard", href: "/", icon: LayoutDashboard },
-  { title: "Training", href: "/training", icon: GraduationCap },
   {
-    title: "License & Certification",
-    href: "/license-certification",
-    icon: Award,
+    title: "Dashboard",
+    href: "/seafarer/dashboard",
+    icon: LayoutDashboard,
   },
+  { title: "Training", href: "/training", icon: GraduationCap },
+  // {
+  //   title: "License & Certification",
+  //   href: "/license-certification",
+  //   icon: Award,
+  // },
   { title: "Profile & Documents", href: "/profile-documents", icon: User },
   { title: "My Applications", href: "/seafarer/applications", icon: FileText },
-  { title: "Onboarding", href: "/onboarding/seafarer", icon: User },
+  {
+    title: "Apply for Certificate",
+    href: "/applications/apply",
+    icon: FileText,
+  },
+  // { title: "Onboarding", href: "/onboarding/seafarer", icon: User },
 ];
 
 // Admin Menu Items
@@ -72,10 +81,10 @@ const adminMenuItems: MenuItem[] = [
     href: "#",
     icon: User,
     children: [
-      { title: "Overview", href: "/seafarer/overview" },
-      { title: "Applications", href: "/seafarer/applications" },
-      { title: "Seafarer Registry", href: "/seafarer/registry" },
+      // { title: "Overview", href: "/seafarer/overview" },
+      // { title: "Applications", href: "/seafarer/applications" },
       { title: "Add Seafarer", href: "/seafarer/add" },
+      { title: "Seafarer Registry", href: "/seafarer/registry" },
     ],
   },
   {
@@ -84,7 +93,7 @@ const adminMenuItems: MenuItem[] = [
     icon: Building2,
     children: [
       { title: "All Institutions", href: "/institutions" },
-      { title: "Accredited MTIs", href: "/seafarer/miis" },
+      // { title: "Accredited MTIs", href: "/seafarer/miis" },
     ],
   },
   {
@@ -101,7 +110,7 @@ const adminMenuItems: MenuItem[] = [
     href: "#",
     icon: CheckCircle,
     children: [
-      { title: "All Accreditations", href: "/admin/accreditations" },
+      { title: "Accreditations Dashboard", href: "/admin/accreditations" },
       { title: "Review Accreditations", href: "/admin/accreditations/review" },
     ],
   },
@@ -114,39 +123,54 @@ const adminMenuItems: MenuItem[] = [
       { title: "Payments", href: "/invoices/payments" },
     ],
   },
-  { title: "Settings", href: "/settings", icon: Settings },
+  {
+    title: "System Management",
+    href: "#",
+    icon: Settings,
+    children: [
+      { title: "Certificates", href: "/certificates" },
+      { title: "Documents", href: "/documents" },
+      // { title: "Vessels", href: "/vessels" },
+      { title: "Ranks", href: "/ranks" },
+      // { title: "Nationalities", href: "/nationalities" },
+      { title: "Onboarding Requirements", href: "/onboarding-requirements" },
+    ],
+  },
+  // { title: "Settings", href: "/settings", icon: Settings },
 ];
 
 // Institution Menu Items
 const institutionMenuItems: MenuItem[] = [
-  { title: "Dashboard", href: "/", icon: LayoutDashboard },
-  { title: "Onboarding Institutions", href: "/onboarding/institution", icon: Building2 },
+  {
+    title: "Dashboard",
+    href: "/institution/dashboard",
+    icon: LayoutDashboard,
+  },
+
   {
     title: "Institution Management",
     href: "#",
     icon: Building2,
     children: [
       { title: "My Institution", href: "/institutions" },
-      { title: "Onboarding", href: "/onboarding/institution" },
+      { title: "Cohorts", href: "/training/cohorts" },
+      // { title: "Onboarding", href: "/onboarding/institution" },
     ],
   },
   {
     title: "Training Institute",
     href: "#",
     icon: GraduationCap,
-    children: [
-      { title: "Programs", href: "/training/programs" },
-      { title: "Courses", href: "/training/courses" },
-      { title: "Enrollments", href: "/training/enrollments" },
-    ],
+    children: [{ title: "Courses", href: "/training/courses" }],
   },
   {
     title: "Medical Institute",
-    href: "#",
+    href: "/medical-institutes",
     icon: Stethoscope,
     children: [
-      { title: "Services", href: "/medical/services" },
-      { title: "Appointments", href: "/medical/appointments" },
+      { title: "My Medical Institute", href: "/medical-institutes" },
+      // { title: "Services", href: "/medical/services" },
+      // { title: "Appointments", href: "/medical/appointments" },
     ],
   },
   {
@@ -156,43 +180,10 @@ const institutionMenuItems: MenuItem[] = [
     children: [
       { title: "Apply for Accreditation", href: "/accreditations/apply" },
       { title: "My Accreditations", href: "/accreditations" },
-      { title: "Status Check", href: "/accreditations/status" },
+      // { title: "Status Check", href: "/accreditations/status" },
     ],
   },
-  { title: "Settings", href: "/settings", icon: Settings },
-];
-
-// Staff Menu Items
-const staffMenuItems: MenuItem[] = [
-  { title: "Dashboard", href: "/", icon: LayoutDashboard },
-  {
-    title: "Applications",
-    href: "#",
-    icon: ClipboardList,
-    children: [
-      { title: "Pending Review", href: "/admin/applications/review" },
-      { title: "All Applications", href: "/seafarer/applications" },
-    ],
-  },
-  {
-    title: "Accreditations",
-    href: "#",
-    icon: CheckCircle,
-    children: [
-      { title: "Under Review", href: "/admin/accreditations/review" },
-      { title: "Audit", href: "/admin/accreditations/audit" },
-    ],
-  },
-  {
-    title: "Institutions",
-    href: "#",
-    icon: Building2,
-    children: [
-      { title: "All Institutions", href: "/institutions" },
-      { title: "Accredited MTIs", href: "/seafarer/miis" },
-    ],
-  },
-  { title: "Settings", href: "/settings", icon: Settings },
+  // { title: "Settings", href: "/settings", icon: Settings },
 ];
 
 // Get menu items based on user type
@@ -204,8 +195,6 @@ const getMenuItems = (userType: UserType): MenuItem[] => {
       return seafarerMenuItems;
     case "institution":
       return institutionMenuItems;
-    case "staff":
-      return staffMenuItems;
     default:
       return adminMenuItems;
   }

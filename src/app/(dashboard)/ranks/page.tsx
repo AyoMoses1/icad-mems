@@ -1,13 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Plus,
-  Pencil,
-  Trash2,
-  MoreHorizontal,
-  Award,
-} from "lucide-react";
+import { Plus, Pencil, Trash2, MoreHorizontal, Award } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -42,10 +36,22 @@ import {
   updateRank,
   deleteRank,
 } from "@/lib/services/ranks";
+import {
+  getMaritimeDepartments,
+  MaritimeDepartmentDto,
+} from "@/lib/services/maritime-departments-service";
 import { formatDate } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function RanksPage() {
   const [ranks, setRanks] = useState<RankDto[]>([]);
+  const [departments, setDepartments] = useState<MaritimeDepartmentDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -61,8 +67,11 @@ export default function RanksPage() {
     description: "",
   });
 
+  const categoryOptions = ["Staff", "Cadet", "Rating", "Officer"];
+
   useEffect(() => {
     loadRanks();
+    loadDepartments();
   }, []);
 
   const loadRanks = async () => {
@@ -75,6 +84,23 @@ export default function RanksPage() {
       toast.error("Failed to load ranks");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadDepartments = async () => {
+    try {
+      const response = await getMaritimeDepartments({
+        page: 1,
+        pageSize: 100,
+        sortDirection: "asc",
+      });
+      const ok = response.success ?? (response as any).successful;
+      if (ok && response.data) {
+        setDepartments(Array.isArray(response.data) ? response.data : []);
+      }
+    } catch (error) {
+      console.error("Failed to load departments:", error);
+      toast.error("Failed to load departments");
     }
   };
 
@@ -158,9 +184,7 @@ export default function RanksPage() {
       id: "title",
       header: "Title",
       accessorKey: "title",
-      cell: ({ row }) => (
-        <div className="font-medium">{row.title || "-"}</div>
-      ),
+      cell: ({ row }) => <div className="font-medium">{row.title || "-"}</div>,
     },
     {
       id: "category",
@@ -254,15 +278,24 @@ export default function RanksPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="departmentId">Department ID *</Label>
-              <Input
-                id="departmentId"
+              <Label htmlFor="departmentId">Department *</Label>
+              <Select
                 value={formData.departmentId}
-                onChange={(e) =>
-                  setFormData({ ...formData, departmentId: e.target.value })
+                onValueChange={(value) =>
+                  setFormData({ ...formData, departmentId: value })
                 }
-                placeholder="Department UUID"
-              />
+              >
+                <SelectTrigger id="departmentId">
+                  <SelectValue placeholder="Select a department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name || dept.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="title">Title *</Label>
@@ -282,21 +315,33 @@ export default function RanksPage() {
                 type="number"
                 value={formData.seniorityLevel}
                 onChange={(e) =>
-                  setFormData({ ...formData, seniorityLevel: parseInt(e.target.value) || 0 })
+                  setFormData({
+                    ...formData,
+                    seniorityLevel: parseInt(e.target.value) || 0,
+                  })
                 }
                 placeholder="Seniority level"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Input
-                id="category"
+              <Select
                 value={formData.category}
-                onChange={(e) =>
-                  setFormData({ ...formData, category: e.target.value })
+                onValueChange={(value) =>
+                  setFormData({ ...formData, category: value })
                 }
-                placeholder="Category"
-              />
+              >
+                <SelectTrigger id="category">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoryOptions.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
@@ -331,21 +376,28 @@ export default function RanksPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Rank</DialogTitle>
-            <DialogDescription>
-              Update the rank information.
-            </DialogDescription>
+            <DialogDescription>Update the rank information.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-departmentId">Department ID</Label>
-              <Input
-                id="edit-departmentId"
+              <Label htmlFor="edit-departmentId">Department</Label>
+              <Select
                 value={formData.departmentId}
-                onChange={(e) =>
-                  setFormData({ ...formData, departmentId: e.target.value })
+                onValueChange={(value) =>
+                  setFormData({ ...formData, departmentId: value })
                 }
-                placeholder="Department UUID"
-              />
+              >
+                <SelectTrigger id="edit-departmentId">
+                  <SelectValue placeholder="Select a department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name || dept.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-title">Title</Label>
@@ -365,21 +417,33 @@ export default function RanksPage() {
                 type="number"
                 value={formData.seniorityLevel}
                 onChange={(e) =>
-                  setFormData({ ...formData, seniorityLevel: parseInt(e.target.value) || 0 })
+                  setFormData({
+                    ...formData,
+                    seniorityLevel: parseInt(e.target.value) || 0,
+                  })
                 }
                 placeholder="Seniority level"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-category">Category</Label>
-              <Input
-                id="edit-category"
+              <Select
                 value={formData.category}
-                onChange={(e) =>
-                  setFormData({ ...formData, category: e.target.value })
+                onValueChange={(value) =>
+                  setFormData({ ...formData, category: value })
                 }
-                placeholder="Category"
-              />
+              >
+                <SelectTrigger id="edit-category">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoryOptions.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-description">Description</Label>
@@ -416,12 +480,11 @@ export default function RanksPage() {
         onConfirm={handleConfirmDelete}
         title="Delete Rank"
         description={`Are you sure you want to delete "${selectedRank?.title}"? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
         variant="destructive"
         isLoading={isSubmitting}
       />
     </div>
   );
 }
-

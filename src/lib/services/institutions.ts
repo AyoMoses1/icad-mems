@@ -53,15 +53,19 @@ export async function getInstitutions(params?: {
   sortDirection?: string;
 }): Promise<PagedResult<InstitutionDto>> {
   const queryParams = new URLSearchParams();
-  if (params?.pageNumber) queryParams.append("pageNumber", params.pageNumber.toString());
-  if (params?.pageSize) queryParams.append("pageSize", params.pageSize.toString());
-  if (params?.sortDirection) queryParams.append("sortDirection", params.sortDirection);
+  if (params?.pageNumber)
+    queryParams.append("pageNumber", params.pageNumber.toString());
+  if (params?.pageSize)
+    queryParams.append("pageSize", params.pageSize.toString());
+  if (params?.sortDirection)
+    queryParams.append("sortDirection", params.sortDirection);
 
   const response = await apiGetMain<PagedResult<InstitutionDto>>(
-    `/api/Institutions${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
+    `/api/Institutions${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
   );
 
-  if (!response.successful || !response.data) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok || !response.data) {
     throw new Error(response.error?.message || "Failed to fetch institutions");
   }
 
@@ -71,27 +75,35 @@ export async function getInstitutions(params?: {
 export async function getInstitutionById(id: string): Promise<InstitutionDto> {
   const response = await apiGetMain<InstitutionDto>(`/api/Institutions/${id}`);
 
-  if (!response.success || !response.data) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok || !response.data) {
     throw new Error(response.error?.message || "Failed to fetch institution");
   }
 
   return response.data;
 }
 
-export async function createInstitution(data: CreateInstitutionRequest): Promise<InstitutionDto> {
+export async function createInstitution(
+  data: CreateInstitutionRequest,
+): Promise<InstitutionDto> {
   const response = await apiPostMain<InstitutionDto>("/api/Institutions", data);
 
-  if (!response.successful|| !response.data) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok || !response.data) {
     throw new Error(response.error?.message || "Failed to create institution");
   }
 
   return response.data;
 }
 
-export async function updateInstitution(id: string, data: UpdateInstitutionRequest): Promise<boolean> {
+export async function updateInstitution(
+  id: string,
+  data: UpdateInstitutionRequest,
+): Promise<boolean> {
   const response = await apiPutMain<boolean>(`/api/Institutions/${id}`, data);
 
-  if (!response.success) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok) {
     throw new Error(response.error?.message || "Failed to update institution");
   }
 
@@ -101,10 +113,10 @@ export async function updateInstitution(id: string, data: UpdateInstitutionReque
 export async function deleteInstitution(id: string): Promise<boolean> {
   const response = await apiDeleteMain<boolean>(`/api/Institutions/${id}`);
 
-  if (!response.success) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok) {
     throw new Error(response.error?.message || "Failed to delete institution");
   }
 
   return response.data ?? true;
 }
-

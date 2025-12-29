@@ -46,8 +46,10 @@ import {
   deleteInstitution,
 } from "@/lib/services/institutions";
 import { formatDate } from "@/lib/utils";
+import { useUIStore } from "@/store";
 
 export default function InstitutionsPage() {
+  const { userType } = useUIStore();
   const [institutions, setInstitutions] = useState<InstitutionDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -58,16 +60,14 @@ export default function InstitutionsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-  
-      name: "",
-      institutionType: "",
-      nimasaAccreditationNo: "",
-      accreditationExpiry: "",
-      physicalAddress: "",
-      email: "",
-      isActive: true,
-      authUserId: ""
-    
+    name: "",
+    institutionType: "",
+    nimasaAccreditationNo: "",
+    accreditationExpiry: "",
+    physicalAddress: "",
+    email: "",
+    isActive: true,
+    authUserId: "",
   });
 
   useEffect(() => {
@@ -264,31 +264,31 @@ export default function InstitutionsPage() {
       id: "name",
       header: "Name",
       accessorKey: "name",
-      cell: (row) => <div className="font-medium">{row.name || "-"}</div>,
+      cell: ({ row }) => <div className="font-medium">{row.name ?? "-"}</div>,
     },
     {
       id: "institutionType",
       header: "Type",
       accessorKey: "institutionType",
-      cell: (row) => <div>{row.institutionType || "-"}</div>,
+      cell: ({ row }) => <div>{row.institutionType ?? "-"}</div>,
     },
     {
       id: "email",
       header: "Email",
       accessorKey: "email",
-      cell: (row) => <div>{row.email || "-"}</div>,
+      cell: ({ row }) => <div>{row.email ?? "-"}</div>,
     },
     {
       id: "nimasaAccreditationNo",
       header: "NIMASA Accreditation",
       accessorKey: "nimasaAccreditationNo",
-      cell: (row) => <div>{row.nimasaAccreditationNo || "-"}</div>,
+      cell: ({ row }) => <div>{row.nimasaAccreditationNo ?? "-"}</div>,
     },
     {
       id: "isActive",
       header: "Status",
       accessorKey: "isActive",
-      cell: (row) => (
+      cell: ({ row }) => (
         <Badge variant={row.isActive ? "success" : "secondary"}>
           {row.isActive ? "Active" : "Inactive"}
         </Badge>
@@ -298,14 +298,14 @@ export default function InstitutionsPage() {
       id: "createdAt",
       header: "Created",
       accessorKey: "createdAt",
-      cell: (row) => (
+      cell: ({ row }) => (
         <div>{row.createdAt ? formatDate(row.createdAt) : "-"}</div>
       ),
     },
     {
       id: "actions",
       header: "",
-      cell: (row) => (
+      cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-8 w-8 p-0">
@@ -338,10 +338,12 @@ export default function InstitutionsPage() {
         title="Institutions"
         description="Manage training and medical institutions"
         actions={
-          <Button onClick={handleCreate}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Institution
-          </Button>
+          userType !== "institution" ? (
+            <Button onClick={handleCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Institution
+            </Button>
+          ) : undefined
         }
       />
 

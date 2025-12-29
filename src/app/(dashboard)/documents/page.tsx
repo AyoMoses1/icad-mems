@@ -37,11 +37,11 @@ import {
 } from "@/components/shared";
 import {
   DocumentMasterDto,
-  getDocuments,
-  createDocument,
-  updateDocument,
-  deleteDocument,
-} from "@/lib/services/documents";
+  getDocumentMasters,
+  createDocumentMaster,
+  updateDocumentMaster,
+  deleteDocumentMaster,
+} from "@/lib/services/documents-master-service";
 import { formatDate } from "@/lib/utils";
 
 export default function DocumentsPage() {
@@ -67,8 +67,12 @@ export default function DocumentsPage() {
   const loadDocuments = async () => {
     setIsLoading(true);
     try {
-      const result = await getDocuments({ pageNumber: 1, pageSize: 100 });
-      setDocuments(result.items || []);
+      const response = await getDocumentMasters({ pageNumber: 1, pageSize: 100 });
+      if (response.success ?? (response as any).successful) {
+        setDocuments(response.data?.items || []);
+      } else {
+        toast.error("Failed to load documents");
+      }
     } catch (error) {
       console.error("Failed to load documents:", error);
       toast.error("Failed to load documents");
@@ -107,10 +111,19 @@ export default function DocumentsPage() {
   const handleSubmitCreate = async () => {
     setIsSubmitting(true);
     try {
-      await createDocument(formData);
-      toast.success("Document created successfully");
-      setIsCreateOpen(false);
-      loadDocuments();
+      const response = await createDocumentMaster({
+        name: formData.name.trim() || undefined,
+        categoryType: formData.categoryType.trim() || undefined,
+        stcwCode: formData.stcwCode.trim() || undefined,
+        description: formData.description.trim() || undefined,
+      });
+      if (response.success ?? (response as any).successful) {
+        toast.success("Document created successfully");
+        setIsCreateOpen(false);
+        loadDocuments();
+      } else {
+        toast.error("Failed to create document");
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to create document");
     } finally {
@@ -123,10 +136,19 @@ export default function DocumentsPage() {
 
     setIsSubmitting(true);
     try {
-      await updateDocument(selectedDocument.id, formData);
-      toast.success("Document updated successfully");
-      setIsEditOpen(false);
-      loadDocuments();
+      const response = await updateDocumentMaster(selectedDocument.id, {
+        name: formData.name.trim() || undefined,
+        categoryType: formData.categoryType.trim() || undefined,
+        stcwCode: formData.stcwCode.trim() || undefined,
+        description: formData.description.trim() || undefined,
+      });
+      if (response.success ?? (response as any).successful) {
+        toast.success("Document updated successfully");
+        setIsEditOpen(false);
+        loadDocuments();
+      } else {
+        toast.error("Failed to update document");
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to update document");
     } finally {
@@ -139,10 +161,14 @@ export default function DocumentsPage() {
 
     setIsSubmitting(true);
     try {
-      await deleteDocument(selectedDocument.id);
-      toast.success("Document deleted successfully");
-      setIsDeleteOpen(false);
-      loadDocuments();
+      const response = await deleteDocumentMaster(selectedDocument.id);
+      if (response.success ?? (response as any).successful) {
+        toast.success("Document deleted successfully");
+        setIsDeleteOpen(false);
+        loadDocuments();
+      } else {
+        toast.error("Failed to delete document");
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to delete document");
     } finally {

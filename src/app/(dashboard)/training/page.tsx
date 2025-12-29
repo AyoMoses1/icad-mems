@@ -16,8 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getPrograms } from "@/lib/services/program-service";
-import type { ProgramDto } from "@/types/seafarer";
+import { getCourses } from "@/lib/services/course-service";
+import type { CourseDto } from "@/types/seafarer";
 import { formatDate } from "@/lib/utils";
 import { useUIStore } from "@/store";
 import { Settings } from "lucide-react";
@@ -26,34 +26,43 @@ export default function TrainingPage() {
   const router = useRouter();
   const { viewMode } = useUIStore();
   const isAdmin = viewMode === "admin";
-  const [programs, setPrograms] = useState<ProgramDto[]>([]);
+  const [courses, setCourses] = useState<CourseDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    loadPrograms();
+    loadCourses();
   }, [currentPage, searchQuery, categoryFilter]);
 
-  const loadPrograms = async () => {
+  const loadCourses = async () => {
     setIsLoading(true);
     try {
-      const response = await getPrograms({
+      const response = await getCourses({
         pageNumber: currentPage,
         pageSize: 20,
         searchTerm: searchQuery || undefined,
-        programType: categoryFilter !== "all" ? categoryFilter : undefined,
       });
 
-      if (response.success && response.data) {
-        setPrograms(response.data.items);
+      const ok = response.success ?? (response as any).successful;
+      if (ok && response.data) {
+        let coursesData = response.data.items || [];
+
+        // Filter by courseType if categoryFilter is not "all"
+        if (categoryFilter !== "all") {
+          coursesData = coursesData.filter(
+            (course: any) => course.courseType === categoryFilter,
+          );
+        }
+
+        setCourses(coursesData);
       } else {
-        toast.error(response.message || "Failed to fetch programs");
+        toast.error(response.message || "Failed to fetch courses");
       }
     } catch (error) {
-      console.error("Error loading programs:", error);
-      toast.error("Failed to load programs");
+      console.error("Error loading courses:", error);
+      toast.error("Failed to load courses");
     } finally {
       setIsLoading(false);
     }
@@ -63,6 +72,8 @@ export default function TrainingPage() {
     const cat = category || "General";
     const colors: Record<string, string> = {
       Mandatory: "bg-blue-100 text-blue-800",
+      Preparatory: "bg-green-100 text-green-800",
+      "Non-Conventional": "bg-purple-100 text-purple-800",
       Safety: "bg-red-100 text-red-800",
       Deck: "bg-green-100 text-green-800",
       Engine: "bg-yellow-100 text-yellow-800",
@@ -141,9 +152,8 @@ export default function TrainingPage() {
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
             <SelectItem value="Mandatory">Mandatory</SelectItem>
-            <SelectItem value="Safety">Safety</SelectItem>
-            <SelectItem value="Deck">Deck</SelectItem>
-            <SelectItem value="Engine">Engine</SelectItem>
+            <SelectItem value="Preparatory">Preparatory</SelectItem>
+            <SelectItem value="Non-Conventional">Non-Conventional</SelectItem>
           </SelectContent>
         </Select>
         <Button variant="outline">
@@ -152,75 +162,83 @@ export default function TrainingPage() {
         </Button>
       </div>
 
-      {/* Programs Grid */}
+      {/* Courses Grid */}
       {isLoading ? (
         <LoadingSpinner />
-      ) : programs.length === 0 ? (
+      ) : courses.length === 0 ? (
         <EmptyState
-          title="No programs found"
-          description="There are no training programs available at this time"
+          title="No courses found"
+          description="There are no training courses available at this time"
         />
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {programs.map((program) => (
-            <Card
-              key={program.id}
-              className="hover:shadow-lg transition-shadow"
-            >
+          {courses.map((course) => (
+            <Card key={course.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
-                  {getCategoryBadge(program.programType)}
-                  <div className="text-right">
-                    <span className="text-sm text-muted-foreground">
-                      {program.currency || "NGN"}
-                    </span>
-                    <p className="text-2xl font-bold">
-                      {program.tuitionFee || "N/A"}
-                    </p>
-                  </div>
+                  {getCategoryBadge((course as any).courseType)}
+                  {(course as any).stcwCode && (
+                    <Badge variant="outline" className="text-xs">
+                      {(course as any).stcwCode}
+                    </Badge>
+                  )}
                 </div>
                 <CardTitle className="mt-4">
-                  {program.programName || "Program"}
+                  {(course as any).name || course.courseName || "Course"}
                 </CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {program.description || "No description available"}
+                <p className="text-sm text-muted-foreground mt-1 h-10 line-clamp-2">
+                  {(course as any).description ||
+                    course.description ||
+                    "No description available"}
                 </p>
-                {program.eligibilityCriteria && (
-                  <p className="text-sm text-muted-foreground h-10 mt-1 line-clamp-2">
-                    {program.eligibilityCriteria}
-                  </p>
-                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  {program.duration && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Clock className="h-4 w-4" />
-                      <span>Duration: {program.duration}</span>
+                  {(course as any).durationValue &&
+                    (course as any).durationUnit && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Clock className="h-4 w-4" />
+                        <span>
+                          Duration: {(course as any).durationValue}{" "}
+                          {(course as any).durationUnit}
+                        </span>
+                      </div>
+                    )}
+                  {(course as any).approvalStatus && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Badge
+                        variant={
+                          (course as any).approvalStatus === "Approved"
+                            ? "default"
+                            : (course as any).approvalStatus === "Pending"
+                              ? "secondary"
+                              : "destructive"
+                        }
+                      >
+                        {(course as any).approvalStatus}
+                      </Badge>
                     </div>
                   )}
-                  {program.applicationDeadline && (
+                  {(course as any).maxStudentTeacherRatio && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
+                      <Users className="h-4 w-4" />
                       <span>
-                        Deadline: {formatDate(program.applicationDeadline)}
+                        Max Ratio: {(course as any).maxStudentTeacherRatio}:1
                       </span>
                     </div>
                   )}
-                  {program.courseCount !== undefined && (
+                  {course.createdAt && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Users className="h-4 w-4" />
-                      <span>{program.courseCount} courses</span>
+                      <Calendar className="h-4 w-4" />
+                      <span>Created: {formatDate(course.createdAt)}</span>
                     </div>
                   )}
                 </div>
                 <Button
                   className="w-full bg-[#3EADC0] hover:bg-[#35a0b3]"
-                  onClick={() =>
-                    router.push(`/training/enroll?id=${program.id}`)
-                  }
+                  onClick={() => router.push(`/training/enrollments`)}
                 >
-                  Enroll Now
+                  View Details
                 </Button>
               </CardContent>
             </Card>
@@ -230,5 +248,3 @@ export default function TrainingPage() {
     </div>
   );
 }
-
-

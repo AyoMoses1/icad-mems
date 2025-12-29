@@ -176,110 +176,156 @@ export async function reviewApplicationRequirement(
 }
 
 // ============================================================================
-// Endpoints from frontend-api-integration.md (Seafarer Certificate Application)
+// Endpoints from swagger.txt (Seafarer Certificate Application)
 // ============================================================================
 
-export interface EligibilityCheckRequest {
-  certificateId?: string;
-  documentId?: string;
+export interface CheckEligibilityRequest {
+  applicantId: string;
+  targetDocumentMasterId: string;
 }
 
-export interface EligibilityCheckResponse {
+export interface EligibilityResultDto {
+  targetDocumentMasterId: string;
   isEligible: boolean;
-  requirements?: string[];
-  missingRequirements?: string[];
-  message?: string;
+  requirements?: CertificateRequirementDto[] | null;
 }
 
-export interface ApplicationDraftRequest {
-  certificateId?: string;
-  documentId?: string;
-  seafarerId?: string;
+export interface CertificateRequirementDto {
+  id?: string;
+  targetDocumentMasterId?: string;
+  requiredDocumentMasterId?: string;
+  requirementGroupId?: number | null;
+  isMandatory?: boolean | null;
 }
 
-export interface ApplicationDraftResponse {
-  applicationId: string;
-  status?: string;
-  message?: string;
+export interface CreateApplicationRequest {
+  applicantId: string;
+  targetDocumentMasterId: string;
+  remarks?: string | null;
 }
 
-export interface FileUploadResponse {
-  fileUrl: string;
-  fileName?: string;
-  fileSize?: number;
-}
-
-export interface InvoiceDto {
+export interface ApplicationDto {
   id: string;
+  applicantId: string;
+  targetDocumentMasterId: string;
+  applicationStatus?: string | null;
+  invoiceId?: string | null;
+  paymentReference?: string | null;
+  isPaid?: boolean | null;
+  submissionDate?: string | null;
+  approvalDate?: string | null;
+  remarks?: string | null;
+}
+
+export interface AddApplicationAttachmentRequest {
+  heldDocumentId: string;
+  wasValidAtSubmission?: boolean | null;
+}
+
+export interface ApplicationAttachmentDto {
+  id?: string;
   applicationId?: string;
-  amount?: number;
-  currency?: string;
-  status?: string;
-  paymentUrl?: string;
-  createdAt?: string;
+  heldDocumentId?: string;
+  wasValidAtSubmission?: boolean | null;
+}
+
+export interface GenerateInvoiceRequest {
+  certificateFeeId: string;
+  nationalityType?: string | null;
+  processingSpeed?: string | null;
+  billingCategory?: string | null;
+  dueDate: string;
+}
+
+export interface ApplicationInvoiceDto {
+  id: string;
+  applicationId?: string | null;
+  invoiceNumber?: string | null;
+  totalAmount: number;
+  currency?: string | null;
+  status?: string | null;
+  dueDate?: string | null;
+  paidDate?: string | null;
+  paymentReference?: string | null;
+  createdAt?: string | null;
 }
 
 /**
  * Check eligibility for certificate application
+ * POST /api/Applications/check-eligibility
  */
 export async function checkEligibility(
-  data: EligibilityCheckRequest
-): Promise<ApiResponse<EligibilityCheckResponse>> {
-  return apiPostMain<EligibilityCheckResponse>(
-    `${API_BASE_LEGACY}/check-eligibility`,
+  data: CheckEligibilityRequest
+): Promise<ApiResponse<EligibilityResultDto>> {
+  return apiPostMain<EligibilityResultDto>(
+    `/api/Applications/check-eligibility`,
+    data
+  );
+}
+
+/**
+ * Check eligibility for current user
+ * POST /api/Applications/me/check-eligibility
+ */
+export async function checkEligibilityForCurrentUser(
+  data: { targetDocumentMasterId: string }
+): Promise<ApiResponse<EligibilityResultDto>> {
+  return apiPostMain<EligibilityResultDto>(
+    `/api/Applications/me/check-eligibility`,
     data
   );
 }
 
 /**
  * Create a draft application
+ * POST /api/Applications/draft
  */
 export async function createDraftApplication(
-  data: ApplicationDraftRequest
-): Promise<ApiResponse<ApplicationDraftResponse>> {
-  return apiPostMain<ApplicationDraftResponse>(
-    `${API_BASE_LEGACY}/draft`,
+  data: CreateApplicationRequest
+): Promise<ApiResponse<ApplicationDto>> {
+  return apiPostMain<ApplicationDto>(
+    `/api/Applications/draft`,
     data
   );
 }
 
 /**
- * Attach files to an application (multipart/form-data)
+ * Attach documents to an application
+ * POST /api/Applications/{id}/attach
  */
-export async function attachFilesToApplication(
+export async function attachDocumentsToApplication(
   applicationId: string,
-  files: File[]
-): Promise<ApiResponse<FileUploadResponse[]>> {
-  const formData = new FormData();
-  files.forEach((file) => {
-    formData.append("files", file);
-  });
-
-  return apiPostMultipartMain<FileUploadResponse[]>(
-    `${API_BASE_LEGACY}/${applicationId}/attach`,
-    formData
+  attachments: AddApplicationAttachmentRequest[]
+): Promise<ApiResponse<ApplicationAttachmentDto[]>> {
+  return apiPostMain<ApplicationAttachmentDto[]>(
+    `/api/Applications/${applicationId}/attach`,
+    attachments
   );
 }
 
 /**
  * Generate invoice for an application
+ * POST /api/Applications/{id}/generate-invoice
  */
 export async function generateApplicationInvoice(
-  applicationId: string
-): Promise<ApiResponse<InvoiceDto>> {
-  return apiPostMain<InvoiceDto>(
-    `${API_BASE_LEGACY}/${applicationId}/generate-invoice`
+  applicationId: string,
+  data: GenerateInvoiceRequest
+): Promise<ApiResponse<ApplicationInvoiceDto>> {
+  return apiPostMain<ApplicationInvoiceDto>(
+    `/api/Applications/${applicationId}/generate-invoice`,
+    data
   );
 }
 
 /**
  * Get invoice for an application
+ * GET /api/Applications/{id}/invoice
  */
 export async function getApplicationInvoice(
   applicationId: string
-): Promise<ApiResponse<InvoiceDto>> {
-  return apiGetMain<InvoiceDto>(
-    `${API_BASE_LEGACY}/${applicationId}/invoice`
+): Promise<ApiResponse<ApplicationInvoiceDto>> {
+  return apiGetMain<ApplicationInvoiceDto>(
+    `/api/Applications/${applicationId}/invoice`
   );
 }
 

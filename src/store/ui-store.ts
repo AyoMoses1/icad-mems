@@ -1,7 +1,8 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { BreadcrumbItem } from "@/types";
 
-export type UserType = "admin" | "seafarer" | "institution" | "staff";
+export type UserType = "admin" | "seafarer" | "institution";
 
 interface UIState {
   // Sidebar
@@ -50,18 +51,20 @@ interface Toast {
   duration?: number;
 }
 
-export const useUIStore = create<UIState>((set, get) => ({
-  // Initial state
-  sidebarOpen: true,
-  sidebarCollapsed: false,
-  mobileSidebarOpen: false,
-  viewMode: "admin", // Default to admin view
-  userType: "admin", // Default user type
-  breadcrumbs: [],
-  activeModal: null,
-  modalData: null,
-  toasts: [],
-  theme: "system",
+export const useUIStore = create<UIState>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      sidebarOpen: true,
+      sidebarCollapsed: false,
+      mobileSidebarOpen: false,
+      viewMode: "admin", // Default to admin view
+      userType: "admin", // Default user type
+      breadcrumbs: [],
+      activeModal: null,
+      modalData: null,
+      toasts: [],
+      theme: "system",
 
   // Actions
   toggleSidebar: () => {
@@ -133,7 +136,18 @@ export const useUIStore = create<UIState>((set, get) => ({
   setTheme: (theme: "light" | "dark" | "system") => {
     set({ theme });
   },
-}));
+    }),
+    {
+      name: "ui-store",
+      partialize: (state) => ({
+        userType: state.userType,
+        viewMode: state.viewMode,
+        theme: state.theme,
+        sidebarCollapsed: state.sidebarCollapsed,
+      }),
+    }
+  )
+);
 
 // Selector hooks
 export const useSidebarOpen = () => useUIStore((state) => state.sidebarOpen);

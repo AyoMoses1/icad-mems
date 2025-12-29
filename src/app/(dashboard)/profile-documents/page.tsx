@@ -44,16 +44,40 @@ import { useUser, useAuthStore } from "@/store/auth-store";
 import { toast } from "sonner";
 import { apiGetMain, ApiResponse } from "@/lib/api-client";
 import { formatDate } from "@/lib/utils";
+import {
+  getDocumentMasters,
+  type DocumentMasterDto,
+} from "@/lib/services/documents-master-service";
+import {
+  getMySeafarer,
+  getMySeafarerDocuments,
+  type SeafarerDto,
+  type SeafarerHeldDocumentDto,
+} from "@/lib/services/seafarers";
+import { getRanks, type RankDto } from "@/lib/services/ranks";
+import {
+  getNationalities,
+  type NationalityDto,
+} from "@/lib/services/nationalities";
+import { createSeafarerProfile } from "@/lib/services/seafarer-onboarding-service";
 
 interface PersonalInfoData {
   firstName: string;
-  middleName: string;
   lastName: string;
-  username: string;
+  dateOfBirth: string;
   gender: string;
   nationality: string;
-  dob: string;
-  seafarerId: string;
+  ninNumber: string;
+  sidNumber: string;
+  dischargeBookNo: string;
+  currentRankId: string;
+  email: string;
+  phoneNumber: string;
+  homeAddress: string;
+  walletAddress: string;
+  nationalityId: string;
+  profilePictureUrl: string;
+  profilePictureFile: File | null;
 }
 
 interface ContactDetailsData {
@@ -94,24 +118,12 @@ const saveToStorage = <T,>(key: string, data: T): void => {
 
 interface UploadDocumentFormData {
   file: File | null;
-  documentTypeId: number | null;
+  documentTypeId: string | null;
   expiryDate: string;
   issueDate: string;
   issuingAuthority: string;
   documentNumber: string;
   notes: string;
-}
-
-interface DocumentTypesResponse {
-  name: string;
-  description: string;
-  isMandatory: boolean;
-  isActive: boolean;
-  id: number;
-  createdAt: string;
-  createdBy: string;
-  updatedAt: string | null;
-  updatedBy: string | null;
 }
 
 export default function ProfileDocumentsPage() {
@@ -122,10 +134,10 @@ export default function ProfileDocumentsPage() {
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
-  const [documents, setDocuments] = useState<DocumentTypesResponse[]>([]);
-  const [documentTypes, setDocumentTypes] = useState<DocumentTypesResponse[]>(
-    [],
-  );
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [documentTypes, setDocumentTypes] = useState<DocumentMasterDto[]>([]);
+  const [ranks, setRanks] = useState<RankDto[]>([]);
+  const [nationalities, setNationalities] = useState<NationalityDto[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadFormData, setUploadFormData] = useState<UploadDocumentFormData>({
     file: null,
@@ -137,17 +149,27 @@ export default function ProfileDocumentsPage() {
     notes: "",
   });
   const [fileName, setFileName] = useState<string>("");
+  const [profilePicturePreview, setProfilePicturePreview] =
+    useState<string>("");
 
   // Personal Information state
   const [personalInfo, setPersonalInfo] = useState<PersonalInfoData>({
     firstName: "",
-    middleName: "",
     lastName: "",
-    username: "",
-    gender: "male",
+    dateOfBirth: "",
+    gender: "Male",
     nationality: "",
-    dob: "",
-    seafarerId: "",
+    ninNumber: "",
+    sidNumber: "",
+    dischargeBookNo: "",
+    currentRankId: "",
+    email: "",
+    phoneNumber: "",
+    homeAddress: "",
+    walletAddress: "",
+    nationalityId: "",
+    profilePictureUrl: "",
+    profilePictureFile: null,
   });
 
   // Contact Details state
@@ -195,14 +217,36 @@ export default function ProfileDocumentsPage() {
   };
 
   const getUserDocuments = async () => {
-    const response = await apiGetMain<any[]>(
-      "/api/v1/Documents/users/me/documents",
-    );
-    if (response.success) {
-      console.log("response", response);
-      setDocuments(response.data || []);
-    } else {
-      toast.error(response.message || "Failed to fetch documents");
+    try {
+      const response = await getMySeafarerDocuments();
+      const ok = response.success ?? (response as any).successful;
+
+      if (ok && response.data) {
+        console.log("Seafarer documents response:", response);
+        // Handle both array and paginated response
+        const data = response.data;
+        let items: SeafarerHeldDocumentDto[] = [];
+
+        if (Array.isArray(data)) {
+          items = data;
+        } else if (
+          data &&
+          typeof data === "object" &&
+          "items" in data &&
+          Array.isArray((data as any).items)
+        ) {
+          items = (data as any).items;
+        }
+
+        setDocuments(items);
+      } else {
+        toast.error(response.message || "Failed to fetch documents");
+        setDocuments([]);
+      }
+    } catch (error: any) {
+      console.error("Failed to fetch documents:", error);
+      toast.error(error.message || "Failed to fetch documents");
+      setDocuments([]);
     }
   };
 
@@ -210,6 +254,7 @@ export default function ProfileDocumentsPage() {
   const handleDownloadDocument = async (
     documentId: string,
     fileName: string,
+    fileUrl?: string | null,
   ) => {
     try {
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "";
@@ -218,7 +263,17 @@ export default function ProfileDocumentsPage() {
       }
 
       const token = useAuthStore.getState().token;
-      const url = `${API_BASE_URL}/api/v1/Documents/users/me/documents/${documentId}/download`;
+
+      // Build query parameters for /api/files/download
+      const queryParams = new URLSearchParams();
+      if (documentId) {
+        queryParams.append("id", documentId);
+      }
+      if (fileUrl) {
+        queryParams.append("url", fileUrl);
+      }
+
+      const url = `${API_BASE_URL}/api/files/download?${queryParams.toString()}`;
 
       const headers: Record<string, string> = {};
       if (token) {
@@ -267,7 +322,17 @@ export default function ProfileDocumentsPage() {
       }
 
       const token = useAuthStore.getState().token;
-      const url = `${API_BASE_URL}/api/v1/Documents/users/me/documents/${document.id}/download`;
+
+      // Build query parameters for /api/files/download
+      const queryParams = new URLSearchParams();
+      if (document.id) {
+        queryParams.append("id", document.id);
+      }
+      if (document.fileUrl) {
+        queryParams.append("url", document.fileUrl);
+      }
+
+      const url = `${API_BASE_URL}/api/files/download?${queryParams.toString()}`;
 
       const headers: Record<string, string> = {};
       if (token) {
@@ -306,27 +371,102 @@ export default function ProfileDocumentsPage() {
       setPreviewDocument(null);
     }
   }, [isPreviewModalOpen, previewUrl]);
-  // Load data from localStorage on mount or when user email changes
-  useEffect(() => {
+  // Load seafarer profile from API
+  const loadSeafarerProfile = async () => {
+    try {
+      const response = await getMySeafarer();
+      const ok = response.success ?? (response as any).successful;
+
+      if (ok && response.data) {
+        const seafarer: SeafarerDto = response.data;
+
+        // Normalize gender value to match Select component options (lowercase)
+        const normalizeGender = (gender: string | null | undefined): string => {
+          if (!gender) return "Male";
+          const normalized = gender.trim();
+          const lowerGender = normalized.toLowerCase();
+
+          // Check for exact matches (case-insensitive)
+          if (lowerGender === "male") return "Male";
+          if (lowerGender === "female") return "Female";
+          if (lowerGender === "other") return "Other";
+
+          // Default fallback
+          return "Male";
+        };
+
+        console.log("API gender value:", seafarer.gender);
+        const normalizedGender = normalizeGender(seafarer.gender);
+        console.log("Normalized gender:", normalizedGender);
+
+        // Update Personal Information from API
+        const personalData: PersonalInfoData = {
+          firstName: seafarer.firstName || "",
+          lastName: seafarer.lastName || "",
+          dateOfBirth: seafarer.dateOfBirth || "",
+          gender: normalizedGender,
+          nationality: seafarer.nationality || "",
+          ninNumber: seafarer.ninNumber || "",
+          sidNumber: seafarer.sidNumber || "",
+          dischargeBookNo: seafarer.dischargeBookNo || "",
+          currentRankId: seafarer.currentRankId || "",
+          email: seafarer.email || userEmail || "",
+          phoneNumber: seafarer.phoneNumber || "",
+          homeAddress: seafarer.homeAddress || "",
+          walletAddress: seafarer.walletAddress || "",
+          nationalityId: seafarer.nationalityId || "",
+          profilePictureUrl: seafarer.profilePictureUrl || "",
+          profilePictureFile: null,
+        };
+
+        console.log("Setting personal info with gender:", personalData.gender);
+        setPersonalInfo(personalData);
+
+        // Set profile picture preview if URL exists
+        if (seafarer.profilePictureUrl) {
+          setProfilePicturePreview(seafarer.profilePictureUrl);
+        }
+
+        // Update Contact Details from API
+        const contactData: ContactDetailsData = {
+          email: seafarer.email || userEmail || "",
+          phone: seafarer.phoneNumber || "",
+          altPhone: "",
+          whatsapp: "",
+          city: "",
+          state: "",
+          country: seafarer.nationality || "",
+          postalCode: "",
+          address: seafarer.homeAddress || "",
+        };
+        setContactDetails(contactData);
+
+        console.log("Loaded seafarer profile:", seafarer);
+      } else {
+        console.log(
+          "Failed to load seafarer profile, falling back to localStorage",
+        );
+        loadFromLocalStorage();
+      }
+    } catch (error) {
+      console.error("Error loading seafarer profile:", error);
+      // Fall back to localStorage if API call fails
+      loadFromLocalStorage();
+    }
+  };
+
+  // Load data from localStorage as fallback
+  const loadFromLocalStorage = () => {
     if (!userEmail) {
       console.log("No user email available");
       return;
     }
-
-    console.log("User from auth store:", user);
-    console.log("User email:", userEmail);
-    console.log("User firstName:", user?.firstName);
-    console.log("User lastName:", user?.lastName);
-    console.log("User middleName:", user?.middleName);
-    console.log("User username:", user?.username);
 
     const personalKey = getStorageKey(userEmail, "personal");
     const contactKey = getStorageKey(userEmail, "contact");
 
     const savedPersonal = loadFromStorage<PersonalInfoData>(personalKey);
     const savedContact = loadFromStorage<ContactDetailsData>(contactKey);
-    console.log("savedPersonal", savedPersonal);
-    console.log("savedContact", savedContact);
 
     // Load Personal Information: prioritize localStorage, then user object, then empty
     if (savedPersonal) {
@@ -337,18 +477,23 @@ export default function ProfileDocumentsPage() {
       console.log("Loading personal info from user session");
       const personalData: PersonalInfoData = {
         firstName: user.firstName || "",
-        middleName: user.middleName || "",
         lastName: user.lastName || "",
-        username: user.username || "",
-        gender: "male", // Default value
+        dateOfBirth: "",
+        gender: "Male", // Default value
         nationality: "",
-        dob: "",
-        seafarerId: "",
+        ninNumber: "",
+        sidNumber: "",
+        dischargeBookNo: "",
+        currentRankId: "",
+        email: user.email || "",
+        phoneNumber: user.phoneNumber || "",
+        homeAddress: "",
+        walletAddress: "",
+        nationalityId: "",
+        profilePictureUrl: "",
+        profilePictureFile: null,
       };
-      console.log("Setting personal info from user:", personalData);
       setPersonalInfo(personalData);
-    } else {
-      console.log("No saved data or user data, using empty fields");
     }
 
     // Load Contact Details: prioritize localStorage, then user object, then empty
@@ -369,38 +514,131 @@ export default function ProfileDocumentsPage() {
         postalCode: "",
         address: "",
       };
-      console.log("Setting contact details from user:", contactData);
       setContactDetails(contactData);
-    } else {
-      console.log("No saved contact data or user data, using empty fields");
     }
+  };
+
+  // Load profile data on mount
+  useEffect(() => {
+    if (!userEmail) {
+      console.log("No user email available");
+      return;
+    }
+
+    // Try to load from API first, fallback to localStorage
+    loadSeafarerProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userEmail, user]);
 
   useEffect(() => {
     const fetchDocumentTypes = async () => {
-      const response = await apiGetMain<DocumentTypesResponse[]>(
-        "/api/v1/lookups/documenttype",
-      );
-      console.log("response", response);
-      if (response.success) {
-        setDocumentTypes(response.data || []);
-      } else {
-        toast.error(response.message || "Failed to fetch document types");
+      try {
+        const response = await getDocumentMasters({
+          pageNumber: 1,
+          pageSize: 100,
+          sortDirection: "asc",
+        });
+        if (response.success ?? (response as any).successful) {
+          // Handle paginated response - extract items from PagedResult
+          const data = response.data;
+          const items =
+            data && "items" in data
+              ? data.items
+              : Array.isArray(data)
+                ? data
+                : [];
+          setDocumentTypes(items);
+        } else {
+          toast.error(response.message || "Failed to fetch document types");
+        }
+      } catch (error: any) {
+        console.error("Failed to fetch document types:", error);
+        toast.error(error.message || "Failed to fetch document types");
       }
     };
+
+    const fetchRanks = async () => {
+      try {
+        const result = await getRanks({ pageNumber: 1, pageSize: 100 });
+        setRanks(result.items || []);
+      } catch (error: any) {
+        console.error("Failed to fetch ranks:", error);
+        toast.error(error.message || "Failed to fetch ranks");
+      }
+    };
+
+    const fetchNationalities = async () => {
+      try {
+        const items = await getNationalities();
+        setNationalities(items || []);
+      } catch (error: any) {
+        console.error("Failed to fetch nationalities:", error);
+        toast.error(error.message || "Failed to fetch nationalities");
+      }
+    };
+
     fetchDocumentTypes();
+    fetchRanks();
+    fetchNationalities();
     getUserDocuments();
   }, []);
 
   // Save Personal Information
-  const handleSavePersonalInfo = () => {
+  const handleSavePersonalInfo = async () => {
     if (!userEmail) {
-      alert("Please log in to save your information");
+      toast.error("Please log in to save your information");
       return;
     }
-    const key = getStorageKey(userEmail, "personal");
-    saveToStorage(key, personalInfo);
-    alert("Personal information saved successfully!");
+
+    // Validate required fields
+    if (!personalInfo.firstName || !personalInfo.lastName) {
+      toast.error("First Name and Last Name are required");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Prepare data in PascalCase format for API
+      const profileData = {
+        FirstName: personalInfo.firstName.trim(),
+        LastName: personalInfo.lastName.trim(),
+        DateOfBirth: personalInfo.dateOfBirth || undefined,
+        Gender: personalInfo.gender || undefined,
+        Nationality: personalInfo.nationality.trim() || undefined,
+        NinNumber: personalInfo.ninNumber.trim() || undefined,
+        SidNumber: personalInfo.sidNumber.trim() || undefined,
+        DischargeBookNo: personalInfo.dischargeBookNo.trim() || undefined,
+        CurrentRankId: personalInfo.currentRankId || undefined,
+        Email: personalInfo.email.trim() || undefined,
+        PhoneNumber: personalInfo.phoneNumber.trim() || undefined,
+        HomeAddress: personalInfo.homeAddress.trim() || undefined,
+        WalletAddress: personalInfo.walletAddress.trim() || undefined,
+        NationalityId: personalInfo.nationalityId || undefined,
+      };
+
+      const response = await createSeafarerProfile(
+        profileData,
+        personalInfo.profilePictureFile || undefined,
+      );
+
+      const ok = response.success ?? (response as any).successful;
+      if (ok) {
+        toast.success("Personal information saved successfully!");
+        // Reload the profile to get updated data
+        await loadSeafarerProfile();
+      } else {
+        toast.error(response.message || "Failed to save personal information");
+      }
+    } catch (error: any) {
+      console.error("Error saving personal information:", error);
+      toast.error(
+        error.message ||
+          "Failed to save personal information. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Save Contact Details
@@ -471,7 +709,8 @@ export default function ProfileDocumentsPage() {
       // Call the upload API
       const response = await uploadDocument(submitData);
 
-      if (response.success) {
+      const ok = response.success ?? (response as any).successful;
+      if (ok) {
         toast.success("Document uploaded successfully!");
 
         // Reset form and close modal
@@ -603,16 +842,56 @@ export default function ProfileDocumentsPage() {
               <div className="flex items-start gap-6">
                 <div className="flex flex-col items-center gap-4">
                   <Avatar className="h-24 w-24">
-                    <AvatarFallback className="text-2xl">JD</AvatarFallback>
+                    {profilePicturePreview ? (
+                      <img
+                        src={profilePicturePreview}
+                        alt="Profile"
+                        className="h-full w-full object-cover rounded-full"
+                      />
+                    ) : (
+                      <AvatarFallback className="text-2xl">
+                        {personalInfo.firstName?.[0] || ""}
+                        {personalInfo.lastName?.[0] || ""}
+                      </AvatarFallback>
+                    )}
                   </Avatar>
-                  <Button variant="outline" size="sm">
-                    <Upload className="mr-2 h-4 w-4" />
-                    Change Photo
-                  </Button>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      id="profilePicture"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setPersonalInfo({
+                            ...personalInfo,
+                            profilePictureFile: file,
+                          });
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setProfilePicturePreview(reader.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={() =>
+                        document.getElementById("profilePicture")?.click()
+                      }
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      Change Photo
+                    </Button>
+                  </div>
                 </div>
                 <div className="grid gap-6 md:grid-cols-2 flex-1">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name</Label>
+                    <Label htmlFor="firstName">First Name *</Label>
                     <Input
                       id="firstName"
                       value={personalInfo.firstName}
@@ -625,20 +904,7 @@ export default function ProfileDocumentsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="middleName">Middle Name</Label>
-                    <Input
-                      id="middleName"
-                      value={personalInfo.middleName}
-                      onChange={(e) =>
-                        setPersonalInfo({
-                          ...personalInfo,
-                          middleName: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name</Label>
+                    <Label htmlFor="lastName">Last Name *</Label>
                     <Input
                       id="lastName"
                       value={personalInfo.lastName}
@@ -651,20 +917,21 @@ export default function ProfileDocumentsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="username">Preferred Username</Label>
+                    <Label htmlFor="dateOfBirth">Date of Birth *</Label>
                     <Input
-                      id="username"
-                      value={personalInfo.username}
+                      id="dateOfBirth"
+                      type="date"
+                      value={personalInfo.dateOfBirth}
                       onChange={(e) =>
                         setPersonalInfo({
                           ...personalInfo,
-                          username: e.target.value,
+                          dateOfBirth: e.target.value,
                         })
                       }
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="gender">Gender</Label>
+                    <Label htmlFor="gender">Gender *</Label>
                     <Select
                       value={personalInfo.gender}
                       onValueChange={(value) =>
@@ -672,11 +939,12 @@ export default function ProfileDocumentsPage() {
                       }
                     >
                       <SelectTrigger id="gender">
-                        <SelectValue />
+                        <SelectValue placeholder="Select gender" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -694,29 +962,140 @@ export default function ProfileDocumentsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="dob">Date of Birth</Label>
+                    <Label htmlFor="nationalityId">Nationality *</Label>
+                    <Select
+                      value={personalInfo.nationalityId}
+                      onValueChange={(value) =>
+                        setPersonalInfo({
+                          ...personalInfo,
+                          nationalityId: value,
+                        })
+                      }
+                    >
+                      <SelectTrigger id="nationalityId">
+                        <SelectValue placeholder="Select nationality" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {nationalities.map((nat) => (
+                          <SelectItem key={nat.id} value={nat.id}>
+                            {nat.countryName || nat.isoCode3 || nat.id}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ninNumber">NIN Number</Label>
                     <Input
-                      id="dob"
-                      type="date"
-                      value={personalInfo.dob}
+                      id="ninNumber"
+                      value={personalInfo.ninNumber}
                       onChange={(e) =>
                         setPersonalInfo({
                           ...personalInfo,
-                          dob: e.target.value,
+                          ninNumber: e.target.value,
                         })
                       }
-                      placeholder="Select Date"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="seafarerId">Seafarer ID</Label>
+                    <Label htmlFor="sidNumber">SID Number</Label>
                     <Input
-                      id="seafarerId"
-                      value={personalInfo.seafarerId}
+                      id="sidNumber"
+                      value={personalInfo.sidNumber}
                       onChange={(e) =>
                         setPersonalInfo({
                           ...personalInfo,
-                          seafarerId: e.target.value,
+                          sidNumber: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dischargeBookNo">Discharge Book No</Label>
+                    <Input
+                      id="dischargeBookNo"
+                      value={personalInfo.dischargeBookNo}
+                      onChange={(e) =>
+                        setPersonalInfo({
+                          ...personalInfo,
+                          dischargeBookNo: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="currentRankId">Current Rank *</Label>
+                    <Select
+                      value={personalInfo.currentRankId}
+                      onValueChange={(value) =>
+                        setPersonalInfo({
+                          ...personalInfo,
+                          currentRankId: value,
+                        })
+                      }
+                    >
+                      <SelectTrigger id="currentRankId">
+                        <SelectValue placeholder="Select rank" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ranks.map((rank) => (
+                          <SelectItem key={rank.id} value={rank.id}>
+                            {rank.title || rank.id}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={personalInfo.email}
+                      onChange={(e) =>
+                        setPersonalInfo({
+                          ...personalInfo,
+                          email: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phoneNumber">Phone Number *</Label>
+                    <Input
+                      id="phoneNumber"
+                      value={personalInfo.phoneNumber}
+                      onChange={(e) =>
+                        setPersonalInfo({
+                          ...personalInfo,
+                          phoneNumber: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="homeAddress">Home Address</Label>
+                    <Textarea
+                      id="homeAddress"
+                      value={personalInfo.homeAddress}
+                      onChange={(e) =>
+                        setPersonalInfo({
+                          ...personalInfo,
+                          homeAddress: e.target.value,
+                        })
+                      }
+                      rows={3}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="walletAddress">Wallet Address</Label>
+                    <Input
+                      id="walletAddress"
+                      value={personalInfo.walletAddress}
+                      onChange={(e) =>
+                        setPersonalInfo({
+                          ...personalInfo,
+                          walletAddress: e.target.value,
                         })
                       }
                     />
@@ -727,8 +1106,9 @@ export default function ProfileDocumentsPage() {
                 <Button
                   className="bg-[#3EADC0] hover:bg-[#35a0b3]"
                   onClick={handleSavePersonalInfo}
+                  disabled={isSubmitting}
                 >
-                  Save Changes
+                  {isSubmitting ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </CardContent>
@@ -903,44 +1283,62 @@ export default function ProfileDocumentsPage() {
 
             <CardContent>
               <div className="space-y-4">
-                {documents.map((doc: any) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center justify-between p-4 rounded-lg border"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded bg-green-100 flex items-center justify-center">
-                        <FileText className="h-5 w-5 text-green-600" />
+                {Array.isArray(documents) && documents.length > 0 ? (
+                  documents.map((doc: any) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-4 rounded-lg border"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded bg-green-100 flex items-center justify-center">
+                          <FileText className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">
+                            {doc.documentTypeName || doc.name || "Document"}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {doc.fileName || doc.name} • Uploaded{" "}
+                            {formatDate(doc.createdAt)}
+                            {}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{doc.documentTypeName}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {doc.fileName} • Uploaded {formatDate(doc.createdAt)}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handlePreviewDocument(doc)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleDownloadDocument(
+                              doc.id,
+                              doc.fileName || doc.name || "document",
+                              doc.fileUrl,
+                            )
+                          }
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Download
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handlePreviewDocument(doc)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          handleDownloadDocument(doc.id, doc.fileName)
-                        }
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Download
-                      </Button>
-                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No documents uploaded yet</p>
+                    <p className="text-sm mt-2">
+                      Click "Upload Document" to add your first document
+                    </p>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1010,11 +1408,11 @@ export default function ProfileDocumentsPage() {
                 Document Type <span className="text-destructive">*</span>
               </Label>
               <Select
-                value={uploadFormData.documentTypeId?.toString() || ""}
+                value={uploadFormData.documentTypeId || ""}
                 onValueChange={(value) =>
                   setUploadFormData({
                     ...uploadFormData,
-                    documentTypeId: parseInt(value),
+                    documentTypeId: value,
                   })
                 }
               >
@@ -1022,9 +1420,9 @@ export default function ProfileDocumentsPage() {
                   <SelectValue placeholder="Select document type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {documentTypes.map((type: DocumentTypesResponse) => (
-                    <SelectItem key={type.id} value={type.id.toString()}>
-                      {type.name}
+                  {documentTypes.map((type: DocumentMasterDto) => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.name || "Unnamed Document"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1228,7 +1626,8 @@ export default function ProfileDocumentsPage() {
                       onClick={() =>
                         handleDownloadDocument(
                           previewDocument?.id,
-                          previewDocument?.fileName,
+                          previewDocument?.fileName || "document",
+                          previewDocument?.fileUrl,
                         )
                       }
                     >
@@ -1253,7 +1652,8 @@ export default function ProfileDocumentsPage() {
                 onClick={() =>
                   handleDownloadDocument(
                     previewDocument.id,
-                    previewDocument.fileName,
+                    previewDocument.fileName || "document",
+                    previewDocument.fileUrl,
                   )
                 }
               >
@@ -1267,4 +1667,3 @@ export default function ProfileDocumentsPage() {
     </div>
   );
 }
-

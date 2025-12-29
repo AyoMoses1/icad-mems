@@ -162,7 +162,8 @@ export default function ProgramsManagementPage() {
         response = await createProgram(formData);
       }
 
-      if (response.success) {
+      const ok = response.success ?? (response as any).successful;
+      if (ok) {
         toast.success(
           selectedProgram
             ? "Program updated successfully"

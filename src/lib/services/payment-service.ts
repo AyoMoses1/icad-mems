@@ -96,13 +96,9 @@ export async function recordManualPayment(
 const API_BASE_LEGACY = "/api/payments"; // For endpoints from frontend-api-integration.md
 
 export interface PaymentWebhookRequest {
-  paymentReference?: string;
-  transactionId?: string;
-  amount?: number;
-  currency?: string;
-  status?: string;
-  paymentMethod?: string;
-  gatewayResponse?: Record<string, unknown>;
+  invoiceId: string;
+  paymentReference?: string | null;
+  rrrNumber?: string | null;
 }
 
 export interface PaymentWebhookResponse {
@@ -141,12 +137,13 @@ export async function paymentWebhook(
 
 /**
  * Simulate payment (for non-production environments)
+ * POST /api/Payments/simulate
  */
 export async function simulatePayment(
-  data: PaymentSimulateRequest
-): Promise<ApiResponse<PaymentSimulateResponse>> {
-  return apiPostMain<PaymentSimulateResponse>(
-    `${API_BASE_LEGACY}/simulate`,
+  data: PaymentWebhookRequest
+): Promise<ApiResponse<boolean>> {
+  return apiPostMain<boolean>(
+    `/api/Payments/simulate`,
     data
   );
 }

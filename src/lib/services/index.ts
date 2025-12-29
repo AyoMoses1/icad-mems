@@ -20,4 +20,16 @@ export * from "./document-service";
 export * from "./seafarer-onboarding-service";
 export * from "./institution-onboarding-service";
 export * from "./admin-review-service";
+export * from "./seafarers";
+export * from "./medical-service";
+export * from "./certificates-service";
+export * from "./vessels-service";
+export * from "./documents-master-service";
+export * from "./cohorts-service";
+export * from "./maritime-departments-service";
+export * from "./previous-certificates-service";
+export * from "./medical-institutes-service";
+export * from "./institutions";
+export * from "./ranks";
+export * from "./onboarding-requirements-service";
 

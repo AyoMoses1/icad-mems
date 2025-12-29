@@ -16,7 +16,7 @@ import type {
   PaginatedResponse,
 } from "@/types/seafarer";
 
-const API_BASE = "/api/v1/Enrollments";
+const API_BASE = "/api/Enrollments";
 
 /**
  * Get paginated list of enrollments
@@ -54,16 +54,22 @@ export async function getEnrollments(
  * Get enrollment by ID
  */
 export async function getEnrollmentById(
-  enrollmentId: number
+  enrollmentId: string
 ): Promise<ApiResponse<EnrollmentDto>> {
   return apiGetMain<EnrollmentDto>(`${API_BASE}/${enrollmentId}`);
 }
 
 /**
  * Create enrollment
+ * POST /api/Enrollments
+ * Based on swagger: CreateEnrollmentRequest requires cohortId, studentId, enrollmentDate (optional)
  */
 export async function createEnrollment(
-  enrollmentData: CreateEnrollmentDto
+  enrollmentData: {
+    cohortId: string;
+    studentId: string;
+    enrollmentDate?: string | null;
+  }
 ): Promise<ApiResponse<EnrollmentDto>> {
   return apiPostMain<EnrollmentDto>(API_BASE, enrollmentData);
 }
@@ -72,7 +78,7 @@ export async function createEnrollment(
  * Update enrollment
  */
 export async function updateEnrollment(
-  enrollmentId: number,
+  enrollmentId: string,
   updates: {
     enrollmentDate?: string;
     status?: string | null;
@@ -87,7 +93,7 @@ export async function updateEnrollment(
  * Delete enrollment
  */
 export async function deleteEnrollment(
-  enrollmentId: number
+  enrollmentId: string
 ): Promise<ApiResponse<void>> {
   return apiDeleteMain<void>(`${API_BASE}/${enrollmentId}`);
 }

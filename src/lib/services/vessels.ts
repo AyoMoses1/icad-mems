@@ -48,7 +48,8 @@ export async function getVessels(params?: {
     `/api/Vessels${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
   );
 
-  if (!response.success || !response.data) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok || !response.data) {
     throw new Error(response.error?.message || "Failed to fetch vessels");
   }
 
@@ -58,7 +59,8 @@ export async function getVessels(params?: {
 export async function getVesselById(id: number): Promise<VesselDto> {
   const response = await apiGetMain<VesselDto>(`/api/Vessels/${id}`);
 
-  if (!response.success || !response.data) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok || !response.data) {
     throw new Error(response.error?.message || "Failed to fetch vessel");
   }
 
@@ -68,7 +70,8 @@ export async function getVesselById(id: number): Promise<VesselDto> {
 export async function createVessel(data: CreateVesselRequest): Promise<VesselDto> {
   const response = await apiPostMain<VesselDto>("/api/Vessels", data);
 
-  if (!response.success || !response.data) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok || !response.data) {
     throw new Error(response.error?.message || "Failed to create vessel");
   }
 
@@ -78,7 +81,8 @@ export async function createVessel(data: CreateVesselRequest): Promise<VesselDto
 export async function updateVessel(id: number, data: UpdateVesselRequest): Promise<boolean> {
   const response = await apiPutMain<boolean>(`/api/Vessels/${id}`, data);
 
-  if (!response.success) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok) {
     throw new Error(response.error?.message || "Failed to update vessel");
   }
 
@@ -88,7 +92,8 @@ export async function updateVessel(id: number, data: UpdateVesselRequest): Promi
 export async function deleteVessel(id: number): Promise<boolean> {
   const response = await apiDeleteMain<boolean>(`/api/Vessels/${id}`);
 
-  if (!response.success) {
+  const ok = response.success ?? (response as any).successful;
+  if (!ok) {
     throw new Error(response.error?.message || "Failed to delete vessel");
   }
 
