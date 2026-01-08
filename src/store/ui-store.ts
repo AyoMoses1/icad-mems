@@ -1,5 +1,8 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { BreadcrumbItem } from "@/types";
+
+export type UserType = "admin" | "seafarer" | "institution" | "staff";
 
 interface UIState {
   // Sidebar
@@ -9,6 +12,7 @@ interface UIState {
 
   // View Toggle
   viewMode: "user" | "admin";
+  userType: UserType;
 
   // Breadcrumbs
   breadcrumbs: BreadcrumbItem[];
@@ -30,6 +34,7 @@ interface UIState {
   setMobileSidebarOpen: (open: boolean) => void;
   setViewMode: (mode: "user" | "admin") => void;
   toggleViewMode: () => void;
+  setUserType: (type: UserType) => void;
   setBreadcrumbs: (items: BreadcrumbItem[]) => void;
   openModal: (modalId: string, data?: Record<string, unknown>) => void;
   closeModal: () => void;
@@ -46,17 +51,20 @@ interface Toast {
   duration?: number;
 }
 
-export const useUIStore = create<UIState>((set, get) => ({
-  // Initial state
-  sidebarOpen: true,
-  sidebarCollapsed: false,
-  mobileSidebarOpen: false,
-  viewMode: "admin", // Default to admin view
-  breadcrumbs: [],
-  activeModal: null,
-  modalData: null,
-  toasts: [],
-  theme: "system",
+export const useUIStore = create<UIState>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      sidebarOpen: true,
+      sidebarCollapsed: false,
+      mobileSidebarOpen: false,
+      viewMode: "admin", // Default to admin view
+      userType: "admin", // Default user type
+      breadcrumbs: [],
+      activeModal: null,
+      modalData: null,
+      toasts: [],
+      theme: "system",
 
   // Actions
   toggleSidebar: () => {
@@ -83,6 +91,16 @@ export const useUIStore = create<UIState>((set, get) => ({
     set((state) => ({
       viewMode: state.viewMode === "user" ? "admin" : "user",
     }));
+  },
+
+  setUserType: (type: UserType) => {
+    set({ userType: type });
+    // Auto-set viewMode based on userType
+    if (type === "admin" || type === "staff") {
+      set({ viewMode: "admin" });
+    } else {
+      set({ viewMode: "user" });
+    }
   },
 
   setBreadcrumbs: (items: BreadcrumbItem[]) => {
@@ -118,7 +136,18 @@ export const useUIStore = create<UIState>((set, get) => ({
   setTheme: (theme: "light" | "dark" | "system") => {
     set({ theme });
   },
-}));
+    }),
+    {
+      name: "ui-store",
+      partialize: (state) => ({
+        userType: state.userType,
+        viewMode: state.viewMode,
+        theme: state.theme,
+        sidebarCollapsed: state.sidebarCollapsed,
+      }),
+    }
+  )
+);
 
 // Selector hooks
 export const useSidebarOpen = () => useUIStore((state) => state.sidebarOpen);

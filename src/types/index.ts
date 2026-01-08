@@ -54,6 +54,9 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   avatarUrl?: string;
+  is_onboarding_complete?: boolean;
+  workspaces?: any[];
+  roles?: string[];
 }
 
 export interface UserWithFullName extends User {
@@ -391,14 +394,18 @@ export interface UserInfo {
   email_verified?: boolean;
   given_name?: string; // First name
   family_name?: string; // Last name
+  middle_name?: string; // Middle name
   name?: string; // Full name
   middleName?: string;
   firstName?: string; // Alternative field name
   lastName?: string; // Alternative field name
   fullName?: string; // Alternative field name
   phoneNumber?: string;
+  phone_number?: string;
   phone_verified?: boolean;
+  phone_number_verified?: boolean;
   dateOfBirth?: string;
+  date_of_birth?: string;
   country?: string;
   status?: string;
   isActive?: boolean;
@@ -406,10 +413,27 @@ export interface UserInfo {
   phoneVerified?: boolean;
   twoFactorEnabled?: boolean;
   createdAt?: string;
+  created_at?: string;
   updatedAt?: string;
+  updated_at?: string;
+  last_login?: string;
+  is_onboarding_complete?: boolean;
+  address?: {
+    line1?: string;
+    line2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  };
   tenantId?: string;
   permissions?: string[];
-  roles?: string[];
+  roles?: any[];
+  workspaces?: any[];
+  workspace_id?: string;
+  workspace_name?: string;
+  tenant_id?: string;
+  is_workspace_bound?: boolean;
   [key: string]: unknown; // Allow additional properties
 }
 
@@ -485,3 +509,13 @@ export interface FormState {
 }
 
 export type FormMode = "create" | "edit" | "view";
+
+// ============================================================================
+// Payment & Invoice Types (re-exported from payment.ts)
+// ============================================================================
+export * from "./payment";
+
+// ============================================================================
+// Seafarer Portal Types (re-exported from seafarer.ts)
+// ============================================================================
+export * from "./seafarer";

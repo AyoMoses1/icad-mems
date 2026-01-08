@@ -30,7 +30,7 @@ export interface DataTableColumn<T> {
   id: string;
   header: string;
   accessorKey?: keyof T;
-  cell?: (row: T) => React.ReactNode;
+  cell?: ({ row }: { row: T }) => React.ReactNode;
   sortable?: boolean;
   className?: string;
 }
@@ -288,7 +288,7 @@ export function DataTable<T>({
                     {columns.map((column) => (
                       <TableCell key={column.id} className={column.className}>
                         {column.cell
-                          ? column.cell(row)
+                          ? column.cell({ row })
                           : column.accessorKey
                             ? String(row[column.accessorKey] ?? "")
                             : null}

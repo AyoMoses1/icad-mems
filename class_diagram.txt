@@ -1,0 +1,435 @@
+classDiagram
+direction TB
+
+%% =========================================================
+%%                    LOOKUP / MASTER TABLES
+%% =========================================================
+class UserType{
+  +int userTypeId <<PK>>
+  +string description
+}
+class CivilStatus{
+  +int civilStatusId <<PK>>
+  +string description
+}
+class Gender{
+  +int genderId <<PK>>
+  +string code
+  +string description
+}
+class Nationality{
+  +int nationalityId <<PK>>
+  +string isoCode
+  +string name
+}
+class DocumentTypes{
+  +int documentTypesId <<PK>>
+  +string description
+}
+class MetricList{
+  +int metricId <<PK>>
+  +string description
+}
+class ServiceTypes{
+  +int serviceTypeId <<PK>>
+  +string description
+}
+class ApplicationStatus{
+  +int applicationStatusId <<PK>>
+  +string description
+}
+class Ranks{
+  +int ranksId <<PK>>
+  +string description
+  +int rankId
+}
+class OrganizationType{
+  +int organizationTypeId <<PK>>
+  +string description
+}
+class InvoiceStatus{
+  +int invoiceStatusId <<PK>>
+  +string description
+}
+class PaymentServiceProvider{
+  +int paymentServiceProviderId <<PK>>
+  +string description
+}
+class AccreditationStatus{
+  +int accreditationStatusId <<PK>>
+  +string description
+}
+class TrainingStatus{
+  +int trainingStatusId <<PK>>
+  +string description
+}
+class WorkType{
+  +int workTypeId <<PK>>
+  +string description
+}
+class WatchShift{
+  +int watchShiftId <<PK>>
+  +string description
+}
+
+%% Optional / currently unused
+class TradingArea{
+  +int tradingAreaId <<PK>>
+  +string description
+}
+class VesselTypes{
+  +int vesselTypesId <<PK>>
+  +string description
+}
+
+%% =========================================================
+%%                    CORE USER / PROFILE
+%% =========================================================
+class UserProfile{
+  +string RN <<PK>>
+  +string username
+  +string SIN
+  +string lastName
+  +string firstName
+  +string middleName
+  +date DOB
+  +bool isApprove
+  +int userTypeId <<FK>>
+  +int nationalityId <<FK>>
+  +int genderId <<FK>>
+  +int civilStatusId <<FK>>
+  +int currentRankId <<FK>>
+  +int userStatus <<FK>>
+}
+
+class ContactDetails{
+  +int contactDetailsId <<PK>>
+  +string RN <<FK>>
+  +string phone
+  +string email
+  +string emergencyContactPerson
+  +string relationship
+  +string emergencyContactNumber
+  +string address
+  +string emergencyContactAddress
+}
+
+class UserStatusManagement{
+  +int userStatusManagementId <<PK>>
+  +string RN <<FK>>
+  +datetime startDate
+  +datetime endDate
+}
+
+%% =========================================================
+%%                     DOCUMENT MODULES
+%% =========================================================
+class ProfileDocument{
+  +int documentId <<PK>>
+  +string RN <<FK>>
+  +int documentTypesId <<FK>>
+  +string documentNumber
+  +date issueDate
+  +date expiryDate
+  +string issuingAuthority
+  +string filePathOrUrl
+}
+
+class ApplicationDocument{
+  +int documentId <<PK>>
+  +int applicationId <<FK>>
+  +int documentTypesId <<FK>>
+  +string documentNumber
+  +date issueDate
+  +date expiryDate
+  +string issuingAuthority
+  +string filePathOrUrl
+}
+
+%% =========================================================
+%%                     EDUCATION MODULE
+%% =========================================================
+class EducationDetails{
+  +int educationId <<PK>>
+  +string RN <<FK>>
+  +string institution
+  +string certificateObtained
+  +date startDate
+  +date endDate
+}
+
+class EducationDocument{
+  +int documentId <<PK>>
+  +int educationId <<FK>>
+  +int documentTypesId <<FK>>
+  +string documentNumber
+  +date issueDate
+  +date expiryDate
+  +string issuingAuthority
+  +string filePathOrUrl
+}
+
+%% =========================================================
+%%                 USER ORGANIZATION MODULE
+%% =========================================================
+class UserOrganization{
+  +int userOrganizationId <<PK>>
+  +string RN <<FK>>
+  +string userOrganizationName
+  +string userOrganizationAddress
+  +string userOrganizationPhone
+  +string userOrganizationEmail
+  +int userOrganizationCountry <<FK>>
+  +string designation
+  +int organizationTypeId <<FK>>
+}
+
+class UserOrganizationDocument{
+  +int documentId <<PK>>
+  +int userOrganizationId <<FK>>
+  +int documentTypesId <<FK>>
+  +string documentNumber
+  +date issueDate
+  +date expiryDate
+  +string issuingAuthority
+  +string filePathOrUrl
+}
+
+%% =========================================================
+%%              ACCREDITED INSTITUTIONS MODULE
+%% =========================================================
+class AccreditedInstitutions{
+  +int accreditedInstitutionsId <<PK>>
+  +string accreditedInstitutionName
+  +string accreditedInstitutionAddress
+  +int institutionType <<FK>>
+  +bool isApproved
+  +int accreditationStatusId <<FK>>
+  +string accreditedInstitutionEmail
+  +string accreditedInstitutionPhone
+  +date expiryDate
+}
+
+%% =========================================================
+%%          STCW STANDARD + COURSE-LEVEL ACCREDITATION
+%% =========================================================
+class STCWStandard{
+  +string stcwRef <<PK>>
+  +string regulationCode
+  +string competenceArea
+  +string level
+}
+
+class InstitutionSTCWAccreditation{
+  +int institutionSTCWAccreditationId <<PK>>
+  +int accreditedInstitutionId <<FK>>
+  +string stcwRef <<FK>>
+  +int accreditationStatusId <<FK>>
+  +bool isApproved
+  +date effectiveDate
+  +date expiryDate
+  +string remarks
+}
+
+class SeafarerTraining{
+  +string recordId <<PK>>
+  +string RN <<FK>>
+  +int institutionSTCWAccreditationId <<FK>>
+  +date startDate
+  +date endDate
+  +int trainingStatusId <<FK>>
+  +string result
+  +string certificateName
+  +date issueDate
+  +date expiryDate
+}
+
+%% =========================================================
+%%                 SERVICES / REQUIREMENTS MODULE
+%% =========================================================
+class RequirementList{
+  +int requirementListId <<PK>>
+  +string description
+  +int metricId <<FK>>
+}
+
+class Services{
+  +int servicesId <<PK>>
+  +int serviceTypeId <<FK>>
+  +string description
+}
+
+class ServiceRequirements{
+  +int serviceRequirementsId <<PK>>
+  +int serviceId <<FK>>
+  +int requirementId <<FK>>
+  +int rankId <<FK>>
+  +string requiredValue
+}
+
+%% =========================================================
+%%                 APPLICATIONS MODULE
+%% =========================================================
+class Application{
+  +int applicationId <<PK>>
+  +string RN <<FK>>
+  +int serviceId <<FK>>
+  +int applicationStatusId <<FK>>
+  +datetime applicationDate
+  +string remarks
+}
+
+class ApplicationRequirement{
+  +int applicationRequirementId <<PK>>
+  +int applicationId <<FK>>
+  +int requirementListId <<FK>>
+  +int metricId <<FK>>
+  +string requiredValue
+  +string actualValue
+  +bool isSubmitted
+  +datetime dateSubmitted
+}
+
+%% =========================================================
+%%                 BILLING / PAYMENTS MODULE
+%% =========================================================
+class ApplicationInvoice{
+  +int invoiceId <<PK>>
+  +int invoiceStatusId <<FK>>
+  +int serviceId <<FK>>
+  +datetime invoiceDate
+  +decimal amount
+}
+
+class Payment{
+  +string paymentRef <<PK>>
+  +int invoiceId <<FK>>
+  +decimal amount
+  +datetime paymentDate
+  +int paymentServiceProviderId <<FK>>
+  +int paymentStatusId <<FK>>
+}
+
+%% =========================================================
+%%                 VOYAGE LOGBOOK MODULE
+%% =========================================================
+class VoyageActivityLog{
+  +string logId <<PK>>
+  +string RN <<FK>>
+  +string seamanBookNo
+  +string vesselName
+  +string imoNumber
+  +string flagState
+  +string operatorCompany
+  +string portOfEngagement
+  +string portOfDischarge
+  +date dateJoined
+  +date dateLeft
+  +int totalSeaTimeDays
+  +date createdOn
+  +string remarks
+}
+
+class DailyActivityEntry{
+  +string entryId <<PK>>
+  +string logId <<FK>>
+  +date activityDate
+  +int watchShiftId <<FK>>
+  +decimal hoursOnDuty
+  +int workTypeId <<FK>>
+  +string equipmentUsed
+}
+
+class VoyageDocument{
+  +int documentId <<PK>>
+  +string logId <<FK>>
+  +int documentTypesId <<FK>>
+  +string documentNumber
+  +date issueDate
+  +date expiryDate
+  +string issuingAuthority
+  +string filePathOrUrl
+}
+
+%% =========================================================
+%%                     RELATIONSHIPS
+%% =========================================================
+
+%% UserProfile lookups
+UserType "1" --> "0..*" UserProfile : userTypeId
+Nationality "1" --> "0..*" UserProfile : nationalityId
+Gender "1" --> "0..*" UserProfile : genderId
+CivilStatus "1" --> "0..*" UserProfile : civilStatusId
+Ranks "1" --> "0..*" UserProfile : currentRankId
+AccreditationStatus "1" --> "0..*" UserProfile : userStatus
+
+%% UserProfile dependents
+UserProfile "1" --> "0..*" ContactDetails : RN
+UserProfile "1" --> "0..*" UserStatusManagement : RN
+UserProfile "1" --> "0..*" ProfileDocument : RN
+UserProfile "1" --> "0..*" EducationDetails : RN
+UserProfile "1" --> "0..*" UserOrganization : RN
+UserProfile "1" --> "0..*" Application : RN
+UserProfile "1" --> "0..*" VoyageActivityLog : RN
+UserProfile "1" --> "0..*" SeafarerTraining : RN
+
+%% Documents
+DocumentTypes "1" --> "0..*" ProfileDocument : documentTypesId
+DocumentTypes "1" --> "0..*" EducationDocument : documentTypesId
+DocumentTypes "1" --> "0..*" UserOrganizationDocument : documentTypesId
+DocumentTypes "1" --> "0..*" ApplicationDocument : documentTypesId
+DocumentTypes "1" --> "0..*" VoyageDocument : documentTypesId
+
+%% Education
+EducationDetails "1" --> "0..*" EducationDocument : educationId
+
+%% UserOrganization
+Nationality "1" --> "0..*" UserOrganization : userOrganizationCountry
+OrganizationType "1" --> "0..*" UserOrganization : organizationTypeId
+UserOrganization "1" --> "0..*" UserOrganizationDocument : userOrganizationId
+
+%% Accredited Institutions
+OrganizationType "1" --> "0..*" AccreditedInstitutions : institutionType
+AccreditationStatus "1" --> "0..*" AccreditedInstitutions : accreditationStatusId
+
+%% STCW Standard + course-level accreditation
+AccreditedInstitutions "1" --> "0..*" InstitutionSTCWAccreditation : accreditedInstitutionId
+STCWStandard "1" --> "0..*" InstitutionSTCWAccreditation : stcwRef
+AccreditationStatus "1" --> "0..*" InstitutionSTCWAccreditation : accreditationStatusId
+
+InstitutionSTCWAccreditation "1" --> "0..*" SeafarerTraining : institutionSTCWAccreditationId
+TrainingStatus "1" --> "0..*" SeafarerTraining : trainingStatusId
+
+%% Services / Requirements / Metrics / Ranks
+MetricList "1" --> "0..*" RequirementList : metricId
+ServiceTypes "1" --> "0..*" Services : serviceTypeId
+Services "1" --> "0..*" ServiceRequirements : serviceId
+RequirementList "1" --> "0..*" ServiceRequirements : requirementId
+Ranks "1" --> "0..*" ServiceRequirements : rankId
+
+%% Applications
+ApplicationStatus "1" --> "0..*" Application : applicationStatusId
+Services "1" --> "0..*" Application : serviceId
+
+Application "1" --> "0..*" ApplicationRequirement : applicationId
+RequirementList "1" --> "0..*" ApplicationRequirement : requirementListId
+MetricList "1" --> "0..*" ApplicationRequirement : metricId
+
+Application "1" --> "0..*" ApplicationDocument : applicationId
+
+%% Billing
+Services "1" --> "0..*" ApplicationInvoice : serviceId
+InvoiceStatus "1" --> "0..*" ApplicationInvoice : invoiceStatusId
+
+ApplicationInvoice "1" --> "0..*" Payment : invoiceId
+PaymentServiceProvider "1" --> "0..*" Payment : paymentServiceProviderId
+InvoiceStatus "1" --> "0..*" Payment : paymentStatusId
+
+%% Voyage logbook
+VoyageActivityLog "1" --> "0..*" DailyActivityEntry : logId
+WatchShift "1" --> "0..*" DailyActivityEntry : watchShiftId
+WorkType "1" --> "0..*" DailyActivityEntry : workTypeId
+
+VoyageActivityLog "1" --> "0..*" VoyageDocument : logId
+
+explain the application  and give a design document that a developer can use to understand the application

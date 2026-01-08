@@ -110,7 +110,7 @@ export default function MTIDetailPage() {
     {
       id: "level",
       header: "Level",
-      cell: (row) => getLevelBadge(row.level),
+      cell: ({ row }) => getLevelBadge(row.level),
     },
     {
       id: "duration",

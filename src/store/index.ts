@@ -23,4 +23,5 @@ export {
   useBreadcrumbs,
   useActiveModal,
   useModalData,
+  type UserType,
 } from "./ui-store";

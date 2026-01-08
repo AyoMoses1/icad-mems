@@ -62,12 +62,14 @@ export default function SignInPage() {
       }
 
       // Call the token endpoint with form-urlencoded data
+      // Uses SSO base URL (NEXT_PUBLIC_SSO_BASE_URL) automatically for /connect/token
       const tokenResponse = await apiPostForm<TokenResponse>("/connect/token", {
         client_id: clientId,
         client_secret: clientSecret,
         grant_type: grantType,
         username: data.email,
         password: data.password,
+        scope: "openid profile email",
       });
 
       console.log("Token Response:", tokenResponse);
@@ -119,7 +121,8 @@ export default function SignInPage() {
         toast.success("Welcome back!", {
           description: "You have successfully signed in.",
         });
-        router.push("/");
+        // Use replace instead of push to prevent back button issues
+        router.replace("/");
         return;
       }
 
