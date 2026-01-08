@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Sidebar, Header } from "@/components/dashboard";
@@ -42,7 +42,7 @@ interface UserInfo {
   }>;
 }
 
-export default function DashboardLayout({
+function DashboardLayoutContent({
   children,
 }: {
   children: React.ReactNode;
@@ -311,5 +311,17 @@ export default function DashboardLayout({
         <main className="p-4 lg:p-6">{children}</main>
       </div>
     </div>
+  );
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <Suspense fallback={<LoadingPage message="Loading..." />}>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </Suspense>
   );
 }

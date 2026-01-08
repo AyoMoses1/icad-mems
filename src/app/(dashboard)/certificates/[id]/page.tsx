@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Plus, Pencil, Trash2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -56,7 +56,7 @@ import {
 } from "@/lib/services/documents-master-service";
 import { formatDate } from "@/lib/utils";
 
-export default function CertificateDetailPage() {
+function CertificateDetailPageContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1117,5 +1117,13 @@ export default function CertificateDetailPage() {
         isLoading={isSubmitting}
       />
     </div>
+  );
+}
+
+export default function CertificateDetailPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <CertificateDetailPageContent />
+    </Suspense>
   );
 }
