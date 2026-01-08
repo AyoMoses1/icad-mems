@@ -105,10 +105,10 @@ export function SeafarerOnboardingForm() {
 
   // Contact Details
   const [contactData, setContactData] = useState<ContactDetailsRequest>({
-    phone: user?.phoneNumber || user?.phone_number || "",
+    phone: user?.phoneNumber || "",
     email: user?.email || "",
-    address: user?.address
-      ? `${user.address.line1 || ""}${user.address.line2 ? ", " + user.address.line2 : ""}, ${user.address.city || ""}, ${user.address.state || ""}, ${user.address.postalCode || ""}`
+    address: (user as any)?.address
+      ? `${(user as any).address.line1 || ""}${(user as any).address.line2 ? ", " + (user as any).address.line2 : ""}, ${(user as any).address.city || ""}, ${(user as any).address.state || ""}, ${(user as any).address.postalCode || ""}`
       : "",
     emergencyContactPerson: "",
     relationship: "",
@@ -517,7 +517,7 @@ export function SeafarerOnboardingForm() {
               <div className="space-y-2">
                 <Label>Full Name</Label>
                 <Input
-                  value={`${user?.given_name || user?.firstName || ""} ${user?.middle_name || user?.middleName || ""} ${user?.family_name || user?.lastName || ""}`.trim()}
+                  value={`${user?.firstName || ""} ${user?.middleName || ""} ${user?.lastName || ""}`.trim()}
                   disabled
                   className="bg-muted"
                 />
@@ -935,7 +935,7 @@ export function SeafarerOnboardingForm() {
                             if (!id || id === "") return [];
                             return (
                               <SelectItem key={id} value={id}>
-                                {stcw.stcwRef} - {stcw.institutionName || stcw.accreditedInstitutionName}
+                                {stcw.stcwRef} - {stcw.institutionName || ""}
                               </SelectItem>
                             );
                           })}
@@ -1604,7 +1604,7 @@ export function SeafarerOnboardingForm() {
                     <div>
                       <span className="text-muted-foreground">Name: </span>
                       <span>
-                        {`${user?.given_name || user?.firstName || ""} ${user?.middle_name || user?.middleName || ""} ${user?.family_name || user?.lastName || ""}`.trim()}
+                        {`${user?.firstName || ""} ${user?.middleName || ""} ${user?.lastName || ""}`.trim()}
                       </span>
                     </div>
                     {basicData.rankId && (

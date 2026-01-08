@@ -77,7 +77,7 @@ export function TrainingInstitutionOnboardingForm() {
 
   // Contact Details
   const [contactData, setContactData] = useState<ContactDetailsRequest>({
-    phone: user?.phoneNumber || user?.phone_number || "",
+    phone: user?.phoneNumber || "",
     email: user?.email || "",
     address: "",
     emergencyContactPerson: "",

@@ -179,7 +179,7 @@ export default function MyInvoicesPage() {
       <PageHeader
         title="My Invoices"
         description="View and manage your invoices and payments"
-        action={
+        actions={
           <Button variant="outline" onClick={loadInvoices} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Refresh

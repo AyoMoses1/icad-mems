@@ -220,7 +220,7 @@ export default function SeafarerApplicationsPage() {
       <PageHeader
         title="My Applications"
         description="View and manage all your service applications"
-        action={
+        actions={
           <Button onClick={() => router.push("/seafarer/services")}>
             <Plus className="h-4 w-4 mr-2" />
             New Application
@@ -273,12 +273,10 @@ export default function SeafarerApplicationsPage() {
                     ? "Try adjusting your filters"
                     : "You haven't created any applications yet"
                 }
-                action={
-                  <Button onClick={() => router.push("/seafarer/services")}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create New Application
-                  </Button>
-                }
+                action={{
+                  label: "Create New Application",
+                  onClick: () => router.push("/seafarer/services"),
+                }}
               />
             </div>
           ) : (

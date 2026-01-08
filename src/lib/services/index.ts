@@ -20,7 +20,8 @@ export * from "./inspection-service";
 export * from "./deficiency-service";
 export * from "./audit-service";
 export * from "./lookup-service";
-export * from "./comprehensive-onboarding-service";
+// comprehensive-onboarding-service exports are handled via explicit exports below to avoid type conflicts
+// export * from "./comprehensive-onboarding-service";
 // Seafarers - specific exports
 export {
   createSeafarer,

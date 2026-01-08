@@ -83,7 +83,7 @@ export default function ServicesPage() {
       <PageHeader
         title="Available Services"
         description="Browse and apply for maritime services"
-        action={
+        actions={
           <Button variant="outline" onClick={loadServices}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh

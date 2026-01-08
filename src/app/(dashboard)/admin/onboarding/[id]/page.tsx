@@ -602,10 +602,10 @@ export default function OnboardingDetailsPage() {
               <CardTitle className="text-lg">All Documents</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {onboarding.hasEducationDetails && onboarding.educationDocumentCount > 0 && (
+              {onboarding.hasEducationDetails && (onboarding.educationDocumentCount ?? 0) > 0 && (
                 <div>
                   <Label className="text-muted-foreground mb-2 block">
-                    Education Documents ({onboarding.educationDocumentCount})
+                    Education Documents ({onboarding.educationDocumentCount ?? 0})
                   </Label>
                   <div className="space-y-2">
                     {onboarding.educationDetails?.map((edu: any) =>
@@ -644,12 +644,12 @@ export default function OnboardingDetailsPage() {
                   </div>
                 </div>
               )}
-              {onboarding.hasInstitutionDocuments && onboarding.institutionDocumentCount > 0 && (
+              {onboarding.hasInstitutionDocuments && (onboarding.institutionDocumentCount ?? 0) > 0 && (
                 <>
                   {onboarding.hasEducationDetails && <Separator />}
                   <div>
                     <Label className="text-muted-foreground mb-2 block">
-                      Institution Documents ({onboarding.institutionDocumentCount})
+                      Institution Documents ({onboarding.institutionDocumentCount ?? 0})
                     </Label>
                     <div className="space-y-2">
                       {onboarding.institutionDocuments?.map((doc: any) => (
@@ -684,8 +684,8 @@ export default function OnboardingDetailsPage() {
                   </div>
                 </>
               )}
-              {(!onboarding.hasEducationDetails || onboarding.educationDocumentCount === 0) &&
-                (!onboarding.hasInstitutionDocuments || onboarding.institutionDocumentCount === 0) && (
+              {(!onboarding.hasEducationDetails || (onboarding.educationDocumentCount ?? 0) === 0) &&
+                (!onboarding.hasInstitutionDocuments || (onboarding.institutionDocumentCount ?? 0) === 0) && (
                   <div className="py-12 text-center text-muted-foreground">
                     <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No documents uploaded</p>
