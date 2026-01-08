@@ -61,7 +61,7 @@ export async function getInstitutions(params?: {
     queryParams.append("sortDirection", params.sortDirection);
 
   const response = await apiGetMain<PagedResult<InstitutionDto>>(
-    `/api/Institutions${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
+    `/api/v1/institutions${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
   );
 
   const ok = response.success ?? (response as any).successful;
@@ -73,7 +73,7 @@ export async function getInstitutions(params?: {
 }
 
 export async function getInstitutionById(id: string): Promise<InstitutionDto> {
-  const response = await apiGetMain<InstitutionDto>(`/api/Institutions/${id}`);
+  const response = await apiGetMain<InstitutionDto>(`/api/v1/institutions/${id}`);
 
   const ok = response.success ?? (response as any).successful;
   if (!ok || !response.data) {
@@ -86,7 +86,7 @@ export async function getInstitutionById(id: string): Promise<InstitutionDto> {
 export async function createInstitution(
   data: CreateInstitutionRequest,
 ): Promise<InstitutionDto> {
-  const response = await apiPostMain<InstitutionDto>("/api/Institutions", data);
+  const response = await apiPostMain<InstitutionDto>("/seafarer/api/v1/institutions", data);
 
   const ok = response.success ?? (response as any).successful;
   if (!ok || !response.data) {

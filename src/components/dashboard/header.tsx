@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { Bell, Search, Menu, User, Shield, Users, Building2, ChevronDown, CheckCircle } from "lucide-react";
-import { toast } from "sonner";
+import React, { useState } from "react";
+import { usePathname } from "next/navigation";
+import { Bell, Search, Menu, Shield } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -19,16 +18,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuthStore, useUIStore } from "@/store";
-import type { UserType } from "@/store/ui-store";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { getMySeafarerOnboardingStatus } from "@/lib/services/seafarers";
-import { getInstitutionOnboardingStatus } from "@/lib/services/institution-onboarding-service";
 
-const getPageTitle = (
-  pathname: string,
-  viewMode: "user" | "admin" = "admin"
-): string => {
+const getPageTitle = (pathname: string): string => {
   const routes: Record<string, string> = {
     "/": "Dashboard",
     "/seafarer/dashboard": "Seafarer Dashboard",
@@ -69,24 +60,34 @@ const getPageTitle = (
   return routes[pathname] || "Dashboard";
 };
 
-const userTypeLabels: Record<UserType, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
-  admin: { label: "Staff", icon: Shield },
-  seafarer: { label: "Seafarer", icon: User },
-  institution: { label: "Institution", icon: Building2 },
+// Role display labels
+const roleLabels: Record<string, string> = {
+  SEAFAER: "Seafarer",
+  TRAINING_INSTITUTION: "Training Institution",
+  AGENT: "Agent",
+  ACCREDITATION_OFFICER: "Accreditation Officer",
+  INSPECTOR: "Inspector",
+  FINANCE: "Finance",
+  ADMIN: "Administrator",
 };
 
 export function Header() {
-  const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuthStore();
-  const { setMobileSidebarOpen, viewMode, userType, setUserType } = useUIStore();
+  const { setMobileSidebarOpen } = useUIStore();
   const [searchQuery, setSearchQuery] = useState("");
-  const [userTypeMenuOpen, setUserTypeMenuOpen] = useState(false);
-  
-  const currentUserType = userTypeLabels[userType];
-  const CurrentIcon = currentUserType.icon;
+  const [userRole, setUserRole] = useState<string | null>(null);
 
-  const pageTitle = getPageTitle(pathname, viewMode || "admin");
+  // Get role from localStorage
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const role = localStorage.getItem("userRole");
+      setUserRole(role);
+    }
+  }, []);
+
+  const pageTitle = getPageTitle(pathname);
+  const roleLabel = userRole ? roleLabels[userRole] || userRole : "";
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
@@ -96,99 +97,6 @@ export function Header() {
       .join("")
       .toUpperCase()
       .slice(0, 2);
-  };
-
-  const handleUserTypeSelect = async (type: UserType) => {
-    setUserType(type);
-    setUserTypeMenuOpen(false);
-
-    // Map user types to their dashboard routes
-    const dashboardRoutes: Record<UserType, string> = {
-      admin: "/",
-      seafarer: "/seafarer/dashboard",
-      institution: "/institution/dashboard",
-    };
-
-    // Only gate flows that require onboarding
-    const checkSeafarer = async () => {
-      try {
-        const response = await getMySeafarerOnboardingStatus();
-        const ok = response.success ?? (response as any).successful;
-        if (!ok) {
-          const msg =
-            response.message ||
-            (response as any).error?.message ||
-            "Failed to check onboarding status";
-          toast.error(msg);
-          // Route to onboarding if we can't verify completion
-          router.push("/onboarding/seafarer");
-          return;
-        }
-        // Only route to dashboard if onboarding is explicitly completed
-        if (response.data?.completed === true) {
-          router.push(dashboardRoutes.seafarer);
-        } else {
-          const msg =
-            response.data?.message ||
-            response.message ||
-            "Complete your onboarding to continue.";
-          toast.info(msg);
-          router.push("/onboarding/seafarer");
-        }
-      } catch (error) {
-        console.error("Failed to fetch onboarding status:", error);
-        toast.error("Could not check onboarding status");
-        // Route to onboarding on error (safer default)
-        router.push("/onboarding/seafarer");
-      }
-    };
-
-    const checkInstitution = async () => {
-      try {
-        const response = await getInstitutionOnboardingStatus();
-        const ok = response.success ?? (response as any).successful;
-        if (!ok) {
-          const msg =
-            response.message ||
-            (response as any).error?.message ||
-            "Failed to check onboarding status";
-          toast.error(msg);
-          // Route to onboarding if we can't verify completion
-          router.push("/onboarding/institution");
-          return;
-        }
-        // Only route to dashboard if onboarding is explicitly completed
-        if (response.data?.completed === true) {
-          router.push(dashboardRoutes.institution);
-        } else {
-          const msg =
-            response.data?.message ||
-            response.message ||
-            "Complete your onboarding to continue.";
-          toast.info(msg);
-          router.push("/onboarding/institution");
-        }
-      } catch (error) {
-        console.error("Failed to fetch onboarding status:", error);
-        toast.error("Could not check onboarding status");
-        // Route to onboarding on error (safer default)
-        router.push("/onboarding/institution");
-      }
-    };
-
-    try {
-      if (type === "seafarer") {
-        await checkSeafarer();
-      } else if (type === "institution") {
-        await checkInstitution();
-      } else {
-        // For admin, directly navigate to dashboard (no onboarding required)
-        router.push(dashboardRoutes[type]);
-      }
-    } catch (error) {
-      console.error("Failed to handle user type switch:", error);
-      toast.error("Could not switch user type");
-    }
   };
 
   return (
@@ -223,43 +131,13 @@ export function Header() {
         </div>
       </div>
 
-      {/* User Type Switcher */}
-      <DropdownMenu open={userTypeMenuOpen} onOpenChange={setUserTypeMenuOpen}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            className="hidden md:flex items-center gap-2 px-3 py-1.5 h-auto bg-muted/50 border"
-          >
-            <CurrentIcon className="h-4 w-4 text-primary" />
-            <span className="text-xs font-medium min-w-[80px] text-left">
-              {currentUserType.label}
-            </span>
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuLabel>Switch User Type</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {Object.entries(userTypeLabels).map(([type, { label, icon: Icon }]) => (
-            <DropdownMenuItem
-              key={type}
-              onClick={() => {
-                void handleUserTypeSelect(type as UserType);
-              }}
-              className={cn(
-                "flex items-center gap-2 cursor-pointer",
-                userType === type && "bg-accent"
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{label}</span>
-              {userType === type && (
-                <CheckCircle className="h-4 w-4 ml-auto text-primary" />
-              )}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Role Badge */}
+      {roleLabel && (
+        <Badge variant="outline" className="hidden md:flex items-center gap-1.5 px-2.5 py-1">
+          <Shield className="h-3.5 w-3.5" />
+          <span className="text-xs font-medium">{roleLabel}</span>
+        </Badge>
+      )}
 
       {/* Notifications */}
       <DropdownMenu>

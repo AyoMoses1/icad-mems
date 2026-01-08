@@ -5,9 +5,9 @@
 
 import { apiGetMain, apiPatchMain, type ApiResponse } from "@/lib/api-client";
 
-const API_BASE_APPS = "/api/admin/AdminApplications";
-const API_BASE_ACCREDS = "/api/admin/accreditations";
-const API_BASE_ADMIN_ACCREDS = "/api/admin/AdminAccreditations";
+const API_BASE_APPS = "/seafarer/api/v1/admin/admin-applications";
+const API_BASE_ACCREDS = "/seafarer/api/v1/admin/accreditations";
+const API_BASE_ADMIN_ACCREDS = "/seafarer/api/v1/admin/admin-accreditations";
 
 export interface ApplicationDto {
   id: string;
@@ -276,5 +276,5 @@ export async function activateAccreditation(
  * Based on swagger.txt - AdminStatsDto
  */
 export async function getAdminStats(): Promise<ApiResponse<AdminStatsDto>> {
-  return apiGetMain<AdminStatsDto>("/api/admin/AdminStats");
+  return apiGetMain<AdminStatsDto>("/seafarer/api/v1/admin/admin-stats");
 }

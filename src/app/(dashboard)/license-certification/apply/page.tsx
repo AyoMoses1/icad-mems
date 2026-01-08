@@ -71,7 +71,7 @@ export default function ApplyCertificateLicensePage() {
     ApplicationRequirementDto[]
   >([]);
   const [documentUploads, setDocumentUploads] = useState<
-    Map<number, { file: File | null; documentId: number | null }>
+    Map<number, { file: File | null; documentId: string | number | null }>
   >(new Map());
   const [uploadedDocuments, setUploadedDocuments] = useState<DocumentDto[]>([]);
 
@@ -139,9 +139,16 @@ export default function ApplyCertificateLicensePage() {
     }
 
     try {
-      const response = await getApplicationRequirements(createdApplication.id);
+      const response = await getApplicationRequirements(String(createdApplication.id));
       if (response.success && response.data) {
-        setApplicationRequirements(response.data);
+        // Map the response data to the expected type
+        const mappedRequirements = response.data.map(req => ({
+          id: req.applicationRequirementId ? Number(req.applicationRequirementId) : undefined,
+          applicationId: Number(createdApplication.id),
+          requirementName: req.requirementName,
+          status: req.isSubmitted ? 'submitted' : 'pending',
+        })) as any[];
+        setApplicationRequirements(mappedRequirements);
       } else {
         console.error("Failed to load requirements:", response.message);
         // Don't show error toast if requirements are just empty
@@ -232,13 +239,17 @@ export default function ApplyCertificateLicensePage() {
       // Note: The API might support multiple services, but we'll start with one
       const firstService = Array.from(selectedServices.values())[0];
       const response = await createApplication({
-        serviceId: firstService.service.id,
-        programAppliedFor: firstService.service.serviceName || undefined,
+        serviceId: String(firstService.service.id),
         remarks: `Application for ${firstService.service.serviceName}`,
       });
 
       if (response.success && response.data) {
-        setCreatedApplication(response.data);
+        // Convert to ApplicationDto format expected by state
+        setCreatedApplication({
+          id: Number(response.data.id ?? response.data.applicationId ?? 0),
+          applicationNumber: response.data.rn,
+          status: response.data.applicationStatus ?? response.data.status,
+        } as any);
         toast.success("Application created successfully");
         // Load requirements after creating application
         await loadApplicationRequirements();
@@ -276,24 +287,24 @@ export default function ApplyCertificateLicensePage() {
       // Upload document
       const uploadResponse = await uploadUserDocument({
         file,
-        DocumentTypeId: docTypeId,
+        documentTypesId: String(docTypeId),
       });
 
       if (!uploadResponse.success || !uploadResponse.data) {
         toast.error(
-          uploadResponse.error?.message || "Failed to upload document"
+          (uploadResponse as any).error?.message || "Failed to upload document"
         );
         return;
       }
 
-      const documentId = uploadResponse.data.id;
+      const documentId = uploadResponse.data.documentId;
 
       // Fulfill requirement by linking the document
       const fulfillResponse = await fulfillApplicationRequirement(
-        createdApplication.id,
-        requirementId,
+        String(createdApplication.id),
+        String(requirementId),
         {
-          profileDocumentId: documentId,
+          documentId: documentId,
         }
       );
 
@@ -333,7 +344,10 @@ export default function ApplyCertificateLicensePage() {
 
     setIsSubmitting(true);
     try {
-      const response = await submitApplication(createdApplication.id);
+      const response = await submitApplication(String(createdApplication.id), {
+        applicationId: String(createdApplication.id),
+        remarks: "Application submitted",
+      });
 
       if (response.success && response.data) {
         toast.success("Application submitted successfully!");

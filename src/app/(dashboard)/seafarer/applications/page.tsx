@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Eye, MoreVertical, Search } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Eye, MoreVertical, Search, FileText, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,39 +38,44 @@ import {
 } from "@/components/shared";
 import { formatDate } from "@/lib/utils";
 import {
-  getPreviousCertificates,
-  getPreviousCertificateById,
-  type PreviousCertificateDto,
-} from "@/lib/services/previous-certificates-service";
+  getMyApplications,
+  getApplicationById,
+  type ApplicationDto,
+} from "@/lib/services/application-service";
+
+const STATUS_COLORS: Record<string, string> = {
+  DRAFT: "bg-gray-100 text-gray-800 border-gray-300",
+  SUBMITTED: "bg-blue-100 text-blue-800 border-blue-300",
+  UNDER_REVIEW: "bg-yellow-100 text-yellow-800 border-yellow-300",
+  PAYMENT_PENDING: "bg-orange-100 text-orange-800 border-orange-300",
+  PAID: "bg-cyan-100 text-cyan-800 border-cyan-300",
+  PROCESSING: "bg-purple-100 text-purple-800 border-purple-300",
+  APPROVED: "bg-green-100 text-green-800 border-green-300",
+  REJECTED: "bg-red-100 text-red-800 border-red-300",
+  CANCELLED: "bg-gray-100 text-gray-800 border-gray-300",
+  COMPLETED: "bg-emerald-100 text-emerald-800 border-emerald-300",
+};
 
 export default function SeafarerApplicationsPage() {
-  const [applications, setApplications] = useState<PreviousCertificateDto[]>(
-    [],
-  );
+  const router = useRouter();
+  const [applications, setApplications] = useState<ApplicationDto[]>([]);
   const [selectedApplication, setSelectedApplication] =
-    useState<PreviousCertificateDto | null>(null);
+    useState<ApplicationDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-  const pageSize = 20;
 
   useEffect(() => {
     loadApplications();
-  }, [currentPage, searchQuery]);
+  }, []);
 
   const loadApplications = async () => {
     setIsLoading(true);
     try {
-      // Use PreviousCertificates endpoint for all users
-      const response = await getPreviousCertificates({
-        pageNumber: currentPage,
-        pageSize,
-        sortDirection: "asc",
-      });
+      // Use Applications/my-applications endpoint
+      const response = await getMyApplications();
 
       const ok = response.success ?? (response as any).successful;
       if (!ok) {
@@ -77,16 +83,8 @@ export default function SeafarerApplicationsPage() {
         return;
       }
 
-      const items = response.data?.items || [];
+      const items = response.data || [];
       setApplications(items);
-      setTotalPages(
-        response.data?.totalNumber
-          ? Math.ceil(response.data.totalNumber / pageSize)
-          : 1,
-      );
-      setTotalCount(
-        response.data?.totalNumber ?? response.data?.items?.length ?? 0,
-      );
     } catch (error) {
       console.error("Error loading applications:", error);
       toast.error("Failed to load applications");
@@ -98,7 +96,7 @@ export default function SeafarerApplicationsPage() {
   const loadApplicationDetail = async (id: string) => {
     setIsLoadingDetail(true);
     try {
-      const response = await getPreviousCertificateById(id);
+      const response = await getApplicationById(id);
       const ok = response.success ?? (response as any).successful;
       if (ok && response.data) {
         setSelectedApplication(response.data);
@@ -114,82 +112,105 @@ export default function SeafarerApplicationsPage() {
     }
   };
 
-  const columns: DataTableColumn<PreviousCertificateDto>[] = [
+  // Filter applications based on search and status
+  const filteredApplications = applications.filter((app) => {
+    const matchesSearch =
+      !searchQuery ||
+      app.serviceName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      app.remarks?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      app.id?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" || app.status === statusFilter || app.applicationStatus === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const columns: DataTableColumn<ApplicationDto>[] = [
     {
-      id: "certificateNumber",
-      header: "Certificate Number",
-      accessorKey: "certificateNumber",
+      id: "applicationId",
+      header: "Application ID",
+      accessorKey: "id",
       cell: ({ row }) => (
-        <span className="font-mono font-medium">
-          {row.certificateNumber || `CERT-${row.id.slice(0, 8)}`}
+        <span className="font-mono font-medium text-xs">
+          {row.id?.slice(0, 8).toUpperCase() || "N/A"}
         </span>
       ),
     },
     {
-      id: "certificateType",
-      header: "Certificate Type",
-      accessorKey: "certificateType",
+      id: "service",
+      header: "Service",
+      accessorKey: "serviceName",
       cell: ({ row }) => (
-        <span className="text-sm">{row.certificateType || "N/A"}</span>
+        <div>
+          <p className="font-medium text-sm">{row.serviceName || "N/A"}</p>
+          {row.remarks && (
+            <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+              {row.remarks}
+            </p>
+          )}
+        </div>
       ),
     },
     {
-      id: "issuingAuthority",
-      header: "Issuing Authority",
-      accessorKey: "issuingAuthority",
-      cell: ({ row }) => (
-        <span className="text-sm">{row.issuingAuthority || "N/A"}</span>
-      ),
-    },
-    {
-      id: "issueDate",
-      header: "Issue Date",
-      accessorKey: "issueDate",
-      cell: ({ row }) => (
-        <span className="text-sm">
-          {row.issueDate ? formatDate(row.issueDate) : "N/A"}
-        </span>
-      ),
-    },
-    {
-      id: "expiryDate",
-      header: "Expiry Date",
-      accessorKey: "expiryDate",
+      id: "status",
+      header: "Status",
+      accessorKey: "status",
       cell: ({ row }) => {
-        const expiryDate = row.expiryDate ? new Date(row.expiryDate) : null;
-        const isExpired = expiryDate && expiryDate < new Date();
+        const status = row.status || row.applicationStatus || "DRAFT";
         return (
-          <span className={`text-sm ${isExpired ? "text-destructive" : ""}`}>
-            {row.expiryDate ? formatDate(row.expiryDate) : "N/A"}
-            {isExpired && (
-              <Badge variant="destructive" className="ml-2">
-                Expired
-              </Badge>
-            )}
-          </span>
+          <Badge
+            variant="outline"
+            className={STATUS_COLORS[status] || "bg-gray-100 text-gray-800"}
+          >
+            {status.replace(/_/g, " ")}
+          </Badge>
         );
       },
+    },
+    {
+      id: "date",
+      header: "Date Created",
+      accessorKey: "createdAt",
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {row.createdAt || row.dateCreated
+            ? formatDate(row.createdAt || row.dateCreated || "")
+            : "N/A"}
+        </span>
+      ),
+    },
+    {
+      id: "payment",
+      header: "Payment",
+      cell: ({ row }) => (
+        <div className="text-sm">
+          {row.hasPayment || row.isPaid ? (
+            <Badge variant="outline" className="bg-green-100 text-green-800">
+              Paid
+            </Badge>
+          ) : row.hasInvoice ? (
+            <Badge variant="outline" className="bg-orange-100 text-orange-800">
+              Pending
+            </Badge>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )}
+        </div>
+      ),
     },
     {
       id: "actions",
       header: "Actions",
       cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => loadApplicationDetail(row.id)}
-              disabled={isLoadingDetail}
-            >
-              <Eye className="mr-2 h-4 w-4" />
-              View Details
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => loadApplicationDetail(row.id || "")}
+            disabled={isLoadingDetail}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];
@@ -197,59 +218,83 @@ export default function SeafarerApplicationsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Previous Certificates"
-        description="View all your previous certificates and applications"
+        title="My Applications"
+        description="View and manage all your service applications"
+        action={
+          <Button onClick={() => router.push("/seafarer/services")}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Application
+          </Button>
+        }
       />
 
       {/* Applications Table */}
       <Card>
         <CardContent className="p-0">
-          <div className="p-4 border-b flex items-center justify-between">
+          <div className="p-4 border-b flex items-center justify-between gap-4">
             <div className="relative max-w-sm flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search applications"
+                placeholder="Search applications..."
                 value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
               />
             </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="DRAFT">Draft</SelectItem>
+                <SelectItem value="SUBMITTED">Submitted</SelectItem>
+                <SelectItem value="UNDER_REVIEW">Under Review</SelectItem>
+                <SelectItem value="PAYMENT_PENDING">Payment Pending</SelectItem>
+                <SelectItem value="PAID">Paid</SelectItem>
+                <SelectItem value="PROCESSING">Processing</SelectItem>
+                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="COMPLETED">Completed</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {isLoading ? (
-            <div className="p-8">
+            <div className="p-8 flex items-center justify-center">
               <LoadingSpinner />
             </div>
-          ) : applications?.length === 0 ? (
+          ) : filteredApplications.length === 0 ? (
             <div className="p-8">
               <EmptyState
                 title="No applications found"
-                description="There are no applications to display"
+                description={
+                  searchQuery || statusFilter !== "all"
+                    ? "Try adjusting your filters"
+                    : "You haven't created any applications yet"
+                }
+                action={
+                  <Button onClick={() => router.push("/seafarer/services")}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create New Application
+                  </Button>
+                }
               />
             </div>
           ) : (
-            <>
-              <DataTable
-                columns={columns}
-                data={applications ? applications : []}
-                isLoading={isLoading}
-                currentPage={currentPage}
-                totalCount={totalCount}
-                pageSize={pageSize}
-                onPageChange={setCurrentPage}
-                searchable={false}
-              />
-            </>
+            <DataTable
+              columns={columns}
+              data={filteredApplications}
+              isLoading={isLoading}
+              searchable={false}
+            />
           )}
         </CardContent>
       </Card>
 
       {/* Application Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Application Details</DialogTitle>
           </DialogHeader>
@@ -258,68 +303,147 @@ export default function SeafarerApplicationsPage() {
               <LoadingSpinner />
             </div>
           ) : selectedApplication ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Status Badge */}
+              <div className="flex items-center justify-between">
+                <Badge
+                  variant="outline"
+                  className={
+                    STATUS_COLORS[
+                      selectedApplication.status ||
+                        selectedApplication.applicationStatus ||
+                        "DRAFT"
+                    ] || "bg-gray-100"
+                  }
+                >
+                  {(
+                    selectedApplication.status ||
+                    selectedApplication.applicationStatus ||
+                    "DRAFT"
+                  ).replace(/_/g, " ")}
+                </Badge>
+                {(selectedApplication.hasPayment || selectedApplication.isPaid) && (
+                  <Badge variant="outline" className="bg-green-100 text-green-800">
+                    Payment Complete
+                  </Badge>
+                )}
+              </div>
+
+              {/* Application Info */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground">
-                    Certificate Number
-                  </Label>
-                  <p className="font-medium">
-                    {selectedApplication.certificateNumber || "N/A"}
+                  <Label className="text-muted-foreground">Application ID</Label>
+                  <p className="font-mono text-sm">
+                    {selectedApplication.id?.slice(0, 13).toUpperCase() || "N/A"}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground">
-                    Certificate Type
-                  </Label>
-                  <p className="font-medium">
-                    {selectedApplication.certificateType || "N/A"}
-                  </p>
+                  <Label className="text-muted-foreground">Service</Label>
+                  <p className="font-medium">{selectedApplication.serviceName || "N/A"}</p>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground">
-                    Issuing Authority
-                  </Label>
-                  <p className="font-medium">
-                    {selectedApplication.issuingAuthority || "N/A"}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground">Issue Date</Label>
-                  <p className="font-medium">
-                    {selectedApplication.issueDate
-                      ? formatDate(selectedApplication.issueDate)
+                  <Label className="text-muted-foreground">Date Created</Label>
+                  <p className="text-sm">
+                    {selectedApplication.createdAt || selectedApplication.dateCreated
+                      ? formatDate(
+                          selectedApplication.createdAt || selectedApplication.dateCreated || ""
+                        )
                       : "N/A"}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground">Expiry Date</Label>
-                  <p className="font-medium">
-                    {selectedApplication.expiryDate
-                      ? formatDate(selectedApplication.expiryDate)
-                      : "N/A"}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground">Seafarer ID</Label>
-                  <p className="font-medium font-mono text-sm">
-                    {selectedApplication.seafarerId || "N/A"}
+                  <Label className="text-muted-foreground">Date Submitted</Label>
+                  <p className="text-sm">
+                    {selectedApplication.applicationDate || selectedApplication.submissionDate
+                      ? formatDate(
+                          selectedApplication.applicationDate ||
+                            selectedApplication.submissionDate ||
+                            ""
+                        )
+                      : "Not submitted"}
                   </p>
                 </div>
               </div>
+
+              {/* Remarks */}
+              {selectedApplication.remarks && (
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Remarks</Label>
+                  <p className="text-sm bg-muted p-3 rounded-md">
+                    {selectedApplication.remarks}
+                  </p>
+                </div>
+              )}
+
+              {/* Requirements */}
+              {selectedApplication.requirements && selectedApplication.requirements.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Requirements</Label>
+                  <div className="space-y-2">
+                    {selectedApplication.requirements.map((req, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-2 bg-muted rounded-md text-sm"
+                      >
+                        <span>{req.requirementName || "Requirement"}</span>
+                        {req.isSubmitted ? (
+                          <Badge variant="outline" className="bg-green-100 text-green-800 text-xs">
+                            Submitted
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-gray-100 text-gray-800 text-xs">
+                            Pending
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Payment Info */}
+              {selectedApplication.hasInvoice && (
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Payment Status</Label>
+                  <div className="p-3 bg-muted rounded-md space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>Invoice Status:</span>
+                      <span className="font-medium">
+                        {selectedApplication.invoiceStatus || "Generated"}
+                      </span>
+                    </div>
+                    {selectedApplication.paymentRef && (
+                      <div className="flex justify-between text-sm">
+                        <span>Payment Reference:</span>
+                        <span className="font-mono text-xs">
+                          {selectedApplication.paymentRef}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No details available</p>
             </div>
           )}
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDetailDialogOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
               Close
             </Button>
+            {selectedApplication && (
+              <Button
+                onClick={() => {
+                  setDetailDialogOpen(false);
+                  router.push(`/seafarer/applications/${selectedApplication.id}`);
+                }}
+              >
+                View Full Details
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

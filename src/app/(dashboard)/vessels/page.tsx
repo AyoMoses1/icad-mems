@@ -416,8 +416,8 @@ export default function VesselsPage() {
         onConfirm={handleConfirmDelete}
         title="Delete Vessel"
         description={`Are you sure you want to delete "${selectedVessel?.name}"? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
         variant="destructive"
         isLoading={isSubmitting}
       />

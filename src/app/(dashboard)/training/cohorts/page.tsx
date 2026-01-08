@@ -224,9 +224,9 @@ export default function CohortsManagementPage() {
     }
   };
 
-  const getCourseName = (courseId: string) => {
-    const course = courses.find((c) => c.id === courseId);
-    return course?.name || courseId || "Unknown Course";
+  const getCourseName = (courseId: string | number): string => {
+    const course = courses.find((c) => String(c.id) === String(courseId));
+    return course?.courseName || String(courseId) || "Unknown Course";
   };
 
   const columns: DataTableColumn<CohortDto>[] = [
@@ -405,8 +405,8 @@ export default function CohortsManagementPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {courses.map((course) => (
-                    <SelectItem key={course.id} value={course.id}>
-                      {course.name || course.id}
+                    <SelectItem key={course.id} value={String(course.id)}>
+                      {course.courseName || course.id}
                     </SelectItem>
                   ))}
                 </SelectContent>

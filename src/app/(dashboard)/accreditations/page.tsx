@@ -113,14 +113,16 @@ export default function MyAccreditationsPage() {
       });
       const ok = response.success ?? (response as any).successful;
       if ((ok || response.data) && response.data) {
-        let data = Array.isArray(response.data)
-          ? response.data
-          : response.data?.items || [];
+        // Handle response data which could be array or paginated response
+        const responseData = response.data as any;
+        let data: InstitutionAccreditationDto[] = Array.isArray(responseData)
+          ? responseData
+          : responseData?.items || [];
 
         // Apply filters
         if (statusFilter !== "all") {
           data = data.filter(
-            (acc) =>
+            (acc: InstitutionAccreditationDto) =>
               acc.status?.toLowerCase() === statusFilter.toLowerCase() ||
               acc.status?.toLowerCase().replace(/\s+/g, "-") ===
                 statusFilter.toLowerCase()
@@ -129,7 +131,7 @@ export default function MyAccreditationsPage() {
 
         if (typeFilter !== "all") {
           data = data.filter(
-            (acc) =>
+            (acc: InstitutionAccreditationDto) =>
               acc.accreditationType?.toLowerCase() === typeFilter.toLowerCase()
           );
         }
@@ -297,7 +299,7 @@ export default function MyAccreditationsPage() {
       <PageHeader
         title="My Accreditations"
         description="View and manage your accreditation applications"
-        action={
+        actions={
           <Button onClick={() => router.push("/accreditations/apply")}>
             <Award className="mr-2 h-4 w-4" />
             Apply for Accreditation

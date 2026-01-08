@@ -415,8 +415,8 @@ export default function DocumentsPage() {
         onConfirm={handleConfirmDelete}
         title="Delete Document"
         description={`Are you sure you want to delete "${selectedDocument?.name}"? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
         variant="destructive"
         isLoading={isSubmitting}
       />

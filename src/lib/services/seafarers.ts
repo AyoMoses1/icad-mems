@@ -62,7 +62,7 @@ export interface CreateSeafarerRequest {
 export async function createSeafarer(
   data: CreateSeafarerRequest,
 ): Promise<ApiResponse<any>> {
-  return apiPostMain<any>("/api/Seafarers", data);
+  return apiPostMain<any>("/seafarer/api/v1/seafarers", data);
 }
 
 export async function getSeafarers(params?: {
@@ -80,7 +80,7 @@ export async function getSeafarers(params?: {
   if (params?.sortDirection) queryParams.append("sortDirection", params.sortDirection);
 
   return apiGetMain<PagedResult<SeafarerDto>>(
-    `/api/Seafarers${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
+    `/seafarer/api/v1/seafarers${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
   );
 }
 
@@ -94,16 +94,16 @@ export async function getMySeafarerOnboardingStatus(): Promise<
   ApiResponse<SeafarerOnboardingStatus>
 > {
   return apiGetMain<SeafarerOnboardingStatus>(
-    "/api/Seafarers/me/onboarding-status",
+    "/seafarer/api/v1/seafarers/me/onboarding-status",
   );
 }
 
 /**
  * Get current seafarer's profile
- * GET /api/Seafarers/me
+ * GET /seafarer/api/v1/seafarers/me
  */
 export async function getMySeafarer(): Promise<ApiResponse<SeafarerDto>> {
-  return apiGetMain<SeafarerDto>("/api/Seafarers/me");
+  return apiGetMain<SeafarerDto>("/seafarer/api/v1/seafarers/me");
 }
 
 /**
@@ -123,8 +123,8 @@ export interface SeafarerHeldDocumentDto {
 
 /**
  * Get current seafarer's documents
- * GET /api/Seafarers/{seafarerId}/documents
- * First gets the seafarer ID from /api/Seafarers/me, then fetches documents
+ * GET /api/v1/seafarers/{seafarerId}/documents
+ * First gets the seafarer ID from /api/v1/seafarers/me, then fetches documents
  */
 export async function getMySeafarerDocuments(): Promise<ApiResponse<SeafarerHeldDocumentDto[]>> {
   // First get the seafarer profile to get the ID
@@ -138,6 +138,6 @@ export async function getMySeafarerDocuments(): Promise<ApiResponse<SeafarerHeld
   const seafarerId = seafarerResponse.data.id;
   
   // Then get the documents using the seafarer ID
-  return apiGetMain<SeafarerHeldDocumentDto[]>(`/api/Seafarers/${seafarerId}/documents`);
+  return apiGetMain<SeafarerHeldDocumentDto[]>(`/api/v1/seafarers/${seafarerId}/documents`);
 }
 

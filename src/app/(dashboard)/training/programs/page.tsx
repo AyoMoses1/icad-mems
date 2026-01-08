@@ -208,7 +208,7 @@ export default function ProgramsManagementPage() {
       id: "programName",
       header: "Program Name",
       accessorKey: "programName",
-      cell: (row) => (
+      cell: ({ row }) => (
         <div>
           <p className="font-medium">{row.programName || "N/A"}</p>
           {row.description && (
@@ -223,24 +223,24 @@ export default function ProgramsManagementPage() {
       id: "programType",
       header: "Type",
       accessorKey: "programType",
-      cell: (row) => getCategoryBadge(row.programType),
+      cell: ({ row }) => getCategoryBadge(row.programType),
     },
     {
       id: "department",
       header: "Department",
       accessorKey: "department",
-      cell: (row) => <span className="text-sm">{row.department || "N/A"}</span>,
+      cell: ({ row }) => <span className="text-sm">{row.department || "N/A"}</span>,
     },
     {
       id: "duration",
       header: "Duration",
       accessorKey: "duration",
-      cell: (row) => <span className="text-sm">{row.duration || "N/A"}</span>,
+      cell: ({ row }) => <span className="text-sm">{row.duration || "N/A"}</span>,
     },
     {
       id: "tuitionFee",
       header: "Fee",
-      cell: (row) => (
+      cell: ({ row }) => (
         <span className="text-sm font-medium">
           {row.currency || "NGN"} {row.tuitionFee || "0"}
         </span>
@@ -250,14 +250,14 @@ export default function ProgramsManagementPage() {
       id: "courseCount",
       header: "Courses",
       accessorKey: "courseCount",
-      cell: (row) => (
+      cell: ({ row }) => (
         <Badge variant="outline">{row.courseCount || 0} courses</Badge>
       ),
     },
     {
       id: "actions",
       header: "",
-      cell: (row) => (
+      cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -335,22 +335,16 @@ export default function ProgramsManagementPage() {
         <EmptyState
           title="No programs found"
           description="Create your first program to get started"
-          action={
-            <Button
-              onClick={handleCreate}
-              className="bg-[#3EADC0] hover:bg-[#35a0b3]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Program
-            </Button>
-          }
+          action={{
+            label: "Add Program",
+            onClick: handleCreate,
+          }}
         />
       ) : (
         <DataTable
           columns={columns}
           data={programs}
           currentPage={currentPage}
-          totalPages={totalPages}
           totalCount={totalCount}
           pageSize={pageSize}
           onPageChange={setCurrentPage}

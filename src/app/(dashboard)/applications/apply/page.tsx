@@ -41,7 +41,7 @@ import {
   checkEligibilityForCurrentUser,
   createDraftApplication,
   attachDocumentsToApplication,
-  generateApplicationInvoice,
+  generateApplicationInvoiceWithFee,
   getApplicationInvoice,
   type ApplicationDto as ApplicationServiceDto,
   type EligibilityResultDto,
@@ -347,7 +347,7 @@ export default function ApplyApplicationPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await generateApplicationInvoice(application.id, {
+      const response = await generateApplicationInvoiceWithFee(application.id, {
         certificateFeeId: invoiceFormData.certificateFeeId,
         nationalityType: invoiceFormData.nationalityType || undefined,
         processingSpeed: invoiceFormData.processingSpeed || undefined,
@@ -963,7 +963,7 @@ export default function ApplyApplicationPage() {
                 </p>
                 <p>
                   <strong>Total Amount:</strong> {invoice.currency || "NGN"}{" "}
-                  {invoice.totalAmount.toLocaleString()}
+                  {(invoice.totalAmount ?? invoice.amount ?? 0).toLocaleString()}
                 </p>
                 {invoice.dueDate && (
                   <p>

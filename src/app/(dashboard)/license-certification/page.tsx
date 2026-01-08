@@ -8,8 +8,7 @@ import { PageHeader, LoadingSpinner, EmptyState } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getApplications } from "@/lib/services/application-service";
-import type { ApplicationDto } from "@/types/payment";
+import { getApplications, type ApplicationDto } from "@/lib/services/application-service";
 import { formatDate } from "@/lib/utils";
 
 const statusConfig: Record<
@@ -86,57 +85,52 @@ export default function LicenseCertificationPage() {
         <EmptyState
           title="No certificates found"
           description="You haven't applied for any certificates yet. Click the button above to get started."
-          action={
-            <Button
-              className="bg-[#3EADC0] hover:bg-[#35a0b3]"
-              onClick={() => router.push("/license-certification/apply")}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Apply for New Certificate/License
-            </Button>
-          }
+          action={{
+            label: "Apply for New Certificate/License",
+            onClick: () => router.push("/license-certification/apply"),
+          }}
         />
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
           {applications.map((app) => (
-            <Card key={app.id}>
+            <Card key={app.id || app.applicationId}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>
-                    {app.programAppliedFor || app.programName || "Certificate"}
+                    {app.serviceName || "Certificate"}
                   </CardTitle>
                   {getStatusBadge(
-                    app.applicationStatusName || app.status || "Pending",
+                    app.applicationStatus || app.status || "Pending",
                   )}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2 text-sm">
-                  {app.applicationNumber && (
+                  {(app.rn || app.id || app.applicationId) && (
                     <div>
                       <span className="text-muted-foreground">
                         Application Number:{" "}
                       </span>
                       <span className="font-medium">
-                        {app.applicationNumber}
+                        {app.rn || `APP-${app.id || app.applicationId}`}
                       </span>
                     </div>
                   )}
-                  {app.applicationDate && (
+                  {(app.applicationDate || app.createdAt) && (
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Issued: </span>
+                      <span className="text-muted-foreground">Created: </span>
                       <span className="font-medium">
-                        {formatDate(app.applicationDate)}
+                        {formatDate(app.applicationDate || app.createdAt || "")}
                       </span>
                     </div>
                   )}
-                  {app.decisionDate && (
+                  {app.approvalDate && (
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Expires: </span>
+                      <span className="text-muted-foreground">Approved: </span>
                       <span className="font-medium">
-                        {formatDate(app.decisionDate)}
+                        {formatDate(app.approvalDate)}
                       </span>
                     </div>
                   )}

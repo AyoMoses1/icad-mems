@@ -10,8 +10,8 @@ import {
   type ApiResponse,
 } from "@/lib/api-client";
 
-const API_BASE = "/api/onboarding/seafarer";
-const API_BASE_V2 = "/api/Seafarers";
+const API_BASE = "/seafarer/api/v1/onboarding/seafarer";
+const API_BASE_V2 = "/seafarer/api/v1/seafarers";
 
 export interface SeafarerRequirement {
   id: string;

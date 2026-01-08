@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { BreadcrumbItem } from "@/types";
 
-export type UserType = "admin" | "seafarer" | "institution";
+export type UserType = "admin" | "seafarer" | "institution" | "staff";
 
 interface UIState {
   // Sidebar

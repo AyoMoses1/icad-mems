@@ -321,7 +321,7 @@ export default function MedicalAppointmentsPage() {
       id: "seafarerName",
       header: "Seafarer",
       accessorKey: "seafarerName",
-      cell: (row) => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <User className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium">
@@ -334,7 +334,7 @@ export default function MedicalAppointmentsPage() {
       id: "serviceName",
       header: "Service",
       accessorKey: "serviceName",
-      cell: (row) => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Stethoscope className="h-4 w-4 text-muted-foreground" />
           <span>{row.serviceName || "N/A"}</span>
@@ -345,7 +345,7 @@ export default function MedicalAppointmentsPage() {
       id: "appointmentDate",
       header: "Date",
       accessorKey: "appointmentDate",
-      cell: (row) => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <span>{row.appointmentDate ? formatDate(row.appointmentDate) : "N/A"}</span>
@@ -356,7 +356,7 @@ export default function MedicalAppointmentsPage() {
       id: "appointmentTime",
       header: "Time",
       accessorKey: "appointmentTime",
-      cell: (row) => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-muted-foreground" />
           <span>{row.appointmentTime || "N/A"}</span>
@@ -367,12 +367,12 @@ export default function MedicalAppointmentsPage() {
       id: "status",
       header: "Status",
       accessorKey: "status",
-      cell: (row) => getStatusBadge(row.status),
+      cell: ({ row }) => getStatusBadge(row.status),
     },
     {
       id: "actions",
       header: "",
-      cell: (row) => (
+      cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -484,22 +484,16 @@ export default function MedicalAppointmentsPage() {
         <EmptyState
           title="No appointments found"
           description="Create your first appointment to get started"
-          action={
-            <Button
-              onClick={handleCreate}
-              className="bg-[#3EADC0] hover:bg-[#35a0b3]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              New Appointment
-            </Button>
-          }
+          action={{
+            label: "New Appointment",
+            onClick: handleCreate,
+          }}
         />
       ) : (
         <DataTable
           columns={columns}
           data={appointments}
           currentPage={currentPage}
-          totalPages={totalPages}
           totalCount={totalCount}
           pageSize={pageSize}
           onPageChange={setCurrentPage}
@@ -638,10 +632,10 @@ export default function MedicalAppointmentsPage() {
         onOpenChange={setIsCancelDialogOpen}
         title="Cancel Appointment"
         description={`Are you sure you want to cancel this appointment? This action cannot be undone.`}
-        confirmText="Cancel Appointment"
-        cancelText="Keep Appointment"
+        confirmLabel="Cancel Appointment"
+        cancelLabel="Keep Appointment"
         onConfirm={handleConfirmCancel}
-        isDestructive
+        variant="destructive"
         isLoading={isSubmitting}
       />
     </div>

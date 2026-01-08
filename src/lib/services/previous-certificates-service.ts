@@ -5,7 +5,7 @@
 
 import { apiGetMain, type ApiResponse } from "@/lib/api-client";
 
-const API_BASE = "/api/PreviousCertificates";
+const API_BASE = "/seafarer/api/v1/previous-certificates";
 
 export interface PreviousCertificateDto {
   id: string;

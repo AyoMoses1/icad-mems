@@ -522,8 +522,8 @@ export default function CertificatesPage() {
         onConfirm={handleConfirmDelete}
         title="Delete Certificate"
         description={`Are you sure you want to delete "${selectedCertificate?.name}"? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
         variant="destructive"
         isLoading={isSubmitting}
       />

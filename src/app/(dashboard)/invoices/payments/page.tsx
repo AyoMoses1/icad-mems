@@ -214,7 +214,7 @@ export default function PaymentsPage() {
       id: "paymentReference",
       header: "Reference",
       accessorKey: "paymentReference",
-      cell: (row) => (
+      cell: ({ row }) => (
         <span className="font-mono text-sm">
           {row.paymentReference || `PAY-${row.id}`}
         </span>
@@ -224,7 +224,7 @@ export default function PaymentsPage() {
       id: "amount",
       header: "Amount",
       accessorKey: "amount",
-      cell: (row) => (
+      cell: ({ row }) => (
         <span className="font-semibold">
           {row.currency || "NGN"} {row.amount.toLocaleString()}
         </span>
@@ -234,7 +234,7 @@ export default function PaymentsPage() {
       id: "status",
       header: "Status",
       accessorKey: "status",
-      cell: (row) => {
+      cell: ({ row }) => {
         const status = row.status || row.paymentStatus || "Pending";
         const config = statusConfig[status] || statusConfig.Pending;
         return <Badge variant={config.variant}>{config.label}</Badge>;
@@ -244,7 +244,7 @@ export default function PaymentsPage() {
       id: "paymentMethod",
       header: "Method",
       accessorKey: "paymentMethod",
-      cell: (row) => (
+      cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.paymentMethod || "N/A"}
         </span>
@@ -254,7 +254,7 @@ export default function PaymentsPage() {
       id: "userName",
       header: "User",
       accessorKey: "userName",
-      cell: (row) => (
+      cell: ({ row }) => (
         <div>
           <div className="font-medium">{row.userName || "N/A"}</div>
           {row.userEmail && (
@@ -267,7 +267,7 @@ export default function PaymentsPage() {
       id: "invoiceNumber",
       header: "Invoice",
       accessorKey: "invoiceNumber",
-      cell: (row) => (
+      cell: ({ row }) => (
         <span className="text-sm">
           {row.invoiceNumber || `INV-${row.invoiceId || "N/A"}`}
         </span>
@@ -277,7 +277,7 @@ export default function PaymentsPage() {
       id: "paymentDate",
       header: "Date",
       accessorKey: "paymentDate",
-      cell: (row) => (
+      cell: ({ row }) => (
         <span className="text-sm">
           {row.paymentDate
             ? formatDate(row.paymentDate)
@@ -288,7 +288,7 @@ export default function PaymentsPage() {
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
+      cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">

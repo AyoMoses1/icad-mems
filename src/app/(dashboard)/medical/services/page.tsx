@@ -242,7 +242,7 @@ export default function MedicalServicesPage() {
       id: "serviceName",
       header: "Service Name",
       accessorKey: "serviceName",
-      cell: (row) => (
+      cell: ({ row }) => (
         <div>
           <p className="font-medium">{row.serviceName || "N/A"}</p>
           {row.description && (
@@ -257,7 +257,7 @@ export default function MedicalServicesPage() {
       id: "duration",
       header: "Duration",
       accessorKey: "duration",
-      cell: (row) => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm">{row.duration || 0} min</span>
@@ -268,7 +268,7 @@ export default function MedicalServicesPage() {
       id: "price",
       header: "Price",
       accessorKey: "price",
-      cell: (row) => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <DollarSign className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm">
@@ -281,7 +281,7 @@ export default function MedicalServicesPage() {
       id: "isActive",
       header: "Status",
       accessorKey: "isActive",
-      cell: (row) => (
+      cell: ({ row }) => (
         <Badge variant={row.isActive ? "default" : "secondary"}>
           {row.isActive ? "Active" : "Inactive"}
         </Badge>
@@ -290,7 +290,7 @@ export default function MedicalServicesPage() {
     {
       id: "actions",
       header: "",
-      cell: (row) => (
+      cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -380,22 +380,16 @@ export default function MedicalServicesPage() {
         <EmptyState
           title="No services found"
           description="Create your first medical service to get started"
-          action={
-            <Button
-              onClick={handleCreate}
-              className="bg-[#3EADC0] hover:bg-[#35a0b3]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Service
-            </Button>
-          }
+          action={{
+            label: "Add Service",
+            onClick: handleCreate,
+          }}
         />
       ) : (
         <DataTable
           columns={columns}
           data={services}
           currentPage={currentPage}
-          totalPages={totalPages}
           totalCount={totalCount}
           pageSize={pageSize}
           onPageChange={setCurrentPage}
@@ -514,10 +508,10 @@ export default function MedicalServicesPage() {
         onOpenChange={setIsDeleteDialogOpen}
         title="Delete Service"
         description={`Are you sure you want to delete "${selectedService?.serviceName}"? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
         onConfirm={handleConfirmDelete}
-        isDestructive
+        variant="destructive"
         isLoading={isSubmitting}
       />
     </div>

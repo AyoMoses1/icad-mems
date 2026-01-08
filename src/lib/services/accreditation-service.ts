@@ -11,7 +11,8 @@ import {
   type ApiResponse,
 } from "@/lib/api-client";
 
-const API_BASE = "/api/Accreditations";
+// Match swagger.json paths exactly
+const API_BASE = "/seafarer/api/v1/accreditation";
 
 // ============================================================================
 // DTOs from Swagger
@@ -246,4 +247,115 @@ export async function getAllAccreditations(params?: {
     : API_BASE;
 
   return apiGetMain<InstitutionAccreditationDto[]>(url);
+}
+
+// ============================================================================
+// STCW Standards (Seafarer API)
+// ============================================================================
+
+export interface StcwStandardDto {
+  id: string;
+  stcwRef: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+export interface StcwAccreditationDto {
+  id: string;
+  institutionId: string;
+  stcwRef: string;
+  status: string;
+  effectiveDate?: string;
+  expiryDate?: string;
+  remarks?: string;
+}
+
+export interface CreateStcwAccreditationRequest {
+  stcwRef: string;
+  effectiveDate: string;
+  expiryDate?: string;
+  remarks?: string;
+}
+
+export interface UpdateStcwAccreditationStatusRequest {
+  status: string;
+  notes?: string;
+}
+
+/**
+ * Get all STCW standards
+ * GET /seafarer/api/v1/accreditation/stcw-standards
+ */
+export async function getStcwStandards(): Promise<ApiResponse<StcwStandardDto[]>> {
+  return apiGetMain<StcwStandardDto[]>(`${API_BASE}/stcw-standards`);
+}
+
+/**
+ * Add STCW accreditation to institution
+ * POST /seafarer/api/v1/accreditation/institutions/{id}/stcw-accreditations
+ */
+export async function addStcwAccreditation(
+  institutionId: string,
+  data: CreateStcwAccreditationRequest
+): Promise<ApiResponse<StcwAccreditationDto>> {
+  return apiPostMain<StcwAccreditationDto>(
+    `${API_BASE}/institutions/${institutionId}/stcw-accreditations`,
+    data
+  );
+}
+
+/**
+ * Get STCW accreditations for an institution
+ * GET /seafarer/api/v1/accreditation/institutions/{id}/stcw-accreditations
+ */
+export async function getInstitutionStcwAccreditations(
+  institutionId: string
+): Promise<ApiResponse<StcwAccreditationDto[]>> {
+  return apiGetMain<StcwAccreditationDto[]>(
+    `${API_BASE}/institutions/${institutionId}/stcw-accreditations`
+  );
+}
+
+/**
+ * Update STCW accreditation status (Officer/Inspector only)
+ * PATCH /seafarer/api/v1/accreditation/stcw-accreditations/{id}/status
+ */
+export async function updateStcwAccreditationStatus(
+  stcwAccreditationId: string,
+  data: UpdateStcwAccreditationStatusRequest
+): Promise<ApiResponse<StcwAccreditationDto>> {
+  return apiPatchMain<StcwAccreditationDto>(
+    `${API_BASE}/stcw-accreditations/${stcwAccreditationId}/status`,
+    data
+  );
+}
+
+/**
+ * Get accredited institutions (public endpoint)
+ * GET /seafarer/api/v1/accreditation/institutions
+ */
+export async function getAccreditedInstitutions(): Promise<ApiResponse<any[]>> {
+  return apiGetMain<any[]>(`${API_BASE}/institutions`);
+}
+
+/**
+ * Get accreditation requests (Officer only)
+ * GET /seafarer/api/v1/accreditation/requests
+ */
+export async function getAccreditationRequests(): Promise<ApiResponse<any[]>> {
+  return apiGetMain<any[]>(`${API_BASE}/requests`);
+}
+
+/**
+ * Update institution accreditation status (Officer only)
+ * PATCH /seafarer/api/v1/accreditation/institutions/{id}/status
+ */
+export async function updateInstitutionAccreditationStatus(
+  institutionId: string,
+  data: { status: string; notes?: string }
+): Promise<ApiResponse<any>> {
+  return apiPatchMain<any>(
+    `${API_BASE}/institutions/${institutionId}/status`,
+    data
+  );
 }

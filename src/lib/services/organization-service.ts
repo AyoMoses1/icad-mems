@@ -17,7 +17,7 @@ import type {
   PaginatedResponse,
 } from "@/types/seafarer";
 
-const API_BASE = "/api/v1/Organizations";
+const API_BASE = "/seafarer/api/v1/organizations";
 
 /**
  * Get paginated list of organizations

@@ -26,6 +26,15 @@ import {
   Briefcase,
   BookOpen,
   Stethoscope,
+  ClipboardCheck,
+  AlertTriangle,
+  UserPlus,
+  Receipt,
+  FileCheck,
+  FolderOpen,
+  Search,
+  Calendar,
+  BarChart3,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -50,41 +59,184 @@ type MenuItem = {
   children?: Array<{ title: string; href: string }>;
 };
 
-// Seafarer Menu Items
+// ============================================================================
+// Role-based Menu Definitions
+// Based on COMPLETE_API_INTEGRATION_GUIDE.md modules
+// ============================================================================
+
+/**
+ * SEAFARER Menu Items
+ * Seafarers are users who can:
+ * - View their dashboard
+ * - Manage their profile
+ * - Apply for certificates/services
+ * - View their applications and payments
+ * - Access training
+ */
 const seafarerMenuItems: MenuItem[] = [
   {
     title: "Dashboard",
     href: "/seafarer/dashboard",
     icon: LayoutDashboard,
   },
-  { title: "Training", href: "/training", icon: GraduationCap },
-  // {
-  //   title: "License & Certification",
-  //   href: "/license-certification",
-  //   icon: Award,
-  // },
-  { title: "Profile & Documents", href: "/profile-documents", icon: User },
-  { title: "My Applications", href: "/seafarer/applications", icon: FileText },
   {
-    title: "Apply for Certificate",
-    href: "/applications/apply",
-    icon: FileText,
-  },
-  // { title: "Onboarding", href: "/onboarding/seafarer", icon: User },
-];
-
-// Admin Menu Items
-const adminMenuItems: MenuItem[] = [
-  { title: "Dashboard", href: "/", icon: LayoutDashboard },
-  {
-    title: "Seafarer Management",
+    title: "My Profile",
     href: "#",
     icon: User,
     children: [
-      // { title: "Overview", href: "/seafarer/overview" },
-      // { title: "Applications", href: "/seafarer/applications" },
-      { title: "Add Seafarer", href: "/seafarer/add" },
-      { title: "Seafarer Registry", href: "/seafarer/registry" },
+      { title: "Profile & Documents", href: "/profile-documents" },
+      { title: "Education Details", href: "/seafarer/profile/education" },
+      { title: "Contact Details", href: "/seafarer/profile/contact" },
+    ],
+  },
+  {
+    title: "Services",
+    href: "/seafarer/services",
+    icon: Briefcase,
+  },
+  {
+    title: "Applications",
+    href: "#",
+    icon: FileText,
+    children: [
+      { title: "My Applications", href: "/seafarer/applications" },
+      { title: "Application History", href: "/seafarer/applications/history" },
+    ],
+  },
+  {
+    title: "Billing & Payments",
+    href: "#",
+    icon: CreditCard,
+    children: [
+      { title: "My Invoices", href: "/invoices/my-invoices" },
+      { title: "Payment History", href: "/invoices/payments" },
+    ],
+  },
+  {
+    title: "Training",
+    href: "#",
+    icon: GraduationCap,
+    children: [
+      { title: "Available Courses", href: "/training/courses" },
+      { title: "My Enrollments", href: "/training/enrollments" },
+    ],
+  },
+];
+
+/**
+ * TRAINING_INSTITUTION Menu Items
+ * Training institutions can:
+ * - Manage their institution profile
+ * - Manage courses/programs
+ * - Apply for accreditation
+ * - Respond to deficiencies
+ * - View inspection results
+ */
+const trainingInstitutionMenuItems: MenuItem[] = [
+  {
+    title: "Dashboard",
+    href: "/institution/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Institution Management",
+    href: "#",
+    icon: Building2,
+    children: [
+      { title: "My Institution", href: "/institutions" },
+      { title: "Documents", href: "/documents" },
+    ],
+  },
+  {
+    title: "Training Programs",
+    href: "#",
+    icon: GraduationCap,
+    children: [
+      { title: "Courses", href: "/training/courses" },
+      { title: "Programs", href: "/training/programs" },
+      { title: "Cohorts", href: "/training/cohorts" },
+      { title: "Enrollments", href: "/training/enrollments" },
+    ],
+  },
+  {
+    title: "Accreditation",
+    href: "#",
+    icon: Award,
+    children: [
+      { title: "Apply for Accreditation", href: "/accreditations/apply" },
+      { title: "My Accreditations", href: "/accreditations" },
+      { title: "STCW Standards", href: "/accreditations/stcw" },
+    ],
+  },
+  {
+    title: "Inspections & Deficiencies",
+    href: "#",
+    icon: ClipboardCheck,
+    children: [
+      { title: "Scheduled Inspections", href: "/institution/inspections" },
+      { title: "Deficiency Reports", href: "/institution/deficiencies" },
+    ],
+  },
+];
+
+/**
+ * AGENT Menu Items
+ * Agents are similar to training institutions
+ */
+const agentMenuItems: MenuItem[] = [
+  {
+    title: "Dashboard",
+    href: "/institution/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Agency Management",
+    href: "#",
+    icon: Building2,
+    children: [
+      { title: "My Agency", href: "/institutions" },
+      { title: "Documents", href: "/documents" },
+    ],
+  },
+  {
+    title: "Accreditation",
+    href: "#",
+    icon: Award,
+    children: [
+      { title: "Apply for Accreditation", href: "/accreditations/apply" },
+      { title: "My Accreditations", href: "/accreditations" },
+    ],
+  },
+  {
+    title: "Inspections & Deficiencies",
+    href: "#",
+    icon: ClipboardCheck,
+    children: [
+      { title: "Scheduled Inspections", href: "/institution/inspections" },
+      { title: "Deficiency Reports", href: "/institution/deficiencies" },
+    ],
+  },
+];
+
+/**
+ * ACCREDITATION_OFFICER Menu Items
+ * Officers can:
+ * - Review accreditation requests
+ * - Manage institutions
+ * - Schedule inspections
+ * - Create and resolve deficiencies
+ * - Schedule follow-up audits
+ */
+const accreditationOfficerMenuItems: MenuItem[] = [
+  { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  {
+    title: "Accreditations",
+    href: "#",
+    icon: Award,
+    children: [
+      { title: "Pending Reviews", href: "/admin/accreditations/review" },
+      { title: "All Accreditations", href: "/admin/accreditations" },
+      { title: "STCW Standards", href: "/accreditations/stcw" },
     ],
   },
   {
@@ -93,13 +245,161 @@ const adminMenuItems: MenuItem[] = [
     icon: Building2,
     children: [
       { title: "All Institutions", href: "/institutions" },
-      // { title: "Accredited MTIs", href: "/seafarer/miis" },
+      { title: "Institution Documents", href: "/documents" },
+    ],
+  },
+  {
+    title: "Inspections",
+    href: "#",
+    icon: ClipboardCheck,
+    children: [
+      { title: "Schedule Inspection", href: "/admin/inspections" },
+      { title: "Inspection Reports", href: "/admin/inspections/reports" },
+    ],
+  },
+  {
+    title: "Deficiencies",
+    href: "#",
+    icon: AlertTriangle,
+    children: [
+      { title: "Deficiency Reports", href: "/admin/inspections/deficiencies" },
+    ],
+  },
+  {
+    title: "Audits",
+    href: "#",
+    icon: ClipboardList,
+    children: [
+      { title: "Follow-up Audits", href: "/admin/audits" },
+    ],
+  },
+];
+
+/**
+ * INSPECTOR Menu Items
+ * Inspectors can:
+ * - View assigned inspections
+ * - Create and submit inspection reports
+ * - View deficiency reports
+ * - Update audit information
+ */
+const inspectorMenuItems: MenuItem[] = [
+  { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  {
+    title: "My Inspections",
+    href: "#",
+    icon: ClipboardCheck,
+    children: [
+      { title: "Assigned Inspections", href: "/admin/inspections" },
+      { title: "My Reports", href: "/admin/inspections/reports" },
+    ],
+  },
+  {
+    title: "Deficiency Reports",
+    href: "/admin/inspections/deficiencies",
+    icon: AlertTriangle,
+  },
+  {
+    title: "Audits",
+    href: "/admin/audits",
+    icon: ClipboardList,
+  },
+  {
+    title: "Institutions",
+    href: "/institutions",
+    icon: Building2,
+  },
+];
+
+/**
+ * FINANCE Menu Items
+ * Finance users can:
+ * - Manage invoices
+ * - View payments
+ * - Access financial reports
+ */
+const financeMenuItems: MenuItem[] = [
+  { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  {
+    title: "Invoice Management",
+    href: "#",
+    icon: Receipt,
+    children: [
+      { title: "All Invoices", href: "/invoices/management" },
+      { title: "Pending Invoices", href: "/invoices/pending" },
+    ],
+  },
+  {
+    title: "Payments",
+    href: "#",
+    icon: CreditCard,
+    children: [
+      { title: "Payment History", href: "/invoices/payments" },
+      { title: "Payment Verification", href: "/invoices/verify" },
+    ],
+  },
+  {
+    title: "Applications",
+    href: "#",
+    icon: FileText,
+    children: [
+      { title: "All Applications", href: "/seafarer/applications" },
+    ],
+  },
+  {
+    title: "Statistics",
+    href: "/admin/statistics",
+    icon: BarChart3,
+  },
+];
+
+/**
+ * ADMIN Menu Items
+ * Admins have full access to all features:
+ * - Onboarding management
+ * - Seafarer management
+ * - Institution management
+ * - Application review
+ * - Accreditation management
+ * - Inspection & Audit management
+ * - Financial management
+ * - System configuration
+ */
+const adminMenuItems: MenuItem[] = [
+  { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  {
+    title: "Onboarding",
+    href: "#",
+    icon: UserPlus,
+    children: [
+      { title: "Pending Requests", href: "/admin/onboarding" },
+      { title: "All Onboardings", href: "/admin/onboarding?status=all" },
+    ],
+  },
+  {
+    title: "Seafarer Management",
+    href: "#",
+    icon: User,
+    children: [
+      { title: "Add Seafarer", href: "/seafarer/add" },
+      { title: "Seafarer Registry", href: "/seafarer/registry" },
+      { title: "Seafarer Applications", href: "/seafarer/applications" },
+    ],
+  },
+  {
+    title: "Institutions",
+    href: "#",
+    icon: Building2,
+    children: [
+      { title: "All Institutions", href: "/institutions" },
+      { title: "Training Institutions", href: "/institutions?type=training" },
+      { title: "Medical Institutes", href: "/medical-institutes" },
     ],
   },
   {
     title: "Applications Review",
     href: "#",
-    icon: ClipboardList,
+    icon: FileCheck,
     children: [
       { title: "Pending Applications", href: "/admin/applications/review" },
       { title: "All Applications", href: "/seafarer/applications" },
@@ -108,10 +408,22 @@ const adminMenuItems: MenuItem[] = [
   {
     title: "Accreditations",
     href: "#",
-    icon: CheckCircle,
+    icon: Award,
     children: [
       { title: "Accreditations Dashboard", href: "/admin/accreditations" },
       { title: "Review Accreditations", href: "/admin/accreditations/review" },
+      { title: "STCW Standards", href: "/accreditations/stcw" },
+    ],
+  },
+  {
+    title: "Inspections & Audits",
+    href: "#",
+    icon: ClipboardCheck,
+    children: [
+      { title: "Inspection Schedules", href: "/admin/inspections" },
+      { title: "Inspection Reports", href: "/admin/inspections/reports" },
+      { title: "Deficiency Reports", href: "/admin/inspections/deficiencies" },
+      { title: "Follow-up Audits", href: "/admin/audits" },
     ],
   },
   {
@@ -129,86 +441,115 @@ const adminMenuItems: MenuItem[] = [
     icon: Settings,
     children: [
       { title: "Certificates", href: "/certificates" },
-      { title: "Documents", href: "/documents" },
-      // { title: "Vessels", href: "/vessels" },
+      { title: "Documents Master", href: "/documents" },
       { title: "Ranks", href: "/ranks" },
-      // { title: "Nationalities", href: "/nationalities" },
+      { title: "Nationalities", href: "/nationalities" },
       { title: "Onboarding Requirements", href: "/onboarding-requirements" },
     ],
   },
-  // { title: "Settings", href: "/settings", icon: Settings },
+  {
+    title: "Statistics",
+    href: "/admin/statistics",
+    icon: BarChart3,
+  },
 ];
 
-// Institution Menu Items
-const institutionMenuItems: MenuItem[] = [
-  {
-    title: "Dashboard",
-    href: "/institution/dashboard",
-    icon: LayoutDashboard,
-  },
+// ============================================================================
+// Role-based Menu Mapping
+// Maps backend roles from IMS userInfo to menu items
+// ============================================================================
 
-  {
-    title: "Institution Management",
-    href: "#",
-    icon: Building2,
-    children: [
-      { title: "My Institution", href: "/institutions" },
-      { title: "Cohorts", href: "/training/cohorts" },
-      // { title: "Onboarding", href: "/onboarding/institution" },
-    ],
-  },
-  {
-    title: "Training Institute",
-    href: "#",
-    icon: GraduationCap,
-    children: [{ title: "Courses", href: "/training/courses" }],
-  },
-  {
-    title: "Medical Institute",
-    href: "/medical-institutes",
-    icon: Stethoscope,
-    children: [
-      { title: "My Medical Institute", href: "/medical-institutes" },
-      // { title: "Services", href: "/medical/services" },
-      // { title: "Appointments", href: "/medical/appointments" },
-    ],
-  },
-  {
-    title: "Accreditation",
-    href: "#",
-    icon: Award,
-    children: [
-      { title: "Apply for Accreditation", href: "/accreditations/apply" },
-      { title: "My Accreditations", href: "/accreditations" },
-      // { title: "Status Check", href: "/accreditations/status" },
-    ],
-  },
-  // { title: "Settings", href: "/settings", icon: Settings },
-];
+const getMenuItemsByRole = (role: string | null): MenuItem[] => {
+  if (!role) {
+    return []; // No menu items if no role
+  }
 
-// Get menu items based on user type
+  const normalizedRole = role.toUpperCase().replace(/\s+/g, "_");
+
+  switch (normalizedRole) {
+    case "SEAFARER":
+    case "SEA_FARER":
+      return seafarerMenuItems;
+    
+    case "TRAINING_INSTITUTION":
+    case "TRAINING":
+    case "MTI":
+      return trainingInstitutionMenuItems;
+    
+    case "AGENT":
+      return agentMenuItems;
+    
+    case "ACCREDITATION_OFFICER":
+    case "OFFICER":
+      return accreditationOfficerMenuItems;
+    
+    case "INSPECTOR":
+      return inspectorMenuItems;
+    
+    case "FINANCE":
+    case "ACCOUNTANT":
+      return financeMenuItems;
+    
+    case "ADMIN":
+    case "ADMINISTRATOR":
+    case "SUPER_ADMIN":
+    case "SUPERADMIN":
+      return adminMenuItems;
+    
+    default:
+      // Default to seafarer for unknown roles in seafarer app
+      console.warn(`Unknown role: ${role}, defaulting to seafarer menu`);
+      return seafarerMenuItems;
+  }
+};
+
+// Legacy function for backward compatibility with UI store userType
 const getMenuItems = (userType: UserType): MenuItem[] => {
+  // Try to get role from localStorage first
+  if (typeof window !== "undefined") {
+    const role = localStorage.getItem("userRole");
+    if (role) {
+      return getMenuItemsByRole(role);
+    }
+  }
+  
+  // Fallback to userType
   switch (userType) {
     case "admin":
       return adminMenuItems;
     case "seafarer":
       return seafarerMenuItems;
     case "institution":
-      return institutionMenuItems;
+      return trainingInstitutionMenuItems;
     default:
       return adminMenuItems;
   }
 };
 
+// ============================================================================
+// Sidebar Component
+// ============================================================================
+
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthStore();
-  const { mobileSidebarOpen, setMobileSidebarOpen, viewMode, userType } =
-    useUIStore();
+  const { mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
   const [expandedItems, setExpandedItems] = React.useState<string[]>([]);
+  const [userRole, setUserRole] = React.useState<string | null>(null);
 
-  const currentMenuItems = getMenuItems(userType);
+  // Get role from localStorage (set by loading page)
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const role = localStorage.getItem("userRole");
+      setUserRole(role);
+    }
+  }, []);
+
+  // Get menu items based on role
+  const currentMenuItems = userRole 
+    ? getMenuItemsByRole(userRole)
+    : getMenuItems("admin"); // Fallback
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) =>
@@ -223,6 +564,10 @@ export function Sidebar() {
     } catch (error) {
       console.error("Logout - API call failed:", error);
     } finally {
+      // Clear role from localStorage
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("userRole");
+      }
       logout();
       router.push("/auth/signin");
     }
@@ -251,7 +596,7 @@ export function Sidebar() {
         });
       }
     });
-  }, [pathname, userType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathname, userRole]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
@@ -331,7 +676,7 @@ export function Sidebar() {
       <ScrollArea className="flex-1 px-3 py-4 sidebar-scroll">
         <div className="px-3 mb-3">
           <span className="text-xs font-semibold text-sidebar-muted-foreground uppercase tracking-wider">
-            Workspace
+            {userRole ? userRole.replace(/_/g, " ") : "Workspace"}
           </span>
         </div>
 

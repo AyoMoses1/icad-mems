@@ -10,7 +10,7 @@ import {
   type ApiResponse,
 } from "@/lib/api-client";
 
-const API_BASE = "/api/medical";
+const API_BASE = "/seafarer/api/v1/medical";
 
 export interface MedicalServiceDto {
   id: string;

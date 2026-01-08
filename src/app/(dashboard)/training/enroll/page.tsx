@@ -143,10 +143,12 @@ export default function EnrollTrainingPage() {
     setIsSubmitting(true);
     try {
       // Create enrollment
+      // Note: enrollmentData expects cohortId and studentId
+      // We use the selected course ID as cohort ID for now (may need to be updated based on actual flow)
       const result = await createEnrollment({
-        courseId: selectedCourseId,
+        cohortId: String(selectedCourseId),
+        studentId: String(user?.id || ""), // Use the current user's ID
         enrollmentDate: new Date().toISOString(),
-        // applicantId is optional - backend will use current user's applicant ID if available
       });
 
       if (result.success && result.data) {

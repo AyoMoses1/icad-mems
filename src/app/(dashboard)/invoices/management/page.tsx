@@ -225,7 +225,7 @@ export default function InvoiceManagementPage() {
       id: "invoiceNumber",
       header: "Invoice Number",
       accessorKey: "invoiceNumber",
-      cell: (row) => (
+      cell: ({ row }) => (
         <span className="font-mono font-medium">
           {row.invoiceNumber || `INV-${row.id}`}
         </span>
@@ -235,7 +235,7 @@ export default function InvoiceManagementPage() {
       id: "applicationNumber",
       header: "Application",
       accessorKey: "applicationNumber",
-      cell: (row) => (
+      cell: ({ row }) => (
         <span className="text-sm">
           {row.applicationNumber || `APP-${row.applicationId || "N/A"}`}
         </span>
@@ -245,7 +245,7 @@ export default function InvoiceManagementPage() {
       id: "amount",
       header: "Amount",
       accessorKey: "amount",
-      cell: (row) => (
+      cell: ({ row }) => (
         <span className="font-semibold">
           {row.currency || "NGN"} {row.amount.toLocaleString()}
         </span>
@@ -255,7 +255,7 @@ export default function InvoiceManagementPage() {
       id: "status",
       header: "Status",
       accessorKey: "invoiceStatusName",
-      cell: (row) => {
+      cell: ({ row }) => {
         const status =
           row.invoiceStatusName || row.invoiceStatusCode || "Pending";
         const config = statusConfig[status] || statusConfig.Pending;
@@ -266,7 +266,7 @@ export default function InvoiceManagementPage() {
       id: "userName",
       header: "User",
       accessorKey: "userName",
-      cell: (row) => (
+      cell: ({ row }) => (
         <div>
           <div className="font-medium">{row.userName || "N/A"}</div>
           {row.userEmail && (
@@ -279,7 +279,7 @@ export default function InvoiceManagementPage() {
       id: "dueDate",
       header: "Due Date",
       accessorKey: "dueDate",
-      cell: (row) => (
+      cell: ({ row }) => (
         <span className="text-sm">
           {row.dueDate ? formatDate(row.dueDate) : "N/A"}
         </span>
@@ -289,7 +289,7 @@ export default function InvoiceManagementPage() {
       id: "paidDate",
       header: "Paid Date",
       accessorKey: "paidDate",
-      cell: (row) => (
+      cell: ({ row }) => (
         <span className="text-sm">
           {row.paidDate ? formatDate(row.paidDate) : "-"}
         </span>
@@ -298,7 +298,7 @@ export default function InvoiceManagementPage() {
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
+      cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -466,8 +466,8 @@ export default function InvoiceManagementPage() {
         onOpenChange={setIsDeleteOpen}
         title="Delete Invoice"
         description={`Are you sure you want to delete invoice ${selectedInvoice?.invoiceNumber || selectedInvoice?.id}? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
         onConfirm={handleDelete}
         variant="destructive"
         isLoading={isSubmitting}

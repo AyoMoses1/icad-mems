@@ -9,7 +9,7 @@ import type {
   PaginatedResponse,
 } from "@/types/seafarer";
 
-const API_BASE = "/api/v1/Requirements";
+const API_BASE = "/seafarer/api/v1/requirements";
 
 /**
  * Get paginated list of requirements

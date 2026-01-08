@@ -44,10 +44,21 @@ import {
   getOrganizationAccreditations,
 } from "@/lib/services/organization-service";
 import {
-  getAccreditations,
-  suspendAccreditation,
+  getAllAccreditations,
+  updateInstitutionAccreditationStatus,
 } from "@/lib/services/accreditation-service";
-import type { UserOrganizationDto, AccreditationDto } from "@/types/seafarer";
+import type { UserOrganizationDto } from "@/types/seafarer";
+
+// Define AccreditationDto locally since it's not exported from seafarer types
+interface AccreditationDto {
+  id: string;
+  institutionId?: string;
+  status?: string;
+  accreditationType?: string;
+  effectiveDate?: string;
+  expiryDate?: string;
+  notes?: string;
+}
 import { formatDate } from "@/lib/utils";
 
 const statusConfig: Record<
@@ -113,25 +124,30 @@ export default function AccreditedMTIsPage() {
         setTotalCount(orgResponse.data.totalCount);
 
         // Also fetch accreditations to get accurate stats
-        const accredResponse = await getAccreditations({
+        const accredResponse = await getAllAccreditations({
           pageNumber: 1,
           pageSize: 100, // Get all for stats
         });
 
         if (accredResponse.success && accredResponse.data) {
-          const accreditations = accredResponse.data.items;
+          // Handle response data which could be array or paginated response
+          const responseData = accredResponse.data as any;
+          const accreditations: AccreditationDto[] = Array.isArray(responseData)
+            ? responseData
+            : responseData?.items || [];
+          const totalCount = responseData?.totalCount || accreditations.length;
+          
           setStats({
-            totalInstitutes: accredResponse.data.totalCount,
+            totalInstitutes: totalCount,
             accredited: accreditations.filter(
-              (a) =>
-                a.accreditationStatusName === "Approved" ||
-                a.accreditationStatusName === "Active"
+              (a: AccreditationDto) =>
+                a.status === "Approved" || a.status === "Active"
             ).length,
             pendingReview: accreditations.filter(
-              (a) => a.accreditationStatusName === "Pending"
+              (a: AccreditationDto) => a.status === "Pending"
             ).length,
             suspended: accreditations.filter(
-              (a) => a.accreditationStatusName === "Suspended"
+              (a: AccreditationDto) => a.status === "Suspended"
             ).length,
           });
         }
@@ -162,8 +178,9 @@ export default function AccreditedMTIsPage() {
         const accreditationId = (accredResponse.data[0] as any).id;
 
         setIsSubmitting(true);
-        const response = await suspendAccreditation(accreditationId, {
-          reason: "Suspended by administrator",
+        const response = await updateInstitutionAccreditationStatus(accreditationId, {
+          status: "Suspended",
+          notes: "Suspended by administrator",
         });
 
         const ok = response.success ?? (response as any).successful;
@@ -196,7 +213,7 @@ export default function AccreditedMTIsPage() {
       id: "name",
       header: "Institute",
       accessorKey: "name",
-      cell: (row) => (
+      cell: ({ row }) => (
         <div>
           <p className="font-medium">{row.name || "N/A"}</p>
           {row.registrationNumber && (
@@ -211,20 +228,20 @@ export default function AccreditedMTIsPage() {
       id: "organizationTypeName",
       header: "Type",
       accessorKey: "organizationTypeName",
-      cell: (row) => (
+      cell: ({ row }) => (
         <span className="text-sm">{row.organizationTypeName || "N/A"}</span>
       ),
     },
     {
       id: "location",
       header: "Location",
-      cell: (row) => <span className="text-sm">{getLocation(row)}</span>,
+      cell: ({ row }) => <span className="text-sm">{getLocation(row)}</span>,
     },
     {
       id: "isActive",
       header: "Status",
       accessorKey: "isActive",
-      cell: (row) => {
+      cell: ({ row }) => {
         const status = row.isActive ? "Active" : "Suspended";
         const config = statusConfig[status] || statusConfig.Pending;
         return <Badge variant={config.variant}>{config.label}</Badge>;
@@ -233,7 +250,7 @@ export default function AccreditedMTIsPage() {
     {
       id: "actions",
       header: "",
-      cell: (row) => (
+      cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -392,8 +409,8 @@ export default function AccreditedMTIsPage() {
         onOpenChange={setIsSuspendDialogOpen}
         title="Suspend Institution"
         description={`Are you sure you want to suspend ${selectedOrg?.name || "this institution"}? This action cannot be undone.`}
-        confirmText="Suspend"
-        cancelText="Cancel"
+        confirmLabel="Suspend"
+        cancelLabel="Cancel"
         onConfirm={handleSuspend}
         variant="destructive"
         isLoading={isSubmitting}

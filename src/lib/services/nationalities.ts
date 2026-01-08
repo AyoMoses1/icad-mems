@@ -8,7 +8,7 @@ export interface NationalityDto {
 }
 
 export async function getNationalities(): Promise<NationalityDto[]> {
-  const response = await apiGetMain<NationalityDto[]>("/api/Nationalities");
+  const response = await apiGetMain<NationalityDto[]>("/seafarer/api/v1/nationalities");
 
   const ok = response.success ?? (response as any).successful;
   if (!ok || !response.data) {

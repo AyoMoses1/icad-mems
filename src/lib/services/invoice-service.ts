@@ -17,7 +17,7 @@ import type {
   PaginatedResponse,
 } from "@/types/payment";
 
-const API_BASE = "/api/v1/Invoices";
+const API_BASE = "/seafarer/api/v1/invoices";
 
 /**
  * Get paginated list of invoices with optional filtering

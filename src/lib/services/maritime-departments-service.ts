@@ -5,7 +5,7 @@
 
 import { apiGetMain, type ApiResponse } from "@/lib/api-client";
 
-const API_BASE = "/api/MaritimeDepartments";
+const API_BASE = "/seafarer/api/v1/maritime-departments";
 
 export interface MaritimeDepartmentDto {
   id: string;

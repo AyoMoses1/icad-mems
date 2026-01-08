@@ -320,7 +320,7 @@ export default function OnboardingRequirementsPage() {
       <PageHeader
         title="Onboarding Requirements"
         description="Manage onboarding requirements for different user types"
-        action={
+        actions={
           <Button onClick={() => setIsCreateModalOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add Requirement

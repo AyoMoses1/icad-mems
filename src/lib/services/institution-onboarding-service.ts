@@ -11,11 +11,45 @@ import {
   type ApiResponse,
 } from "@/lib/api-client";
 
-const API_BASE = "/api/institutions";
-const API_ONBOARDING_BASE = "/api/onboarding/institution";
-const API_STAFF_BASE = "/api/institutionstaffs";
-const API_TRAINING_BASE = "/api/traininginstitutes";
-const API_MEDICAL_BASE = "/api/medicalinstitutes";
+const API_BASE = "/seafarer/api/v1/institutions";
+const API_ONBOARDING_BASE = "/seafarer/api/v1/onboarding/institution";
+const API_STAFF_BASE = "/seafarer/api/v1/institution-staffs";
+const API_TRAINING_BASE = "/seafarer/api/v1/training-institutes";
+const API_MEDICAL_BASE = "/seafarer/api/v1/medical-institutes";
+
+// Training Institute types
+export interface TrainingInstituteDto {
+  id: string;
+  institutionId: string;
+  institutionName?: string | null;
+  coursesOffered?: string[] | null;
+  accreditationStatus?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface TrainingInstituteRequest {
+  institutionId?: string;
+  coursesOffered?: string[];
+  accreditationStatus?: string;
+}
+
+// Medical Institute types
+export interface MedicalInstituteDto {
+  id: string;
+  institutionId: string;
+  institutionName?: string | null;
+  servicesOffered?: string[] | null;
+  accreditationStatus?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface MedicalInstituteRequest {
+  institutionId?: string;
+  servicesOffered?: string[];
+  accreditationStatus?: string;
+}
 
 export interface InstitutionContactRequest {
   firstName?: string;

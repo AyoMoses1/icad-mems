@@ -45,7 +45,7 @@ export async function getVessels(params?: {
   if (params?.sortDirection) queryParams.append("sortDirection", params.sortDirection);
 
   const response = await apiGetMain<PagedResult<VesselDto>>(
-    `/api/Vessels${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
+    `/api/v1/vessels${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
   );
 
   const ok = response.success ?? (response as any).successful;
@@ -57,7 +57,7 @@ export async function getVessels(params?: {
 }
 
 export async function getVesselById(id: number): Promise<VesselDto> {
-  const response = await apiGetMain<VesselDto>(`/api/Vessels/${id}`);
+  const response = await apiGetMain<VesselDto>(`/api/v1/vessels/${id}`);
 
   const ok = response.success ?? (response as any).successful;
   if (!ok || !response.data) {
@@ -68,7 +68,7 @@ export async function getVesselById(id: number): Promise<VesselDto> {
 }
 
 export async function createVessel(data: CreateVesselRequest): Promise<VesselDto> {
-  const response = await apiPostMain<VesselDto>("/api/Vessels", data);
+  const response = await apiPostMain<VesselDto>("/seafarer/api/v1/vessels", data);
 
   const ok = response.success ?? (response as any).successful;
   if (!ok || !response.data) {
@@ -79,7 +79,7 @@ export async function createVessel(data: CreateVesselRequest): Promise<VesselDto
 }
 
 export async function updateVessel(id: number, data: UpdateVesselRequest): Promise<boolean> {
-  const response = await apiPutMain<boolean>(`/api/Vessels/${id}`, data);
+  const response = await apiPutMain<boolean>(`/api/v1/vessels/${id}`, data);
 
   const ok = response.success ?? (response as any).successful;
   if (!ok) {
@@ -90,7 +90,7 @@ export async function updateVessel(id: number, data: UpdateVesselRequest): Promi
 }
 
 export async function deleteVessel(id: number): Promise<boolean> {
-  const response = await apiDeleteMain<boolean>(`/api/Vessels/${id}`);
+  const response = await apiDeleteMain<boolean>(`/api/v1/vessels/${id}`);
 
   const ok = response.success ?? (response as any).successful;
   if (!ok) {
