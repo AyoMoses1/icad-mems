@@ -28,7 +28,17 @@ interface UserInfo {
   sub?: string;
   name?: string;
   email?: string;
-  roles?: string[]; // Array of roles
+  // Nested roles structure from API
+  roles?: Array<{
+    workspaceId: string;
+    workspaceName: string;
+    tenants?: Array<{
+      tenantId: string;
+      roles?: Array<{
+        role: string;
+      }>;
+    }>;
+  }>;
   role?: string; // Fallback single role field
   [key: string]: unknown;
 }
@@ -51,11 +61,37 @@ export default function OnboardingPage() {
 
       console.log("UserInfo received:", userInfo);
 
-      // Extract roles array from userInfo
-      // Note: roles array now contains only tenant-specific roles (API Fix Issue #4)
-      const roles = userInfo.roles || [];
+      // Extract roles from nested structure
+      // The API returns roles in this structure:
+      // roles: [{ workspaceId, workspaceName, tenants: [{ tenantId, roles: [{ role }] }] }]
+      const extractedRoles: string[] = [];
       
-      console.log("Roles array:", roles);
+      // Extract roles from nested structure
+      if (userInfo.roles && Array.isArray(userInfo.roles)) {
+        userInfo.roles.forEach((workspaceRole) => {
+          if (workspaceRole.tenants && Array.isArray(workspaceRole.tenants)) {
+            workspaceRole.tenants.forEach((tenant) => {
+              if (tenant.roles && Array.isArray(tenant.roles)) {
+                tenant.roles.forEach((roleObj) => {
+                  if (roleObj.role && typeof roleObj.role === "string") {
+                    extractedRoles.push(roleObj.role.toUpperCase());
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      // Also check for direct role field
+      if (userInfo.role && typeof userInfo.role === "string") {
+        extractedRoles.push(userInfo.role.toUpperCase());
+      }
+      
+      // Remove duplicates
+      const roles = Array.from(new Set(extractedRoles));
+      
+      console.log("Extracted roles:", roles);
 
       // IMPORTANT: Check for onboarding-required roles FIRST
       // These roles (SEAFARER, TRAINING_INSTITUTION, AGENT) ALWAYS require onboarding
@@ -115,6 +151,16 @@ export default function OnboardingPage() {
           console.log("✓ Routing to AGENT onboarding (fallback detection)");
           setUserRole("AGENT");
         } else {
+          // Check if user is OWNER - they can choose which onboarding to do
+          const isOwner = roles.includes("OWNER");
+          
+          if (isOwner) {
+            // OWNER should be redirected to root path where they can choose onboarding
+            console.log("✓ User is OWNER - redirecting to role selection");
+            router.push("/");
+            return;
+          }
+          
           // No recognized onboarding role found
           console.error(
             "❌ No recognized onboarding role found. User roles:",

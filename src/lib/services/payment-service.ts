@@ -291,4 +291,3 @@ export async function downloadInvoice(invoiceId: string): Promise<Blob> {
     throw new Error("An unexpected error occurred while downloading invoice");
   }
 }
-

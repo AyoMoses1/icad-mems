@@ -39,8 +39,8 @@ export function getDashboardRoute(role: UserRole | string): string {
       return "/admin/dashboard";
     
     case "OWNER":
-      // OWNER might be combined with another role, check roles array
-      return "/admin/dashboard";
+      // OWNER stays at root path to see role selection screen
+      return "/";
     
     default:
       // Default to seafarer dashboard if role is unknown
@@ -104,6 +104,8 @@ export function canAccessRoute(userRole: UserRole | string, route: string): bool
   
   return false;
 }
+
+
 
 
 

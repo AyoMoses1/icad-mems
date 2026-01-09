@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { Sidebar, Header } from "@/components/dashboard";
 import { useAuthStore } from "@/store";
-import { LoadingPage } from "@/components/shared";
+import { LoadingPage, UnauthorizedScreen } from "@/components/shared";
 import { usePathname } from "next/navigation";
 import { apiGetAuth } from "@/lib/api-client";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import { getDashboardRouteFromRoles } from "@/lib/role-routing";
 
 /**
  * UserInfo from IMS /connect/userinfo endpoint
+ * Matches the actual API response structure with nested roles
  */
 interface UserInfo {
   sub?: string;
@@ -22,11 +23,23 @@ interface UserInfo {
   email_verified?: boolean;
   phone_number?: string;
   phone_verified?: boolean;
+  phone_number_verified?: boolean;
   given_name?: string;
   family_name?: string;
+  middle_name?: string;
   name?: string;
-  roles?: string[];
-  role?: string;
+  // Nested roles structure from API
+  roles?: Array<{
+    workspaceId: string;
+    workspaceName: string;
+    tenants?: Array<{
+      tenantId: string;
+      roles?: Array<{
+        role: string;
+      }>;
+    }>;
+  }>;
+  role?: string; // Direct role field (if available)
   firstName?: string;
   lastName?: string;
   middleName?: string;
@@ -34,11 +47,23 @@ interface UserInfo {
   country?: string;
   status?: string;
   createdAt?: string;
+  created_at?: string;
   updatedAt?: string;
+  updated_at?: string;
+  last_login?: string;
+  is_onboarding_complete?: boolean;
+  address?: {
+    line1?: string;
+    line2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  };
   workspaces?: Array<{
     workspaceId: string;
     workspaceName: string;
-    workspaceCode: string;
+    workspaceCode?: string;
   }>;
 }
 
@@ -60,6 +85,8 @@ function DashboardLayoutContent({
   } = useAuthStore();
   const [isInitializing, setIsInitializing] = useState(true);
   const [initializationError, setInitializationError] = useState<string | null>(null);
+  const [isUnauthorized, setIsUnauthorized] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   // Initialize user on mount - check for token from IMS and fetch user info
   useEffect(() => {
@@ -154,57 +181,55 @@ function DashboardLayoutContent({
       if (!user || !localStorage.getItem("userRole")) {
         const userInfo = await apiGetAuth<UserInfo>("/connect/userinfo");
 
-        // Step 6: Extract role
-        // Note: roles array now contains only tenant-specific roles (API Fix Issue #4)
-        // Try to get role from roles array first
-        const roles = userInfo.roles || [];
+        // Step 6: Extract roles from nested structure
+        // The API returns roles in this structure:
+        // roles: [{ workspaceId, workspaceName, tenants: [{ tenantId, roles: [{ role }] }] }]
+        const extractedRoles: string[] = [];
         
-        // Filter out OWNER role and prioritize other roles
-        const nonOwnerRoles = roles.filter(r => r && r.toUpperCase() !== "OWNER");
-        
-        // Use the first non-owner role, or first role if all are OWNER
-        // Roles are already filtered to current tenant context by backend
-        let role = userInfo.role || (nonOwnerRoles.length > 0 ? nonOwnerRoles[0] : roles[0]) || "";
-        
-        // If no role in roles array, try to derive from workspace code
-        if (!role && userInfo.workspaces && userInfo.workspaces.length > 0) {
-          // Check for SEAFARER workspace (since we're in seafarer app)
-          const seafarerWorkspace = userInfo.workspaces.find(
-            (ws) => 
-              ws.workspaceCode?.toUpperCase() === "SEAFARER" ||
-              ws.workspaceCode?.toUpperCase() === "SEA_FARER" ||
-              ws.workspaceName?.toUpperCase().includes("SEAFARER") ||
-              ws.workspaceName?.toUpperCase().includes("SEA FARER")
-          );
-          
-          if (seafarerWorkspace) {
-            role = "SEAFARER";
-          } else {
-            // Map workspace codes to roles
-            const workspaceCode = userInfo.workspaces[0]?.workspaceCode?.toUpperCase() || "";
-            const roleMapping: Record<string, string> = {
-              "SEAFARER": "SEAFARER",
-              "SEA_FARER": "SEAFARER",
-              "TRAINING_INSTITUTION": "TRAINING_INSTITUTION",
-              "TRAINING": "TRAINING_INSTITUTION",
-              "AGENT": "AGENT",
-              "ACCREDITATION_OFFICER": "ACCREDITATION_OFFICER",
-              "INSPECTOR": "INSPECTOR",
-              "FINANCE": "FINANCE",
-              "ADMIN": "ADMIN",
-            };
-            
-            role = roleMapping[workspaceCode] || "";
-          }
+        // Extract roles from nested structure
+        if (userInfo.roles && Array.isArray(userInfo.roles)) {
+          userInfo.roles.forEach((workspaceRole) => {
+            if (workspaceRole.tenants && Array.isArray(workspaceRole.tenants)) {
+              workspaceRole.tenants.forEach((tenant) => {
+                if (tenant.roles && Array.isArray(tenant.roles)) {
+                  tenant.roles.forEach((roleObj) => {
+                    if (roleObj.role && typeof roleObj.role === "string") {
+                      extractedRoles.push(roleObj.role.toUpperCase());
+                    }
+                  });
+                }
+              });
+            }
+          });
         }
         
-        // If still no role, default to SEAFARER since we're in seafarer app
-        if (!role) {
-          console.warn("No role found in userInfo, defaulting to SEAFARER for seafarer app");
-          role = "SEAFARER";
+        // Also check for direct role field
+        if (userInfo.role && typeof userInfo.role === "string") {
+          extractedRoles.push(userInfo.role.toUpperCase());
+        }
+        
+        // Remove duplicates
+        const uniqueRoles = Array.from(new Set(extractedRoles));
+        
+        // Step 7: Check if user has required role (OWNER or SEAFARER)
+        const allowedRoles = ["OWNER", "SEAFARER"];
+        const hasAccess = uniqueRoles.some(role => allowedRoles.includes(role));
+        
+        // Get the primary role for display/storage
+        // Prioritize SEAFARER over OWNER, but both are allowed
+        let role = uniqueRoles.find(r => r === "SEAFARER") || 
+                   uniqueRoles.find(r => r === "OWNER") || 
+                   uniqueRoles[0] || "";
+        
+        // If user doesn't have required role, show unauthorized screen
+        if (!hasAccess) {
+          setIsUnauthorized(true);
+          setUserRole(role || uniqueRoles.join(", ") || "Unknown");
+          setIsInitializing(false);
+          return;
         }
 
-        // Step 7: Update user data
+        // Step 8: Update user data
         const userData = {
           id: userInfo.id || userInfo.sub || user?.id || "",
           username: userInfo.username || userInfo.email?.split("@")[0] || user?.username || "",
@@ -225,7 +250,7 @@ function DashboardLayoutContent({
           updatedAt: userInfo.updatedAt || user?.updatedAt || new Date().toISOString(),
         };
 
-        // Step 8: Set up full session
+        // Step 9: Set up full session
         const expiresAt = new Date(Date.now() + 86400 * 1000).toISOString();
         const finalSession = {
           user: userData,
@@ -250,11 +275,25 @@ function DashboardLayoutContent({
         };
         localStorage.setItem("auth-storage", JSON.stringify(storageData));
 
-        // Step 9: Store role in localStorage
+        // Step 10: Store role in localStorage
         localStorage.setItem("userRole", role);
+        setUserRole(role);
+      } else {
+        // If user already loaded, check their role
+        const storedRole = localStorage.getItem("userRole");
+        if (storedRole) {
+          const allowedRoles = ["OWNER", "SEAFARER"];
+          if (!allowedRoles.includes(storedRole.toUpperCase())) {
+            setIsUnauthorized(true);
+            setUserRole(storedRole);
+            setIsInitializing(false);
+            return;
+          }
+          setUserRole(storedRole);
+        }
       }
 
-      // Step 10: Remove token from URL if present (keep URL clean)
+      // Step 11: Remove token from URL if present (keep URL clean)
       if (tokenFromUrl && typeof window !== "undefined") {
         const url = new URL(window.location.href);
         url.searchParams.delete("token");
@@ -263,19 +302,49 @@ function DashboardLayoutContent({
 
       setIsInitializing(false);
       
-      // Step 11: Redirect to role-specific dashboard if on root path
+      // Step 12: Redirect to role-specific dashboard if on root path
       if (pathname === "/" || pathname === "") {
         const userRole = localStorage.getItem("userRole");
-        const dashboardRoute = userRole ? getDashboardRouteFromRoles([userRole]) : "/seafarer/dashboard";
+        
+        if (userRole) {
+          const roleUpper = userRole.toUpperCase();
+          
+          // OWNER stays on root path to see role selection screen
+          if (roleUpper === "OWNER") {
+            // Don't redirect - let the root page show role selection
+            return;
+          }
+          
+          // For other roles, redirect to their specific dashboard
+          const dashboardRoute = getDashboardRouteFromRoles([userRole]);
         router.replace(dashboardRoute);
+        } else {
+          // Fallback to seafarer dashboard if no role
+          router.replace("/seafarer/dashboard");
+        }
       }
     } catch (error) {
       console.error("Failed to initialize user:", error);
-      setInitializationError("Failed to load user information");
-      toast.error("Failed to load user information. Please try again.");
+      
+      // Check if it's an authentication error (401/403) vs other errors
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isAuthError = errorMessage.includes("401") || 
+                         errorMessage.includes("403") || 
+                         errorMessage.includes("Authentication required");
+      
+      if (isAuthError) {
+        // For auth errors, redirect to login
+        setInitializationError("Authentication failed");
+        toast.error("Authentication failed. Please sign in again.");
       setTimeout(() => {
         router.replace("/auth/signin");
       }, 2000);
+      } else {
+        // For other errors (like network issues), show error but don't redirect
+        setInitializationError("Failed to load user information");
+        toast.error("Failed to load user information. Please try again.");
+        setIsInitializing(false);
+      }
     }
   };
 
@@ -288,6 +357,11 @@ function DashboardLayoutContent({
       }
     }
   }, [authLoading, isInitializing, router]);
+
+  // Show unauthorized screen if user doesn't have required role
+  if (isUnauthorized) {
+    return <UnauthorizedScreen userRole={userRole || undefined} />;
+  }
 
   // Show loading state while initializing or hydrating
   if (authLoading || isInitializing) {

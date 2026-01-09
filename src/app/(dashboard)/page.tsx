@@ -1,61 +1,58 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getDashboardRouteFromRoles } from "@/lib/role-routing";
 import { useAuthStore } from "@/store";
-import { LoadingSpinner } from "@/components/shared";
+import { LoadingSpinner, RoleSelectionScreen } from "@/components/shared";
 
 export default function DashboardRedirectPage() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const [isChecking, setIsChecking] = useState(true);
+  const [showRoleSelection, setShowRoleSelection] = useState(false);
   
-  // Redirect users to their role-specific dashboard
+  // Check user role and route accordingly
   useEffect(() => {
-    // Get user role from localStorage or infer from user data
-    let userRole = localStorage.getItem("userRole");
+    // Get user role from localStorage
+    const userRole = localStorage.getItem("userRole");
     
-    // If no role in localStorage, try to get from user workspaces or roles
-    if (!userRole && user) {
-      // Try roles array first (from UserInfo)
-      const roles = (user as any).roles || [];
-      if (roles.length > 0) {
-        // Filter out OWNER role
-        const nonOwnerRoles = roles.filter((r: string) => r.toUpperCase() !== "OWNER");
-        userRole = nonOwnerRoles.length > 0 ? nonOwnerRoles[0] : roles[0];
-      }
-      // Fall back to workspace-based detection
-      else if (user.workspaces && user.workspaces.length > 0) {
-        const workspace = user.workspaces[0];
-        const workspaceCode = workspace.workspaceCode?.toUpperCase() || "";
-        const workspaceName = workspace.workspaceName?.toUpperCase() || "";
-        
-        if (workspaceCode.includes("SEAFARER") || workspaceName.includes("SEAFARER")) {
-          userRole = "SEAFARER";
-        } else if (workspaceCode.includes("AGENT") || workspaceName.includes("AGENT")) {
-          userRole = "AGENT";
-        } else if (workspaceCode.includes("INSTITUTION") || workspaceName.includes("INSTITUTION")) {
-          userRole = "TRAINING_INSTITUTION";
-        } else if (workspaceCode.includes("ADMIN") || workspaceName.includes("ADMIN")) {
-          userRole = "ADMIN";
-        }
-      }
-    }
-    
-    // If we have a role, redirect to the appropriate dashboard
     if (userRole) {
+      const roleUpper = userRole.toUpperCase();
+      
+      // If user is OWNER, show role selection screen
+      if (roleUpper === "OWNER") {
+        setShowRoleSelection(true);
+        setIsChecking(false);
+        return;
+      }
+      
+      // For other roles, redirect to their specific dashboard
       const dashboardRoute = getDashboardRouteFromRoles([userRole]);
       router.replace(dashboardRoute);
+    } else {
+      // If no role stored, show loading (layout will handle role detection)
+      setIsChecking(false);
     }
   }, [user, router]);
 
-  // Show loading spinner while redirecting
-  return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <div className="text-center">
-        <LoadingSpinner />
-        <p className="text-muted-foreground mt-4">Redirecting to your dashboard...</p>
+  // Show role selection screen for OWNER
+  if (showRoleSelection) {
+    return <RoleSelectionScreen />;
+  }
+
+  // Show loading spinner while checking or redirecting
+  if (isChecking) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <LoadingSpinner />
+          <p className="text-muted-foreground mt-4">Redirecting to your dashboard...</p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // Fallback: show role selection if we reach here
+  return <RoleSelectionScreen />;
 }

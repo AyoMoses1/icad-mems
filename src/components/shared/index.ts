@@ -4,6 +4,8 @@ export { LoadingSpinner, LoadingPage } from "./loading-spinner";
 export { ErrorState } from "./error-state";
 export { DataTable, type DataTableColumn } from "./data-table";
 export { ConfirmDialog } from "./confirm-dialog";
+export { UnauthorizedScreen } from "./unauthorized-screen";
+export { RoleSelectionScreen } from "./role-selection-screen";
 export {
   PermissionGate,
   usePermission,
