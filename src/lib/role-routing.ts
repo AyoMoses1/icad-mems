@@ -32,6 +32,7 @@ export function getDashboardRoute(role: UserRole | string): string {
       return "/institution/dashboard";
     
     case "ADMIN":
+    case "SUPERADMIN":
     case "OFFICER":
     case "ACCREDITATION_OFFICER":
     case "INSPECTOR":
@@ -73,7 +74,7 @@ export function canAccessRoute(userRole: UserRole | string, route: string): bool
   const roleUpper = userRole?.toUpperCase() || "";
   
   // Admin roles can access everything
-  if (["ADMIN", "OFFICER"].includes(roleUpper)) {
+  if (["ADMIN", "SUPERADMIN", "OFFICER"].includes(roleUpper)) {
     return true;
   }
   

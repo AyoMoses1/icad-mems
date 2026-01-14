@@ -93,7 +93,8 @@ export interface InstitutionDocumentRequest {
 }
 
 export interface ComprehensiveOnboardingRequest {
-  // Common fields
+  // Common fields - Role is REQUIRED
+  role: "SEAFARER" | "TRAINING_INSTITUTION" | "AGENT"; // Required: determines which nested data is required/allowed
   saveAsDraft?: boolean; // true = DRAFT, false/undefined = PENDING
   notes?: string;
   contactDetails: ContactDetailsRequest;
@@ -253,6 +254,9 @@ export async function submitComprehensiveOnboarding(
   data: ComprehensiveOnboardingRequest
 ): Promise<ApiResponse<ComprehensiveOnboardingResponse>> {
   const formData = new FormData();
+  
+  // Add Role field (REQUIRED) - must be one of SEAFARER, TRAINING_INSTITUTION, or AGENT
+  formData.append("Role", data.role);
   
   // Add optional draft flag
   if (data.saveAsDraft !== undefined) {

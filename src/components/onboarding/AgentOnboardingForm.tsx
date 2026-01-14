@@ -167,6 +167,7 @@ export function AgentOnboardingForm() {
 
       // Prepare the request data
       const requestData: ComprehensiveOnboardingRequest = {
+        role: "AGENT", // Required: Role must be AGENT for agent onboarding
         saveAsDraft,
         accreditedInstitutionId: agentData.accreditedInstitutionId,
         roleSpecificIdentifier: agentData.roleSpecificIdentifier,

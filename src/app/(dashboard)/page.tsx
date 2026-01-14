@@ -20,6 +20,12 @@ export default function DashboardRedirectPage() {
     if (userRole) {
       const roleUpper = userRole.toUpperCase();
       
+      // If user is ADMIN, redirect to admin dashboard immediately
+      if (roleUpper === "ADMIN" || roleUpper === "SUPERADMIN") {
+        router.replace("/admin/dashboard");
+        return;
+      }
+      
       // If user is OWNER, show role selection screen
       if (roleUpper === "OWNER") {
         setShowRoleSelection(true);

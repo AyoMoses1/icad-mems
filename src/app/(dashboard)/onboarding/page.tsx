@@ -48,6 +48,18 @@ interface UserInfo {
       workspaceName: string;
     }>;
   };
+  isAdmin?: boolean;
+  adminDetails?: {
+    isSystemAdmin?: boolean;
+    isWorkspaceAdmin?: boolean;
+    adminWorkspaces?: Array<{
+      workspaceId: string;
+      workspaceName: string;
+      adminRole?: string;
+      permissions?: string[];
+    }>;
+    adminModules?: unknown[];
+  };
   [key: string]: unknown;
 }
 
@@ -68,10 +80,26 @@ export default function OnboardingPage() {
         const userInfo = await apiGetAuth<UserInfo>("/connect/userinfo");
 
         console.log("UserInfo received:", userInfo);
+        console.log("isAdmin:", userInfo.isAdmin);
         console.log("isOwner:", userInfo.isOwner);
+        console.log("adminDetails:", userInfo.adminDetails);
         console.log("ownerDetails:", userInfo.ownerDetails);
 
-        // IMPORTANT: Check if user is OWNER FIRST, before extracting roles
+        // IMPORTANT: Check if user is ADMIN FIRST (highest priority)
+        // Admins should go to admin dashboard, not onboarding
+        const isAdmin =
+          userInfo.isAdmin === true ||
+          userInfo.adminDetails?.isSystemAdmin === true ||
+          userInfo.adminDetails?.isWorkspaceAdmin === true;
+
+        if (isAdmin) {
+          console.log("✓ User is ADMIN - redirecting to admin dashboard");
+          setIsLoading(false);
+          router.replace("/admin/dashboard");
+          return;
+        }
+
+        // IMPORTANT: Check if user is OWNER (second priority)
         // If user is an owner (isOwner: true), they should see the role selection screen
         // to choose which onboarding to complete, not be forced into a specific onboarding
         const isOwner =

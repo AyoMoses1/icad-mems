@@ -333,6 +333,7 @@ export function SeafarerOnboardingForm() {
 
       // Prepare the request data
       const requestData: ComprehensiveOnboardingRequest = {
+        role: "SEAFARER", // Required: Role must be SEAFARER for seafarer onboarding
         saveAsDraft,
         sin: basicData.sin || undefined,
         rankId: basicData.rankId || undefined,

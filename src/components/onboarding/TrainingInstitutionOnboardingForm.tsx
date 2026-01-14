@@ -169,6 +169,7 @@ export function TrainingInstitutionOnboardingForm() {
 
       // Prepare the request data
       const requestData: ComprehensiveOnboardingRequest = {
+        role: "TRAINING_INSTITUTION", // Required: Role must be TRAINING_INSTITUTION for training institution onboarding
         saveAsDraft,
         accreditedInstitutionId: institutionData.accreditedInstitutionId,
         roleSpecificIdentifier: institutionData.roleSpecificIdentifier,

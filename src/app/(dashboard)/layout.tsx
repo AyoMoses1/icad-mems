@@ -73,6 +73,18 @@ interface UserInfo {
       workspaceName: string;
     }>;
   };
+  isAdmin?: boolean;
+  adminDetails?: {
+    isSystemAdmin?: boolean;
+    isWorkspaceAdmin?: boolean;
+    adminWorkspaces?: Array<{
+      workspaceId: string;
+      workspaceName: string;
+      adminRole?: string;
+      permissions?: string[];
+    }>;
+    adminModules?: unknown[];
+  };
 }
 
 function DashboardLayoutContent({
@@ -219,24 +231,39 @@ function DashboardLayoutContent({
         // Remove duplicates
         const uniqueRoles = Array.from(new Set(extractedRoles));
         
-        // IMPORTANT: Check if user is OWNER first
+        // IMPORTANT: Check if user is ADMIN first (highest priority)
+        // If user is an admin (isAdmin: true), prioritize ADMIN role and route to admin dashboard
+        const isAdmin = userInfo.isAdmin === true || 
+                       userInfo.adminDetails?.isSystemAdmin === true ||
+                       userInfo.adminDetails?.isWorkspaceAdmin === true ||
+                       uniqueRoles.includes("ADMIN") ||
+                       uniqueRoles.includes("SUPERADMIN");
+        
+        // IMPORTANT: Check if user is OWNER (second priority)
         // If user is an owner (isOwner: true), prioritize OWNER role
         const isOwner = userInfo.isOwner === true || 
                        userInfo.ownerDetails?.isOwner === true ||
                        uniqueRoles.includes("OWNER");
         
-        // Step 7: Check if user has required role (OWNER or SEAFARER)
-        const allowedRoles = ["OWNER", "SEAFARER"];
-        const hasAccess = uniqueRoles.some(role => allowedRoles.includes(role));
+        // Step 7: Check if user has required role (ADMIN, OWNER, SEAFARER, AGENT, TRAINING_INSTITUTION, or staff roles)
+        const allowedRoles = ["ADMIN", "SUPERADMIN", "OWNER", "SEAFARER", "AGENT", "TRAINING_INSTITUTION", "ACCREDITATION_OFFICER", "INSPECTOR", "FINANCE"];
+        const hasAccess = isAdmin || isOwner || uniqueRoles.some(role => allowedRoles.includes(role));
         
         // Get the primary role for display/storage
-        // IMPORTANT: Prioritize OWNER over SEAFARER if user is an owner
-        // This ensures owners see the role selection screen, not forced into seafarer onboarding
-        let role = isOwner 
-          ? "OWNER"
-          : (uniqueRoles.find(r => r === "SEAFARER") || 
-             uniqueRoles.find(r => r === "OWNER") || 
-             uniqueRoles[0] || "");
+        // IMPORTANT: Prioritize ADMIN over OWNER over SEAFARER
+        // Admins go to admin dashboard, owners see role selection, others see their specific dashboard
+        let role: string;
+        if (isAdmin) {
+          role = "ADMIN";
+        } else if (isOwner) {
+          role = "OWNER";
+        } else {
+          role = uniqueRoles.find(r => r === "SEAFARER") || 
+                 uniqueRoles.find(r => r === "AGENT") || 
+                 uniqueRoles.find(r => r === "TRAINING_INSTITUTION") ||
+                 uniqueRoles.find(r => r === "OWNER") || 
+                 uniqueRoles[0] || "";
+        }
         
         // If user doesn't have required role, show unauthorized screen
         if (!hasAccess) {
@@ -299,7 +326,7 @@ function DashboardLayoutContent({
         // If user already loaded, check their role
         const storedRole = localStorage.getItem("userRole");
         if (storedRole) {
-          const allowedRoles = ["OWNER", "SEAFARER"];
+          const allowedRoles = ["ADMIN", "SUPERADMIN", "OWNER", "SEAFARER", "AGENT", "TRAINING_INSTITUTION", "ACCREDITATION_OFFICER", "INSPECTOR", "FINANCE"];
           if (!allowedRoles.includes(storedRole.toUpperCase())) {
             setIsUnauthorized(true);
             setUserRole(storedRole);
@@ -326,6 +353,12 @@ function DashboardLayoutContent({
         if (userRole) {
           const roleUpper = userRole.toUpperCase();
           
+          // ADMIN goes to admin dashboard
+          if (roleUpper === "ADMIN" || roleUpper === "SUPERADMIN") {
+            router.replace("/admin/dashboard");
+            return;
+          }
+          
           // OWNER stays on root path to see role selection screen
           if (roleUpper === "OWNER") {
             // Don't redirect - let the root page show role selection
@@ -334,7 +367,7 @@ function DashboardLayoutContent({
           
           // For other roles, redirect to their specific dashboard
           const dashboardRoute = getDashboardRouteFromRoles([userRole]);
-        router.replace(dashboardRoute);
+          router.replace(dashboardRoute);
         } else {
           // Fallback to seafarer dashboard if no role
           router.replace("/seafarer/dashboard");
