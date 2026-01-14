@@ -40,6 +40,14 @@ interface UserInfo {
     }>;
   }>;
   role?: string; // Fallback single role field
+  isOwner?: boolean;
+  ownerDetails?: {
+    isOwner?: boolean;
+    ownerWorkspaces?: Array<{
+      workspaceId: string;
+      workspaceName: string;
+    }>;
+  };
   [key: string]: unknown;
 }
 
@@ -56,121 +64,154 @@ export default function OnboardingPage() {
         setIsLoading(true);
         setError(null);
 
-      // Fetch user info from /connect/userinfo to get the role
-      const userInfo = await apiGetAuth<UserInfo>("/connect/userinfo");
+        // Fetch user info from /connect/userinfo to get the role
+        const userInfo = await apiGetAuth<UserInfo>("/connect/userinfo");
 
-      console.log("UserInfo received:", userInfo);
+        console.log("UserInfo received:", userInfo);
+        console.log("isOwner:", userInfo.isOwner);
+        console.log("ownerDetails:", userInfo.ownerDetails);
 
-      // Extract roles from nested structure
-      // The API returns roles in this structure:
-      // roles: [{ workspaceId, workspaceName, tenants: [{ tenantId, roles: [{ role }] }] }]
-      const extractedRoles: string[] = [];
-      
-      // Extract roles from nested structure
-      if (userInfo.roles && Array.isArray(userInfo.roles)) {
-        userInfo.roles.forEach((workspaceRole) => {
-          if (workspaceRole.tenants && Array.isArray(workspaceRole.tenants)) {
-            workspaceRole.tenants.forEach((tenant) => {
-              if (tenant.roles && Array.isArray(tenant.roles)) {
-                tenant.roles.forEach((roleObj) => {
-                  if (roleObj.role && typeof roleObj.role === "string") {
-                    extractedRoles.push(roleObj.role.toUpperCase());
-                  }
-                });
-              }
-            });
-          }
-        });
-      }
-      
-      // Also check for direct role field
-      if (userInfo.role && typeof userInfo.role === "string") {
-        extractedRoles.push(userInfo.role.toUpperCase());
-      }
-      
-      // Remove duplicates
-      const roles = Array.from(new Set(extractedRoles));
-      
-      console.log("Extracted roles:", roles);
+        // IMPORTANT: Check if user is OWNER FIRST, before extracting roles
+        // If user is an owner (isOwner: true), they should see the role selection screen
+        // to choose which onboarding to complete, not be forced into a specific onboarding
+        const isOwner =
+          userInfo.isOwner === true || userInfo.ownerDetails?.isOwner === true;
 
-      // IMPORTANT: Check for onboarding-required roles FIRST
-      // These roles (SEAFARER, TRAINING_INSTITUTION, AGENT) ALWAYS require onboarding
-      // even if they also have OWNER role
-      const specificRole = roles.find(
-        (r) =>
-          r === "SEAFARER" ||
-          r === "TRAINING_INSTITUTION" ||
-          r === "AGENT"
-      );
-
-      console.log("Detected specific role:", specificRole);
-
-      // If user has an onboarding-required role, proceed with onboarding
-      // regardless of any other roles (like OWNER)
-      if (specificRole) {
-        console.log(`✓ User has ${specificRole} role - onboarding REQUIRED`);
-        console.log("All roles:", roles);
-        // Continue to role mapping below
-      } else {
-        // Only check for pure staff/admin roles if no onboarding-required roles found
-        // Per ONBOARDING_PAYLOADS_REFERENCE.md:
-        // "Staff roles (ACCREDITATION_OFFICER, INSPECTOR, FINANCE, ADMIN) do NOT require onboarding"
-        const pureStaffRoles = ["ADMIN", "ACCREDITATION_OFFICER", "INSPECTOR", "FINANCE"];
-        const hasOnlyStaffRole = roles.some((r) => pureStaffRoles.includes(r));
-
-        if (hasOnlyStaffRole) {
-          console.log("✓ User has only staff/admin role - no onboarding required");
-          console.log("Staff roles detected:", roles.filter((r) => pureStaffRoles.includes(r)));
-          // Redirect staff users to dashboard - they get access automatically
-          router.push("/");
+        if (isOwner) {
+          console.log(
+            "✓ User is OWNER - redirecting to role selection dashboard"
+          );
+          setIsLoading(false);
+          // Use replace instead of push to prevent back button issues
+          router.replace("/");
           return;
         }
-      }
 
-      // Map role to onboarding type
-      if (specificRole === "SEAFARER") {
-        console.log("✓ Routing to SEAFARER onboarding");
-        setUserRole("SEAFARER");
-      } else if (specificRole === "TRAINING_INSTITUTION") {
-        console.log("✓ Routing to TRAINING_INSTITUTION onboarding");
-        setUserRole("TRAINING_INSTITUTION");
-      } else if (specificRole === "AGENT") {
-        console.log("✓ Routing to AGENT onboarding");
-        setUserRole("AGENT");
-      } else {
-        // Fallback: Check if any role contains the keywords
-        const rolesStr = roles.join(" ").toUpperCase();
-        
-        if (rolesStr.includes("SEAFARER")) {
-          console.log("✓ Routing to SEAFARER onboarding (fallback detection)");
-          setUserRole("SEAFARER");
-        } else if (rolesStr.includes("TRAINING") || rolesStr.includes("INSTITUTION")) {
-          console.log("✓ Routing to TRAINING_INSTITUTION onboarding (fallback detection)");
-          setUserRole("TRAINING_INSTITUTION");
-        } else if (rolesStr.includes("AGENT")) {
-          console.log("✓ Routing to AGENT onboarding (fallback detection)");
-          setUserRole("AGENT");
+        // Extract roles from nested structure
+        // The API returns roles in this structure:
+        // roles: [{ workspaceId, workspaceName, tenants: [{ tenantId, roles: [{ role }] }] }]
+        const extractedRoles: string[] = [];
+
+        // Extract roles from nested structure
+        if (userInfo.roles && Array.isArray(userInfo.roles)) {
+          userInfo.roles.forEach((workspaceRole) => {
+            if (workspaceRole.tenants && Array.isArray(workspaceRole.tenants)) {
+              workspaceRole.tenants.forEach((tenant) => {
+                if (tenant.roles && Array.isArray(tenant.roles)) {
+                  tenant.roles.forEach((roleObj) => {
+                    if (roleObj.role && typeof roleObj.role === "string") {
+                      extractedRoles.push(roleObj.role.toUpperCase());
+                    }
+                  });
+                }
+              });
+            }
+          });
+        }
+
+        // Also check for direct role field
+        if (userInfo.role && typeof userInfo.role === "string") {
+          extractedRoles.push(userInfo.role.toUpperCase());
+        }
+
+        // Remove duplicates
+        const roles = Array.from(new Set(extractedRoles));
+
+        console.log("Extracted roles:", roles);
+
+        // Also check if OWNER role is in the roles array (fallback check)
+        if (roles.includes("OWNER") && !isOwner) {
+          console.log(
+            "✓ User has OWNER role in roles array - redirecting to role selection dashboard"
+          );
+          setIsLoading(false);
+          router.replace("/");
+          return;
+        }
+
+        // IMPORTANT: Check for onboarding-required roles
+        // These roles (SEAFARER, TRAINING_INSTITUTION, AGENT) require onboarding
+        const specificRole = roles.find(
+          (r) =>
+            r === "SEAFARER" || r === "TRAINING_INSTITUTION" || r === "AGENT"
+        );
+
+        console.log("Detected specific role:", specificRole);
+
+        // If user has an onboarding-required role, proceed with onboarding
+        if (specificRole) {
+          console.log(`✓ User has ${specificRole} role - onboarding REQUIRED`);
+          console.log("All roles:", roles);
+          // Continue to role mapping below
         } else {
-          // Check if user is OWNER - they can choose which onboarding to do
-          const isOwner = roles.includes("OWNER");
-          
-          if (isOwner) {
-            // OWNER should be redirected to root path where they can choose onboarding
-            console.log("✓ User is OWNER - redirecting to role selection");
+          // Only check for pure staff/admin roles if no onboarding-required roles found
+          // Per ONBOARDING_PAYLOADS_REFERENCE.md:
+          // "Staff roles (ACCREDITATION_OFFICER, INSPECTOR, FINANCE, ADMIN) do NOT require onboarding"
+          const pureStaffRoles = [
+            "ADMIN",
+            "ACCREDITATION_OFFICER",
+            "INSPECTOR",
+            "FINANCE",
+          ];
+          const hasOnlyStaffRole = roles.some((r) =>
+            pureStaffRoles.includes(r)
+          );
+
+          if (hasOnlyStaffRole) {
+            console.log(
+              "✓ User has only staff/admin role - no onboarding required"
+            );
+            console.log(
+              "Staff roles detected:",
+              roles.filter((r) => pureStaffRoles.includes(r))
+            );
+            // Redirect staff users to dashboard - they get access automatically
             router.push("/");
             return;
           }
-          
-          // No recognized onboarding role found
-          console.error(
-            "❌ No recognized onboarding role found. User roles:",
-            roles
-          );
-          setError(
-            `Your account role (${roles.join(", ")}) does not require onboarding. If you believe this is an error, please contact support.`
-          );
         }
-      }
+
+        // Map role to onboarding type
+        if (specificRole === "SEAFARER") {
+          console.log("✓ Routing to SEAFARER onboarding");
+          setUserRole("SEAFARER");
+        } else if (specificRole === "TRAINING_INSTITUTION") {
+          console.log("✓ Routing to TRAINING_INSTITUTION onboarding");
+          setUserRole("TRAINING_INSTITUTION");
+        } else if (specificRole === "AGENT") {
+          console.log("✓ Routing to AGENT onboarding");
+          setUserRole("AGENT");
+        } else {
+          // Fallback: Check if any role contains the keywords
+          const rolesStr = roles.join(" ").toUpperCase();
+
+          if (rolesStr.includes("SEAFARER")) {
+            console.log(
+              "✓ Routing to SEAFARER onboarding (fallback detection)"
+            );
+            setUserRole("SEAFARER");
+          } else if (
+            rolesStr.includes("TRAINING") ||
+            rolesStr.includes("INSTITUTION")
+          ) {
+            console.log(
+              "✓ Routing to TRAINING_INSTITUTION onboarding (fallback detection)"
+            );
+            setUserRole("TRAINING_INSTITUTION");
+          } else if (rolesStr.includes("AGENT")) {
+            console.log("✓ Routing to AGENT onboarding (fallback detection)");
+            setUserRole("AGENT");
+          } else {
+            // No recognized onboarding role found
+            console.error(
+              "❌ No recognized onboarding role found. User roles:",
+              roles
+            );
+            setError(
+              `Your account role (${roles.join(", ")}) does not require onboarding. If you believe this is an error, please contact support.`
+            );
+          }
+        }
       } catch (error) {
         console.error("Error detecting user role:", error);
         setError(
@@ -194,9 +235,7 @@ export default function OnboardingPage() {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <LoadingSpinner className="mx-auto mb-4" />
-          <p className="text-muted-foreground">
-            Detecting your user type...
-          </p>
+          <p className="text-muted-foreground">Detecting your user type...</p>
         </div>
       </div>
     );
@@ -257,4 +296,3 @@ export default function OnboardingPage() {
       );
   }
 }
-

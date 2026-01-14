@@ -65,6 +65,14 @@ interface UserInfo {
     workspaceName: string;
     workspaceCode?: string;
   }>;
+  isOwner?: boolean;
+  ownerDetails?: {
+    isOwner?: boolean;
+    ownerWorkspaces?: Array<{
+      workspaceId: string;
+      workspaceName: string;
+    }>;
+  };
 }
 
 function DashboardLayoutContent({
@@ -211,15 +219,24 @@ function DashboardLayoutContent({
         // Remove duplicates
         const uniqueRoles = Array.from(new Set(extractedRoles));
         
+        // IMPORTANT: Check if user is OWNER first
+        // If user is an owner (isOwner: true), prioritize OWNER role
+        const isOwner = userInfo.isOwner === true || 
+                       userInfo.ownerDetails?.isOwner === true ||
+                       uniqueRoles.includes("OWNER");
+        
         // Step 7: Check if user has required role (OWNER or SEAFARER)
         const allowedRoles = ["OWNER", "SEAFARER"];
         const hasAccess = uniqueRoles.some(role => allowedRoles.includes(role));
         
         // Get the primary role for display/storage
-        // Prioritize SEAFARER over OWNER, but both are allowed
-        let role = uniqueRoles.find(r => r === "SEAFARER") || 
-                   uniqueRoles.find(r => r === "OWNER") || 
-                   uniqueRoles[0] || "";
+        // IMPORTANT: Prioritize OWNER over SEAFARER if user is an owner
+        // This ensures owners see the role selection screen, not forced into seafarer onboarding
+        let role = isOwner 
+          ? "OWNER"
+          : (uniqueRoles.find(r => r === "SEAFARER") || 
+             uniqueRoles.find(r => r === "OWNER") || 
+             uniqueRoles[0] || "");
         
         // If user doesn't have required role, show unauthorized screen
         if (!hasAccess) {

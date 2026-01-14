@@ -36,10 +36,12 @@ export function UnauthorizedScreen({
     }
     
     // Otherwise, redirect to IMS URL or fallback
-    const imsUrl = process.env.NEXT_PUBLIC_IMS_URL || 
-                   (window.location.origin.includes("localhost") 
-                     ? "http://localhost:3000" 
-                     : "/");
+    // In local development, use localhost:3001 (seafarer app port)
+    // In staging/prod, use the workspace URL from env or fallback
+    const isLocalDev = window.location.origin.includes("localhost");
+    const imsUrl = isLocalDev 
+      ? "http://localhost:3001"
+      : (process.env.NEXT_PUBLIC_IMS_URL || "/");
     window.location.href = imsUrl;
   };
 

@@ -252,9 +252,7 @@ export async function downloadInvoice(invoiceId: string): Promise<Blob> {
     );
   }
 
-  const url = `${API_BASE_URL}${SEAFARER_API_BASE}/invoices/${invoiceId}/download`;
-
-  // Get auth token
+  const url = `${API_BASE_URL}${SEAFARER_API_BASE}/invoices/${invoiceId}/download`;  // Get auth token
   if (typeof window === "undefined") {
     throw new Error("downloadInvoice can only be called from the client side");
   }
@@ -271,9 +269,7 @@ export async function downloadInvoice(invoiceId: string): Promise<Blob> {
     const response = await fetch(url, {
       method: "GET",
       headers,
-    });
-
-    if (!response.ok) {
+    });    if (!response.ok) {
       const errorText = await response.text();
       throw new Error(
         `Failed to download invoice: ${response.status} ${response.statusText}. ${errorText}`
