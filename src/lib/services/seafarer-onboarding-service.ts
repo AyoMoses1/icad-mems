@@ -113,10 +113,13 @@ export async function getDocumentInformation({
  */
 export async function createSeafarerProfile(
   data: SeafarerProfileRequest,
-  profilePictureFile?: File,
+  profilePictureFile?: File
 ): Promise<ApiResponse<SeafarerProfileResponse>> {
   const formData = new FormData();
-  
+
+  // Explicit role for seafarer onboarding (per mems.md)
+  formData.append("Role", "SEAFARER");
+
   // Add all fields to FormData (PascalCase keys as per API)
   if (data.FirstName) formData.append("FirstName", data.FirstName);
   if (data.LastName) formData.append("LastName", data.LastName);
@@ -125,17 +128,22 @@ export async function createSeafarerProfile(
   if (data.Nationality) formData.append("Nationality", data.Nationality);
   if (data.NinNumber) formData.append("NinNumber", data.NinNumber);
   if (data.SidNumber) formData.append("SidNumber", data.SidNumber);
-  if (data.DischargeBookNo) formData.append("DischargeBookNo", data.DischargeBookNo);
+  if (data.DischargeBookNo)
+    formData.append("DischargeBookNo", data.DischargeBookNo);
   if (data.CurrentRankId) formData.append("CurrentRankId", data.CurrentRankId);
   if (data.Email) formData.append("Email", data.Email);
   if (data.PhoneNumber) formData.append("PhoneNumber", data.PhoneNumber);
   if (data.HomeAddress) formData.append("HomeAddress", data.HomeAddress);
-  if (data.IsActive !== undefined) formData.append("IsActive", data.IsActive.toString());
+  if (data.IsActive !== undefined)
+    formData.append("IsActive", data.IsActive.toString());
   if (data.WalletAddress) formData.append("WalletAddress", data.WalletAddress);
   if (data.NationalityId) formData.append("NationalityId", data.NationalityId);
   if (profilePictureFile) formData.append("ProfilePicture", profilePictureFile);
 
-  return apiPostMultipartMain<SeafarerProfileResponse>(`${API_BASE}/profile`, formData);
+  return apiPostMultipartMain<SeafarerProfileResponse>(
+    `${API_BASE}/profile`,
+    formData
+  );
 }
 
 /**
@@ -143,7 +151,7 @@ export async function createSeafarerProfile(
  */
 export async function addSeafarerContact(
   seafarerId: string,
-  data: ContactRequest,
+  data: ContactRequest
 ): Promise<ApiResponse<ContactDto>> {
   return apiPostMain<ContactDto>(`${API_BASE}/${seafarerId}/contacts`, data);
 }
@@ -155,16 +163,16 @@ export async function addSeafarerContact(
 export async function uploadSeafarerDocument(
   seafarerId: string,
   file: File,
-  documentData: HeldDocumentRequest,
+  documentData: HeldDocumentRequest
 ): Promise<ApiResponse<HeldDocumentDto>> {
   const formData = new FormData();
-  
+
   // Required fields
   formData.append("File", file);
   formData.append("DocumentMasterId", documentData.DocumentMasterId);
   formData.append("DocumentNumber", documentData.DocumentNumber);
   formData.append("IssueDate", documentData.IssueDate);
-  
+
   // Optional fields
   if (documentData.ExpiryDate) {
     formData.append("ExpiryDate", documentData.ExpiryDate);
@@ -172,7 +180,7 @@ export async function uploadSeafarerDocument(
 
   return apiPostMultipartMain<HeldDocumentDto>(
     `${API_BASE}/${seafarerId}/documents`,
-    formData,
+    formData
   );
 }
 
@@ -180,7 +188,7 @@ export async function uploadSeafarerDocument(
  * Get all held documents for a seafarer
  */
 export async function getSeafarerDocuments(
-  seafarerId: string,
+  seafarerId: string
 ): Promise<ApiResponse<HeldDocumentDto[]>> {
   return apiGetMain<HeldDocumentDto[]>(`${API_BASE}/${seafarerId}/documents`);
 }

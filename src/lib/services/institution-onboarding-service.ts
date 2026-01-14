@@ -427,7 +427,10 @@ export async function createTrainingInstitute(
 ): Promise<ApiResponse<TrainingInstituteOnboardingResponse>> {
   return apiPostMain<TrainingInstituteOnboardingResponse>(
     `${API_ONBOARDING_BASE}/training`,
-    data,
+    {
+      role: "TRAINING_INSTITUTION",
+      ...data,
+    },
   );
 }
 
@@ -477,7 +480,10 @@ export async function createMedicalInstitute(
 ): Promise<ApiResponse<MedicalInstituteOnboardingResponse>> {
   return apiPostMain<MedicalInstituteOnboardingResponse>(
     `${API_ONBOARDING_BASE}/medical`,
-    data,
+    {
+      role: "AGENT",
+      ...data,
+    },
   );
 }
 

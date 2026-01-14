@@ -11,6 +11,10 @@ import {
   type ApiResponse,
 } from "@/lib/api-client";
 
+// NOTE: Medical institutes endpoint not found in swagger.json
+// The endpoint /seafarer/api/v1/medical-institutes might not exist on backend
+// Consider using /seafarer/api/v1/Accreditation/institutions with institutionType filter
+// or check with backend team for correct endpoint
 const API_BASE = "/seafarer/api/v1/medical-institutes";
 
 export interface MedicalInstituteDto {

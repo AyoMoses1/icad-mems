@@ -7,13 +7,29 @@ export interface NationalityDto {
   countryName?: string;
 }
 
+type RawNationalityDto = {
+  nationalityId?: string;
+  name?: string;
+  isoCode?: string;
+};
+
 export async function getNationalities(): Promise<NationalityDto[]> {
-  const response = await apiGetMain<NationalityDto[]>("/seafarer/api/v1/nationalities");
+  const response = await apiGetMain<RawNationalityDto[]>(
+    "/api/seafarer/MasterData/nationalities"
+  );
 
   const ok = response.success ?? (response as any).successful;
   if (!ok || !response.data) {
     throw new Error(response.error?.message || "Failed to fetch nationalities");
   }
 
-  return response.data || [];
+  // Map backend shape { nationalityId, name, isoCode } to UI shape
+  return (
+    response.data?.map((n) => ({
+      id: n.nationalityId || n.isoCode || n.name || "",
+      countryName: n.name,
+      isoCode2: n.isoCode?.slice(0, 2),
+      isoCode3: n.isoCode,
+    })) || []
+  );
 }

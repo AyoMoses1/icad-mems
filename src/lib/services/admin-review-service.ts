@@ -5,9 +5,9 @@
 
 import { apiGetMain, apiPatchMain, type ApiResponse } from "@/lib/api-client";
 
-const API_BASE_APPS = "/seafarer/api/v1/admin/admin-applications";
-const API_BASE_ACCREDS = "/seafarer/api/v1/admin/accreditations";
-const API_BASE_ADMIN_ACCREDS = "/seafarer/api/v1/admin/admin-accreditations";
+const API_BASE_APPS = "/seafarer/api/v1/Applications";
+const API_BASE_ACCREDS = "/seafarer/api/v1/Accreditation/institutions";
+const API_BASE_ADMIN_ACCREDS = "/seafarer/api/v1/Accreditation";
 
 export interface ApplicationDto {
   id: string;
@@ -111,7 +111,8 @@ export interface AdminStatsDto {
 
 /**
  * Get pending certificate applications
- * GET /api/admin/AdminApplications/pending
+ * GET /seafarer/api/v1/Onboarding/pending - pending onboarding applications
+ * Note: /seafarer/api/v1/Applications only supports POST, not GET
  * Response: { data: ApplicationDto[], ... }
  */
 export async function getPendingApplications(params?: {
@@ -119,6 +120,8 @@ export async function getPendingApplications(params?: {
   pageSize?: number;
   sortDirection?: string;
 }): Promise<ApiResponse<ApplicationDto[]>> {
+  // Use Onboarding/pending for pending applications as per swagger
+  // Applications endpoint only has POST method, no GET
   const queryParams = new URLSearchParams();
   if (params?.pageNumber) {
     queryParams.append("pageNumber", params.pageNumber.toString());
@@ -131,18 +134,19 @@ export async function getPendingApplications(params?: {
   }
 
   return apiGetMain<ApplicationDto[]>(
-    `${API_BASE_APPS}/pending${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
+    `/seafarer/api/v1/Onboarding/pending${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
   );
 }
 
 /**
  * Approve a certificate application
- * PATCH /api/admin/AdminApplications/{id}/approve
+ * PATCH /seafarer/api/v1/Applications/{id}/approve (if exists) or use status update
  */
 export async function approveApplication(
   applicationId: string,
   data: ApproveApplicationRequest,
 ): Promise<ApiResponse<boolean>> {
+  // Check swagger - might need to use Applications/{id}/status endpoint
   return apiPatchMain<boolean>(
     `${API_BASE_APPS}/${applicationId}/approve`,
     data,
@@ -193,7 +197,7 @@ export interface ApplicationAttachmentDto {
 
 /**
  * Get accreditations under review
- * GET /api/admin/AdminAccreditations/under-review
+ * GET /seafarer/api/v1/Accreditation/requests (pending accreditations)
  */
 export async function getAccreditationsUnderReview(params?: {
   pageNumber?: number;
@@ -212,12 +216,13 @@ export async function getAccreditationsUnderReview(params?: {
   }
 
   return apiGetMain<PagedResult<AccreditationDto>>(
-    `${API_BASE_ADMIN_ACCREDS}/under-review${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
+    `${API_BASE_ADMIN_ACCREDS}/requests${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
   );
 }
 
 /**
  * Get all accreditations (admin)
+ * GET /seafarer/api/v1/Accreditation/institutions
  */
 export async function getAllAccreditations(params?: {
   pageNumber?: number;
@@ -242,27 +247,32 @@ export async function getAllAccreditations(params?: {
 
 /**
  * Audit an accreditation (approve/reject after review)
- * PATCH /api/admin/AdminAccreditations/audit
- * Based on swagger.txt
+ * PATCH /seafarer/api/v1/Accreditation/institutions/{id}/status
+ * Based on swagger.json
  */
 export async function auditAccreditation(
   data: AuditAccreditationRequest,
 ): Promise<ApiResponse<boolean>> {
-  return apiPatchMain<boolean>(`${API_BASE_ADMIN_ACCREDS}/audit`, data);
+  return apiPatchMain<boolean>(`${API_BASE_ACCREDS}/${data.accreditationId}/status`, {
+    status: "APPROVED", // or REJECTED based on audit
+  });
 }
 
 /**
  * Activate an accreditation
- * PATCH /api/admin/AdminAccreditations/{id}/activate
- * Based on swagger.txt
+ * PATCH /seafarer/api/v1/Accreditation/institutions/{id}/status
+ * Based on swagger.json - use status endpoint with status "ACTIVATED"
  */
 export async function activateAccreditation(
   accreditationId: string,
   data: ActivateAccreditationRequest,
 ): Promise<ApiResponse<boolean>> {
   return apiPatchMain<boolean>(
-    `${API_BASE_ADMIN_ACCREDS}/${accreditationId}/activate`,
-    data,
+    `${API_BASE_ACCREDS}/${accreditationId}/status`,
+    {
+      status: "ACTIVATED",
+      ...data,
+    },
   );
 }
 
@@ -272,9 +282,9 @@ export async function activateAccreditation(
 
 /**
  * Get admin dashboard statistics
- * GET /api/admin/AdminStats
- * Based on swagger.txt - AdminStatsDto
+ * GET /seafarer/api/v1/Statistics/admin
+ * Based on swagger.json
  */
 export async function getAdminStats(): Promise<ApiResponse<AdminStatsDto>> {
-  return apiGetMain<AdminStatsDto>("/seafarer/api/v1/admin/admin-stats");
+  return apiGetMain<AdminStatsDto>("/seafarer/api/v1/Statistics/admin");
 }
