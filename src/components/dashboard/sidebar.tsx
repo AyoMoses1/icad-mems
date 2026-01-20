@@ -733,8 +733,10 @@ export function Sidebar() {
           variant="ghost"
           className="w-full justify-start gap-3 px-3 py-2.5 text-sm hover:bg-sidebar-muted text-sidebar-foreground"
           onClick={() => {
-            const imsUrl = process.env.NEXT_PUBLIC_IMS_URL || "https://icad-ims.netlify.app/";
-            window.location.href = imsUrl;
+            const imsUrl = process.env.NEXT_PUBLIC_IMS_URL;
+            if (imsUrl) {
+              window.location.href = imsUrl;
+            }
           }}
         >
           <ArrowLeft className="h-4 w-4" />
