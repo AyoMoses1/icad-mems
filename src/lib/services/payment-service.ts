@@ -18,7 +18,7 @@ import type {
   PaginatedResponse,
 } from "@/types/payment";
 
-const API_BASE = "/api/v1/Payments";
+const API_BASE = "/api/Payments";
 const SEAFARER_API_BASE = "/seafarer/api/v1";
 
 // ============================================================================
@@ -216,26 +216,26 @@ export async function getMyInvoices(): Promise<ApiResponse<SeafarerInvoiceDto[]>
 
 /**
  * Initiate payment for an application
- * POST /seafarer/api/v1/applications/{applicationId}/pay
+ * POST /seafarer/api/v1/Payment/applications/{id}/payment/initiate
  */
 export async function initiateApplicationPayment(
   applicationId: string
 ): Promise<ApiResponse<InitiatePaymentResponseDto>> {
   return apiPostMain<InitiatePaymentResponseDto>(
-    `${SEAFARER_API_BASE}/applications/${applicationId}/pay`,
+    `${SEAFARER_API_BASE}/Payment/applications/${applicationId}/payment/initiate`,
     {}
   );
 }
 
 /**
  * Get payment status for an application
- * GET /seafarer/api/v1/applications/{applicationId}/payment-status
+ * GET /seafarer/api/v1/Payment/applications/{id}/payment-status
  */
 export async function getApplicationPaymentStatus(
   applicationId: string
 ): Promise<ApiResponse<PaymentStatusDto>> {
   return apiGetMain<PaymentStatusDto>(
-    `${SEAFARER_API_BASE}/applications/${applicationId}/payment-status`
+    `${SEAFARER_API_BASE}/Payment/applications/${applicationId}/payment-status`
   );
 }
 
@@ -263,9 +263,7 @@ export async function downloadInvoice(invoiceId: string): Promise<Blob> {
   const headers: Record<string, string> = {};
   if (token) {
     headers.Authorization = `Bearer ${token}`;
-  }
-
-  try {
+  }  try {
     const response = await fetch(url, {
       method: "GET",
       headers,

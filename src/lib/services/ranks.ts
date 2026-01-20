@@ -52,7 +52,7 @@ export async function getRanks(params?: {
     queryParams.append("sortDirection", params.sortDirection);
 
   const response = await apiGetMain<any>(
-    `/api/v1/ranks${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
+    `/api/Ranks${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
   );
 
   const ok = response.success ?? (response as any).successful;
@@ -76,7 +76,7 @@ export async function getRanks(params?: {
 }
 
 export async function getRankById(id: string): Promise<RankDto> {
-  const response = await apiGetMain<RankDto>(`/api/v1/ranks/${id}`);
+  const response = await apiGetMain<RankDto>(`/api/Ranks/${id}`);
 
   const ok = response.success ?? (response as any).successful;
   if (!ok || !response.data) {
@@ -87,7 +87,7 @@ export async function getRankById(id: string): Promise<RankDto> {
 }
 
 export async function createRank(data: CreateRankRequest): Promise<RankDto> {
-  const response = await apiPostMain<RankDto>("/seafarer/api/v1/ranks", data);
+  const response = await apiPostMain<RankDto>("/seafarer/api/Ranks", data);
 
   const ok = response.success ?? (response as any).successful;
   if (!ok || !response.data) {
@@ -101,7 +101,7 @@ export async function updateRank(
   id: string,
   data: UpdateRankRequest,
 ): Promise<boolean> {
-  const response = await apiPutMain<boolean>(`/api/v1/ranks/${id}`, data);
+  const response = await apiPutMain<boolean>(`/api/Ranks/${id}`, data);
 
   const ok = response.success ?? (response as any).successful;
   if (!ok) {
@@ -112,7 +112,7 @@ export async function updateRank(
 }
 
 export async function deleteRank(id: string): Promise<boolean> {
-  const response = await apiDeleteMain<boolean>(`/api/v1/ranks/${id}`);
+  const response = await apiDeleteMain<boolean>(`/api/Ranks/${id}`);
 
   const ok = response.success ?? (response as any).successful;
   if (!ok) {

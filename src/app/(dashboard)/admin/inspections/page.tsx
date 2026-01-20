@@ -66,7 +66,7 @@ export default function InspectionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [inspections, setInspections] = useState<InspectionScheduleDto[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -86,7 +86,7 @@ export default function InspectionsPage() {
     try {
       setIsLoading(true);
       const response = await getInspectionSchedules({
-        status: statusFilter || undefined,
+        status: statusFilter && statusFilter !== "all" ? statusFilter : undefined,
         pageSize: 100,
       });
       if (response.success) {
@@ -184,7 +184,7 @@ export default function InspectionsPage() {
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Status</SelectItem>
+              <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="SCHEDULED">Scheduled</SelectItem>
               <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
               <SelectItem value="COMPLETED">Completed</SelectItem>

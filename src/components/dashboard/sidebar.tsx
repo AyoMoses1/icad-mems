@@ -35,6 +35,7 @@ import {
   Search,
   Calendar,
   BarChart3,
+  ArrowLeft,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -725,6 +726,20 @@ export function Sidebar() {
           })}
         </nav>
       </ScrollArea>
+
+      {/* Return to IMS Link */}
+      <div className="px-3 py-2 border-t border-sidebar-border">
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-3 px-3 py-2.5 text-sm hover:bg-sidebar-muted text-sidebar-foreground"
+          onClick={() => {
+            window.location.href = "http://localhost:3000";
+          }}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Return to IMS</span>
+        </Button>
+      </div>
 
       <div className="p-3 border-t border-sidebar-border">
         <DropdownMenu>

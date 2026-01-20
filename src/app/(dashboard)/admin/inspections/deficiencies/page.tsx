@@ -67,8 +67,8 @@ export default function DeficienciesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [deficiencies, setDeficiencies] = useState<DeficiencyReportDto[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [severityFilter, setSeverityFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isRespondDialogOpen, setIsRespondDialogOpen] = useState(false);
   const [selectedDeficiency, setSelectedDeficiency] = useState<DeficiencyReportDto | null>(null);
@@ -94,8 +94,8 @@ export default function DeficienciesPage() {
     try {
       setIsLoading(true);
       const response = await getDeficiencyReports({
-        status: statusFilter || undefined,
-        severity: severityFilter || undefined,
+        status: statusFilter && statusFilter !== "all" ? statusFilter : undefined,
+        severity: severityFilter && severityFilter !== "all" ? severityFilter : undefined,
         pageSize: 100,
       });
       if (response.success) {
@@ -227,7 +227,7 @@ export default function DeficienciesPage() {
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Status</SelectItem>
+              <SelectItem value="all">All Status</SelectItem>
               {Object.entries(DEFICIENCY_STATUS).map(([key, value]) => (
                 <SelectItem key={key} value={value}>
                   {key}
@@ -241,7 +241,7 @@ export default function DeficienciesPage() {
               <SelectValue placeholder="Severity" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Severity</SelectItem>
+              <SelectItem value="all">All Severity</SelectItem>
               {Object.entries(DEFICIENCY_SEVERITY).map(([key, value]) => (
                 <SelectItem key={key} value={value}>
                   {key}

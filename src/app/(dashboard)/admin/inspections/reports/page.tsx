@@ -68,7 +68,7 @@ export default function InspectionReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [reports, setReports] = useState<InspectionReportDto[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -90,7 +90,7 @@ export default function InspectionReportsPage() {
     try {
       setIsLoading(true);
       const response = await getInspectionReports({
-        reportStatus: statusFilter || undefined,
+        reportStatus: statusFilter && statusFilter !== "all" ? statusFilter : undefined,
         pageSize: 100,
       });
       if (response.success) {
@@ -217,7 +217,7 @@ export default function InspectionReportsPage() {
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Status</SelectItem>
+              <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="DRAFT">Draft</SelectItem>
               <SelectItem value="SUBMITTED">Submitted</SelectItem>
               <SelectItem value="APPROVED">Approved</SelectItem>

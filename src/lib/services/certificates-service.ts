@@ -11,7 +11,7 @@ import {
   type ApiResponse,
 } from "@/lib/api-client";
 
-const API_BASE = "/seafarer/api/v1/certificates";
+const API_BASE = "/api/Certificates";
 
 // ============================================================================
 // Types

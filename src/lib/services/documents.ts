@@ -55,7 +55,7 @@ export async function getDocuments(params?: {
   if (params?.sortDirection) queryParams.append("sortDirection", params.sortDirection);
 
   const response = await apiGetMain<PagedResult<DocumentMasterDto>>(
-    `/api/v1/documents${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
+    `/api/Documents${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
   );
 
   const ok = response.success ?? (response as any).successful;
@@ -70,7 +70,7 @@ export async function getDocuments(params?: {
  * Get document by ID
  */
 export async function getDocumentById(id: string): Promise<DocumentMasterDto> {
-  const response = await apiGetMain<DocumentMasterDto>(`/api/v1/documents/${id}`);
+  const response = await apiGetMain<DocumentMasterDto>(`/api/Documents/${id}`);
 
   const ok = response.success ?? (response as any).successful;
   if (!ok || !response.data) {
@@ -86,7 +86,7 @@ export async function getDocumentById(id: string): Promise<DocumentMasterDto> {
 export async function createDocument(
   data: CreateDocumentMasterRequest
 ): Promise<DocumentMasterDto> {
-  const response = await apiPostMain<DocumentMasterDto>("/seafarer/api/v1/documents", data);
+  const response = await apiPostMain<DocumentMasterDto>("/seafarer/api/Documents", data);
 
   const ok = response.success ?? (response as any).successful;
   if (!ok || !response.data) {
@@ -103,7 +103,7 @@ export async function updateDocument(
   id: string,
   data: UpdateDocumentMasterRequest
 ): Promise<boolean> {
-  const response = await apiPutMain<boolean>(`/api/v1/documents/${id}`, data);
+  const response = await apiPutMain<boolean>(`/api/Documents/${id}`, data);
 
   const ok = response.success ?? (response as any).successful;
   if (!ok) {
@@ -117,7 +117,7 @@ export async function updateDocument(
  * Delete a document
  */
 export async function deleteDocument(id: string): Promise<boolean> {
-  const response = await apiDeleteMain<boolean>(`/api/v1/documents/${id}`);
+  const response = await apiDeleteMain<boolean>(`/api/Documents/${id}`);
 
   const ok = response.success ?? (response as any).successful;
   if (!ok) {

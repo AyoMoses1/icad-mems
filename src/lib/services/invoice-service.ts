@@ -17,36 +17,36 @@ import type {
   PaginatedResponse,
 } from "@/types/payment";
 
-const API_BASE = "/seafarer/api/v1/invoices";
+// Note: General invoices list endpoint doesn't exist in API
+// Use application-specific invoice endpoints instead
+const API_BASE = "/api/Invoices"; // This endpoint returns 404
 
 /**
  * Get paginated list of invoices with optional filtering
+ * NOTE: This endpoint doesn't exist in the API (returns 404)
+ * Use getMyInvoices() from payment-service.ts for seafarer invoices instead
+ * Or use getInvoiceForApplication() for application-specific invoices
  */
 export async function getInvoices(
   filters: InvoiceFilters = {}
 ): Promise<ApiResponse<PaginatedResponse<ApplicationInvoiceDto>>> {
-  const {
-    pageNumber = 1,
-    pageSize = 20,
-    userId,
-    applicationId,
-    statusId,
-    searchTerm,
-  } = filters;
-
-  const params = new URLSearchParams({
-    pageNumber: pageNumber.toString(),
-    pageSize: pageSize.toString(),
-  });
-
-  if (userId) params.append("userId", userId.toString());
-  if (applicationId) params.append("applicationId", applicationId.toString());
-  if (statusId) params.append("statusId", statusId.toString());
-  if (searchTerm) params.append("searchTerm", searchTerm);
-
-  return apiGetMain<PaginatedResponse<ApplicationInvoiceDto>>(
-    `${API_BASE}?${params.toString()}`
-  );
+  // This endpoint doesn't exist - return empty result
+  console.warn("getInvoices: This endpoint doesn't exist in the API. Use getMyInvoices() or getInvoiceForApplication() instead.");
+  const pageNumber = filters.pageNumber || 1;
+  const pageSize = filters.pageSize || 20;
+  return {
+    success: false,
+    message: "Invoices list endpoint not available. Use application-specific invoice endpoints instead.",
+    data: {
+      items: [],
+      pageNumber,
+      pageSize,
+      totalCount: 0,
+      totalPages: 0,
+      hasPreviousPage: false,
+      hasNextPage: false,
+    },
+  };
 }
 
 /**

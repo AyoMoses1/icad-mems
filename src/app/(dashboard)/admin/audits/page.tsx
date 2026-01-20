@@ -68,7 +68,7 @@ export default function AuditsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [audits, setAudits] = useState<AuditDto[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -88,7 +88,7 @@ export default function AuditsPage() {
     try {
       setIsLoading(true);
       const response = await getAudits({
-        status: statusFilter || undefined,
+        status: statusFilter && statusFilter !== "all" ? statusFilter : undefined,
         pageSize: 100,
       });
       if (response.success) {
@@ -173,7 +173,7 @@ export default function AuditsPage() {
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Status</SelectItem>
+              <SelectItem value="all">All Status</SelectItem>
               {Object.entries(AUDIT_STATUS).map(([key, value]) => (
                 <SelectItem key={key} value={value}>
                   {key.replace("_", " ")}
