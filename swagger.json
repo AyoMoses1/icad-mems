@@ -3057,6 +3057,35 @@
         }
       }
     },
+    "/api/seafarer/MasterData/currencies": {
+      "get": {
+        "tags": [
+          "MasterData"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.CurrencyDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.CurrencyDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.CurrencyDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/seafarer/api/v1/Onboarding": {
       "post": {
         "tags": [
@@ -4079,6 +4108,325 @@
         }
       }
     },
+    "/seafarer/api/v1/services": {
+      "post": {
+        "tags": [
+          "ServiceManagement"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.CreateServiceRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.CreateServiceRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.CreateServiceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ServiceDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ServiceDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ServiceDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seafarer/api/v1/services/{serviceId}": {
+      "put": {
+        "tags": [
+          "ServiceManagement"
+        ],
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateServiceRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateServiceRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateServiceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ServiceDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ServiceDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ServiceDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ServiceManagement"
+        ],
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seafarer/api/v1/services/{serviceId}/requirements": {
+      "post": {
+        "tags": [
+          "ServiceManagement"
+        ],
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.CreateServiceRequirementRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.CreateServiceRequirementRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.CreateServiceRequirementRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ServiceRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ServiceRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ServiceRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seafarer/api/v1/services/{serviceId}/requirements/{requirementId}": {
+      "put": {
+        "tags": [
+          "ServiceManagement"
+        ],
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "requirementId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateServiceRequirementRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateServiceRequirementRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateServiceRequirementRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ServiceRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ServiceRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ServiceRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ServiceManagement"
+        ],
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "requirementId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/seafarer/api/v1/Statistics/public": {
       "get": {
         "tags": [
@@ -4133,6 +4481,38 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/tests": {
+      "post": {
+        "tags": [
+          "Test"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "File": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              },
+              "encoding": {
+                "File": {
+                  "style": "form"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -4650,6 +5030,37 @@
         },
         "additionalProperties": false
       },
+      "MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ServiceRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.ServiceRequirementDto"
+          },
+          "error": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiError"
+          }
+        },
+        "additionalProperties": false
+      },
       "MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.StatisticsDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
         "type": "object",
         "properties": {
@@ -4979,6 +5390,41 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.CivilStatusDto"
+            },
+            "nullable": true
+          },
+          "error": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiError"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.CurrencyDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.CurrencyDto"
             },
             "nullable": true
           },
@@ -6333,6 +6779,15 @@
             "type": "string",
             "nullable": true
           },
+          "documentTypesId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "documentTypeDescription": {
+            "type": "string",
+            "nullable": true
+          },
           "requiredValue": {
             "type": "string",
             "nullable": true
@@ -6576,6 +7031,28 @@
           "endDate": {
             "type": "string",
             "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Models.DTOs.CurrencyDto": {
+        "type": "object",
+        "properties": {
+          "currencyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "symbol": {
+            "type": "string",
             "nullable": true
           }
         },
@@ -7255,6 +7732,13 @@
               "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.ApplicationStatusDto"
             },
             "nullable": true
+          },
+          "currencies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.CurrencyDto"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -7613,6 +8097,15 @@
             "format": "uuid"
           },
           "metricDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "documentTypesId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "documentTypeDescription": {
             "type": "string",
             "nullable": true
           }
@@ -8322,6 +8815,53 @@
         },
         "additionalProperties": false
       },
+      "MEMS.Seafarer.Models.Requests.CreateServiceRequest": {
+        "type": "object",
+        "properties": {
+          "serviceTypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currencyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "requirements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.CreateServiceRequirementRequest"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Models.Requests.CreateServiceRequirementRequest": {
+        "type": "object",
+        "properties": {
+          "serviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requirementListId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rankId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requiredValue": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "MEMS.Seafarer.Models.Requests.CreateUserSeafarerOnboardingRequest": {
         "type": "object",
         "properties": {
@@ -8771,6 +9311,45 @@
             "nullable": true
           },
           "remarks": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Models.Requests.UpdateServiceRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "serviceTypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currencyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Models.Requests.UpdateServiceRequirementRequest": {
+        "type": "object",
+        "properties": {
+          "requirementListId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rankId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requiredValue": {
             "type": "string",
             "nullable": true
           }
