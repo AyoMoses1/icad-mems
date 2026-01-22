@@ -45,15 +45,17 @@ import { toast } from "sonner";
 import { apiGetMain, ApiResponse } from "@/lib/api-client";
 import { formatDate } from "@/lib/utils";
 import {
-  getDocumentMasters,
-  type DocumentMasterDto,
-} from "@/lib/services/documents-master-service";
+  getDocumentTypes,
+  type DocumentTypeDto,
+} from "@/lib/services/lookup-service";
 import {
   getMySeafarer,
-  getMySeafarerDocuments,
   type SeafarerDto,
-  type SeafarerHeldDocumentDto,
 } from "@/lib/services/seafarers";
+import {
+  getProfileDocuments,
+  type EducationDocumentDto,
+} from "@/lib/services/document-service";
 import { getRanks, type RankDto } from "@/lib/services/ranks";
 import {
   getNationalities,
@@ -135,7 +137,7 @@ export default function ProfileDocumentsPage() {
   const [previewDocument, setPreviewDocument] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [documents, setDocuments] = useState<any[]>([]);
-  const [documentTypes, setDocumentTypes] = useState<DocumentMasterDto[]>([]);
+  const [documentTypes, setDocumentTypes] = useState<DocumentTypeDto[]>([]);
   const [ranks, setRanks] = useState<RankDto[]>([]);
   const [nationalities, setNationalities] = useState<NationalityDto[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -185,62 +187,83 @@ export default function ProfileDocumentsPage() {
     address: "",
   });
 
-  const uploadDocument = async (formData: FormData) => {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || "";
-
-    if (!API_BASE_URL) {
-      throw new Error("API base URL is not configured");
+  const uploadDocument = async (uploadData: UploadDocumentFormData) => {
+    // Get RN from seafarer or user
+    let rn: string | null = null;
+    
+    try {
+      const seafarerResponse = await getMySeafarer();
+      const seafarerOk = seafarerResponse.success ?? (seafarerResponse as any).successful;
+      
+      if (seafarerOk && seafarerResponse.data) {
+        rn = (seafarerResponse.data as any).rn || (seafarerResponse.data as any).registrationNumber || null;
+      }
+      
+      if (!rn) {
+        const currentUser = useAuthStore.getState().user;
+        rn = (currentUser as any)?.rn || (currentUser as any)?.registrationNumber || null;
+      }
+      
+      if (!rn) {
+        throw new Error("Registration Number (RN) not found. Please complete onboarding first.");
+      }
+    } catch (error) {
+      console.error("Error getting RN:", error);
+      throw new Error("Failed to get registration number. Please complete onboarding first.");
     }
 
-    const token = useAuthStore.getState().token;
-    const url = `${API_BASE_URL}/api/v1/Documents/users/me/documents`;
-
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
+    // Use document-service uploadProfileDocument
+    const { uploadProfileDocument } = await import("@/lib/services/document-service");
+    
+    if (!uploadData.file || !uploadData.documentTypeId) {
+      throw new Error("File and Document Type are required");
     }
-    // Don't set Content-Type for FormData - let browser set it with boundary
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: formData,
+    return await uploadProfileDocument({
+      file: uploadData.file,
+      rn,
+      documentTypesId: uploadData.documentTypeId,
+      documentNumber: uploadData.documentNumber || undefined,
+      issueDate: uploadData.issueDate || undefined,
+      expiryDate: uploadData.expiryDate || undefined,
+      issuingAuthority: uploadData.issuingAuthority || undefined,
     });
-
-    const data: ApiResponse<UploadDocumentFormData> = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error?.message || data.message || "Request failed");
-    }
-
-    return data;
   };
 
   const getUserDocuments = async () => {
     try {
-      const response = await getMySeafarerDocuments();
-      const ok = response.success ?? (response as any).successful;
-
-      if (ok && response.data) {
-        console.log("Seafarer documents response:", response);
-        // Handle both array and paginated response
-        const data = response.data;
-        let items: SeafarerHeldDocumentDto[] = [];
-
-        if (Array.isArray(data)) {
-          items = data;
-        } else if (
-          data &&
-          typeof data === "object" &&
-          "items" in data &&
-          Array.isArray((data as any).items)
-        ) {
-          items = (data as any).items;
+      // First get seafarer profile to get RN
+      const seafarerResponse = await getMySeafarer();
+      const seafarerOk = seafarerResponse.success ?? (seafarerResponse as any).successful;
+      
+      let rn: string | null = null;
+      
+      if (seafarerOk && seafarerResponse.data) {
+        // Try to get RN from seafarer data
+        const seafarer = seafarerResponse.data;
+        rn = (seafarer as any).rn || (seafarer as any).registrationNumber || null;
+      }
+      
+      // If no RN from seafarer, try to get from user
+      if (!rn) {
+        const currentUser = useAuthStore.getState().user;
+        rn = (currentUser as any)?.rn || (currentUser as any)?.registrationNumber || null;
+      }
+      
+      if (rn) {
+        const response = await getProfileDocuments(rn);
+        const ok = response.success ?? (response as any).successful;
+        
+        if (ok && response.data) {
+          const items = Array.isArray(response.data) ? response.data : [];
+          setDocuments(items);
+        } else {
+          toast.error(response.message || "Failed to fetch documents");
+          setDocuments([]);
         }
-
-        setDocuments(items);
       } else {
-        toast.error(response.message || "Failed to fetch documents");
+        // No RN available yet - user may not be onboarded
+        console.log("No RN available - user may need to complete onboarding");
         setDocuments([]);
       }
     } catch (error: any) {
@@ -527,26 +550,43 @@ export default function ProfileDocumentsPage() {
 
     // Try to load from API first, fallback to localStorage
     loadSeafarerProfile();
+    loadContactDetailsFromAPI();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userEmail, user]);
+
+  // Load contact details from API
+  const loadContactDetailsFromAPI = async () => {
+    try {
+      const { getContactDetails } = await import("@/lib/services/profile-service");
+      const response = await getContactDetails();
+      const ok = response.success ?? (response as any).successful;
+      
+      if (ok && response.data) {
+        const contact = response.data;
+        setContactDetails({
+          email: contact.email || contactDetails.email || "",
+          phone: contact.phone || contactDetails.phone || "",
+          altPhone: contact.altPhone || contactDetails.altPhone || "",
+          whatsapp: contact.whatsapp || contactDetails.whatsapp || "",
+          city: contact.city || contactDetails.city || "",
+          state: contact.state || contactDetails.state || "",
+          country: contact.country || contactDetails.country || "",
+          postalCode: contact.postalCode || contactDetails.postalCode || "",
+          address: contact.address || contactDetails.address || "",
+        });
+      }
+    } catch (error: any) {
+      // Don't show error if contact details don't exist yet
+      console.log("Contact details not found, using defaults");
+    }
+  };
 
   useEffect(() => {
     const fetchDocumentTypes = async () => {
       try {
-        const response = await getDocumentMasters({
-          pageNumber: 1,
-          pageSize: 100,
-          sortDirection: "asc",
-        });
+        const response = await getDocumentTypes();
         if (response.success ?? (response as any).successful) {
-          // Handle paginated response - extract items from PagedResult
-          const data = response.data;
-          const items =
-            data && "items" in data
-              ? data.items
-              : Array.isArray(data)
-                ? data
-                : [];
+          const items = Array.isArray(response.data) ? response.data : [];
           setDocumentTypes(items);
         } else {
           toast.error(response.message || "Failed to fetch document types");
@@ -642,14 +682,42 @@ export default function ProfileDocumentsPage() {
   };
 
   // Save Contact Details
-  const handleSaveContactDetails = () => {
+  const handleSaveContactDetails = async () => {
     if (!userEmail) {
-      alert("Please log in to save your information");
+      toast.error("Please log in to save your information");
       return;
     }
-    const key = getStorageKey(userEmail, "contact");
-    saveToStorage(key, contactDetails);
-    alert("Contact details saved successfully!");
+
+    setIsSubmitting(true);
+    try {
+      const { createOrUpdateContactDetails } = await import("@/lib/services/profile-service");
+      const response = await createOrUpdateContactDetails({
+        email: contactDetails.email || undefined,
+        phone: contactDetails.phone || undefined,
+        altPhone: contactDetails.altPhone || undefined,
+        whatsapp: contactDetails.whatsapp || undefined,
+        city: contactDetails.city || undefined,
+        state: contactDetails.state || undefined,
+        country: contactDetails.country || undefined,
+        postalCode: contactDetails.postalCode || undefined,
+        address: contactDetails.address || undefined,
+      });
+      
+      const ok = response.success ?? (response as any).successful;
+      if (ok) {
+        toast.success("Contact details saved successfully!");
+        // Also save to localStorage as backup
+        const key = getStorageKey(userEmail, "contact");
+        saveToStorage(key, contactDetails);
+      } else {
+        toast.error(response.message || "Failed to save contact details");
+      }
+    } catch (error: any) {
+      console.error("Error saving contact details:", error);
+      toast.error(error.message || "Failed to save contact details");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Upload Document handlers
@@ -678,36 +746,8 @@ export default function ProfileDocumentsPage() {
     setIsSubmitting(true);
 
     try {
-      // Create FormData for file upload
-      const submitData = new FormData();
-      submitData.append("file", uploadFormData.file);
-      submitData.append(
-        "DocumentTypeId",
-        uploadFormData.documentTypeId.toString(),
-      );
-
-      if (uploadFormData.expiryDate) {
-        submitData.append("ExpiryDate", uploadFormData.expiryDate);
-      }
-
-      if (uploadFormData.issueDate) {
-        submitData.append("IssueDate", uploadFormData.issueDate);
-      }
-
-      if (uploadFormData.issuingAuthority) {
-        submitData.append("IssuingAuthority", uploadFormData.issuingAuthority);
-      }
-
-      if (uploadFormData.documentNumber) {
-        submitData.append("DocumentNumber", uploadFormData.documentNumber);
-      }
-
-      if (uploadFormData.notes) {
-        submitData.append("Notes", uploadFormData.notes);
-      }
-
-      // Call the upload API
-      const response = await uploadDocument(submitData);
+      // Call the upload API using document-service
+      const response = await uploadDocument(uploadFormData);
 
       const ok = response.success ?? (response as any).successful;
       if (ok) {
@@ -1254,8 +1294,9 @@ export default function ProfileDocumentsPage() {
                       e.preventDefault();
                       handleSaveContactDetails();
                     }}
+                    disabled={isSubmitting}
                   >
-                    Save Changes
+                    {isSubmitting ? "Saving..." : "Save Changes"}
                   </Button>
                 </div>
               </form>
@@ -1420,9 +1461,9 @@ export default function ProfileDocumentsPage() {
                   <SelectValue placeholder="Select document type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {documentTypes.map((type: DocumentMasterDto) => (
-                    <SelectItem key={type.id} value={type.id}>
-                      {type.name || "Unnamed Document"}
+                  {documentTypes.map((type: DocumentTypeDto) => (
+                    <SelectItem key={type.documentTypesId} value={type.documentTypesId}>
+                      {type.description || "Unnamed Document"}
                     </SelectItem>
                   ))}
                 </SelectContent>

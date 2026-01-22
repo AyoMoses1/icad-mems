@@ -8,7 +8,6 @@ import {
   apiDeleteMain,
   apiPutMain,
   type ApiResponse,
-  getApiBaseUrl,
 } from "@/lib/api-client";
 import type {
   PaymentDto,
@@ -75,79 +74,103 @@ export type InitiatePaymentResponse = InitiatePaymentResponseDto;
 
 /**
  * Get paginated list of payments with optional filtering
+ * ⚠️ DEPRECATED: The /api/Payments endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getPayments(
   filters: PaymentFilters = {}
 ): Promise<ApiResponse<PaginatedResponse<PaymentDto>>> {
-  const {
-    pageNumber = 1,
-    pageSize = 20,
-    userId,
-    invoiceId,
-    status,
-    searchTerm,
-  } = filters;
-
-  const params = new URLSearchParams({
-    pageNumber: pageNumber.toString(),
-    pageSize: pageSize.toString(),
-  });
-
-  if (userId) params.append("userId", userId.toString());
-  if (invoiceId) params.append("invoiceId", invoiceId.toString());
-  if (status) params.append("status", status);
-  if (searchTerm) params.append("searchTerm", searchTerm);
-
-  return apiGetMain<PaginatedResponse<PaymentDto>>(
-    `${API_BASE}?${params.toString()}`
-  );
+  // Endpoint /api/Payments does not exist in swagger.json
+  const pageNumber = filters.pageNumber || 1;
+  const pageSize = filters.pageSize || 20;
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Payments does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: {
+      items: [],
+      pageNumber,
+      pageSize,
+      totalCount: 0,
+      totalPages: 0,
+      hasPreviousPage: false,
+      hasNextPage: false,
+    },
+  };
 }
 
 /**
  * Get payment by ID
+ * ⚠️ DEPRECATED: The /api/Payments/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getPaymentById(
   paymentId: number
 ): Promise<ApiResponse<PaymentDto>> {
-  return apiGetMain<PaymentDto>(`${API_BASE}/${paymentId}`);
+  // Endpoint /api/Payments/{id} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Payments/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: undefined,
+  };
 }
 
 /**
  * Initiate payment for an invoice
+ * ⚠️ DEPRECATED: The /api/Payments/invoices/{invoiceId}/pay endpoint does not exist in swagger.json
+ * Use initiateApplicationPayment() instead which calls /seafarer/api/v1/Payment/applications/{id}/payment/initiate
+ * 
+ * @deprecated Use initiateApplicationPayment() instead
  */
 export async function initiatePayment(
   invoiceId: number,
   paymentData: InitiatePaymentDto
 ): Promise<ApiResponse<PaymentDto>> {
-  return apiPostMain<PaymentDto>(
-    `${API_BASE}/invoices/${invoiceId}/pay`,
-    paymentData
-  );
+  // Endpoint /api/Payments/invoices/{invoiceId}/pay does not exist in swagger.json
+  // Use initiateApplicationPayment() instead
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Payments/invoices/{invoiceId}/pay does not exist. Use initiateApplicationPayment() instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: undefined,
+  };
 }
 
 /**
  * Verify payment status by payment reference
+ * ⚠️ DEPRECATED: The /api/Payments/verify/{reference} endpoint does not exist in swagger.json
+ * Use verifyApplicationPayment() from application-service.ts or the Payment service verify endpoint instead.
+ * 
+ * @deprecated Use verifyApplicationPayment() or Payment service verify endpoint instead
  */
 export async function verifyPayment(
   paymentReference: string
 ): Promise<ApiResponse<PaymentDto>> {
-  return apiGetMain<PaymentDto>(`${API_BASE}/verify/${paymentReference}`);
+  // Endpoint /api/Payments/verify/{reference} does not exist in swagger.json
+  // The correct endpoint is /seafarer/api/v1/Payment/payments/{reference}/verify
+  return apiGetMain<PaymentDto>(`${SEAFARER_API_BASE}/Payment/payments/${paymentReference}/verify`);
 }
 
 /**
  * Record manual payment (Officer/Admin only)
+ * ⚠️ DEPRECATED: The /api/Payments endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function recordManualPayment(
   paymentData: RecordManualPaymentDto
 ): Promise<ApiResponse<PaymentDto>> {
-  return apiPostMain<PaymentDto>(API_BASE, paymentData);
+  // Endpoint /api/Payments does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Payments does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: undefined,
+  };
 }
 
 // ============================================================================
-// Endpoints from frontend-api-integration.md (Payment Webhooks)
+// Payment Webhooks
 // ============================================================================
-
-const API_BASE_LEGACY = "/api/payments"; // For endpoints from frontend-api-integration.md
 
 export interface PaymentWebhookRequest {
   invoiceId: string;
@@ -179,25 +202,27 @@ export interface PaymentSimulateResponse {
 
 /**
  * Payment webhook endpoint (for production payment gateways)
+ * POST /seafarer/api/v1/Payment/webhook
  */
 export async function paymentWebhook(
   data: PaymentWebhookRequest
 ): Promise<ApiResponse<PaymentWebhookResponse>> {
   return apiPostMain<PaymentWebhookResponse>(
-    `${API_BASE_LEGACY}/webhook`,
+    `${SEAFARER_API_BASE}/Payment/webhook`,
     data
   );
 }
 
 /**
  * Simulate payment (for non-production environments)
- * POST /api/Payments/simulate
+ * POST /seafarer/api/v1/Payment/applications/{id}/payment/simulate
  */
 export async function simulatePayment(
-  data: PaymentWebhookRequest
-): Promise<ApiResponse<boolean>> {
-  return apiPostMain<boolean>(
-    `/api/Payments/simulate`,
+  applicationId: string,
+  data: PaymentSimulateRequest
+): Promise<ApiResponse<PaymentSimulateResponse>> {
+  return apiPostMain<PaymentSimulateResponse>(
+    `${SEAFARER_API_BASE}/Payment/applications/${applicationId}/payment/simulate`,
     data
   );
 }
@@ -208,10 +233,19 @@ export async function simulatePayment(
 
 /**
  * Get invoices for the current seafarer user
- * GET /seafarer/api/v1/invoices/me
+ * ⚠️ DEPRECATED: The /seafarer/api/v1/invoices/me endpoint does not exist in swagger.json
+ * Use getApplicationInvoice() from application-service.ts for application-specific invoices instead.
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getMyInvoices(): Promise<ApiResponse<SeafarerInvoiceDto[]>> {
-  return apiGetMain<SeafarerInvoiceDto[]>(`${SEAFARER_API_BASE}/invoices/me`);
+  // Endpoint /seafarer/api/v1/invoices/me does not exist in swagger.json
+  // Use getApplicationInvoice() from application-service.ts for application-specific invoices
+  return {
+    success: false,
+    error: { message: "Endpoint /seafarer/api/v1/invoices/me does not exist in the API. Use getApplicationInvoice() from application-service.ts instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: undefined,
+  };
 }
 
 /**
@@ -241,47 +275,11 @@ export async function getApplicationPaymentStatus(
 
 /**
  * Download invoice as PDF blob
- * GET /seafarer/api/v1/invoices/{invoiceId}/download
+ * ⚠️ DEPRECATED: The /seafarer/api/v1/invoices/{invoiceId}/download endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function downloadInvoice(invoiceId: string): Promise<Blob> {
-  const API_BASE_URL = getApiBaseUrl();
-
-  if (!API_BASE_URL) {
-    throw new Error(
-      "NEXT_PUBLIC_API_BASE_URL is not configured. Please check your .env.local file and restart the dev server."
-    );
-  }
-
-  const url = `${API_BASE_URL}${SEAFARER_API_BASE}/invoices/${invoiceId}/download`;  // Get auth token
-  if (typeof window === "undefined") {
-    throw new Error("downloadInvoice can only be called from the client side");
-  }
-
-  const { useAuthStore } = require("@/store");
-  const token = useAuthStore.getState().token;
-
-  const headers: Record<string, string> = {};
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers,
-    });    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `Failed to download invoice: ${response.status} ${response.statusText}. ${errorText}`
-      );
-    }
-
-    return await response.blob();
-  } catch (error) {
-    if (error instanceof TypeError && error.message === "Failed to fetch") {
-      throw new Error("Network error. Please check your connection.");
-    }
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error("An unexpected error occurred while downloading invoice");
-  }
+  // Endpoint /seafarer/api/v1/invoices/{invoiceId}/download does not exist in swagger.json
+  throw new Error("Endpoint /seafarer/api/v1/invoices/{invoiceId}/download does not exist in the API");
 }

@@ -51,52 +51,94 @@ export async function getInvoices(
 
 /**
  * Get invoice by ID
+ * ⚠️ DEPRECATED: The /api/Invoices/{id} endpoint does not exist in swagger.json
+ * Use getApplicationInvoice() from application-service.ts for application-specific invoices instead.
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getInvoiceById(
   invoiceId: number
 ): Promise<ApiResponse<ApplicationInvoiceDto>> {
-  return apiGetMain<ApplicationInvoiceDto>(`${API_BASE}/${invoiceId}`);
+  // Endpoint /api/Invoices/{id} does not exist in swagger.json
+  // Use getApplicationInvoice() from application-service.ts instead
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Invoices/{id} does not exist in the API. Use getApplicationInvoice() from application-service.ts instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Get invoice for an application
+ * ⚠️ DEPRECATED: The /api/Invoices/applications/{id}/invoice endpoint does not exist in swagger.json
+ * Use getApplicationInvoice() from application-service.ts instead which calls /seafarer/api/v1/Applications/{id}/invoice
+ * 
+ * @deprecated Use getApplicationInvoice() from application-service.ts instead
  */
 export async function getInvoiceForApplication(
   applicationId: number
 ): Promise<ApiResponse<ApplicationInvoiceDto>> {
-  return apiGetMain<ApplicationInvoiceDto>(
-    `${API_BASE}/applications/${applicationId}/invoice`
-  );
+  // Endpoint /api/Invoices/applications/{id}/invoice does not exist in swagger.json
+  // Use getApplicationInvoice() from application-service.ts instead
+  // Import: import { getApplicationInvoice } from "@/lib/services/application-service";
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Invoices/applications/{id}/invoice does not exist. Use getApplicationInvoice() from application-service.ts instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Create invoice (Officer/Admin only)
+ * ⚠️ DEPRECATED: The /api/Invoices endpoint does not exist in swagger.json
+ * Use generateApplicationInvoice() from application-service.ts instead which calls /seafarer/api/v1/Applications/{id}/invoice
+ * 
+ * @deprecated Use generateApplicationInvoice() from application-service.ts instead
  */
 export async function createInvoice(
   invoiceData: CreateInvoiceDto
 ): Promise<ApiResponse<ApplicationInvoiceDto>> {
-  return apiPostMain<ApplicationInvoiceDto>(API_BASE, invoiceData);
+  // Endpoint /api/Invoices does not exist in swagger.json
+  // Use generateApplicationInvoice() from application-service.ts instead
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Invoices does not exist. Use generateApplicationInvoice() from application-service.ts instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Update invoice (Officer/Admin only)
+ * ⚠️ DEPRECATED: The /api/Invoices/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function updateInvoice(
   invoiceId: number,
   updates: UpdateInvoiceDto
 ): Promise<ApiResponse<ApplicationInvoiceDto>> {
-  return apiPatchMain<ApplicationInvoiceDto>(
-    `${API_BASE}/${invoiceId}`,
-    updates
-  );
+  // Endpoint /api/Invoices/{id} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Invoices/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Delete invoice (Officer/Admin only)
+ * ⚠️ DEPRECATED: The /api/Invoices/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function deleteInvoice(
   invoiceId: number
 ): Promise<ApiResponse<void>> {
-  return apiDeleteMain<void>(`${API_BASE}/${invoiceId}`);
+  // Endpoint /api/Invoices/{id} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Invoices/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 

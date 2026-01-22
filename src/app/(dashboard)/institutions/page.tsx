@@ -77,39 +77,16 @@ export default function InstitutionsPage() {
   const loadInstitutions = async () => {
     setIsLoading(true);
     try {
-      // Fetch first page
-      const firstPage = await getInstitutions({
+      const result = await getInstitutions({
         pageNumber: 1,
         pageSize: 100,
         sortDirection: "asc",
       });
 
-      let allInstitutions = firstPage.items || [];
-      console.log(firstPage);
-
-      // If there are more pages, fetch them all
-      if (firstPage.totalNumber > firstPage.items.length) {
-        const totalPages = Math.ceil(firstPage.totalNumber / 100);
-        const remainingPages = [];
-
-        for (let page = 2; page <= totalPages; page++) {
-          remainingPages.push(
-            getInstitutions({
-              pageNumber: page,
-              pageSize: 100,
-              sortDirection: "asc",
-            }),
-          );
-        }
-
-        const remainingResults = await Promise.all(remainingPages);
-        const remainingItems = remainingResults.flatMap((r) => r.items || []);
-        allInstitutions = [...allInstitutions, ...remainingItems];
-      }
-
+      const allInstitutions = result.items || [];
       setInstitutions(allInstitutions);
       console.log(
-        `✅ Loaded ${allInstitutions.length} institutions from /api/Institutions`,
+        `✅ Loaded ${allInstitutions.length} institutions from /seafarer/api/v1/Accreditation/institutions`,
       );
     } catch (error: any) {
       console.error("❌ Failed to load institutions:", error);
@@ -263,43 +240,64 @@ export default function InstitutionsPage() {
     {
       id: "name",
       header: "Name",
-      accessorKey: "name",
-      cell: ({ row }) => <div className="font-medium">{row.name ?? "-"}</div>,
+      accessorKey: "accreditedInstitutionName",
+      cell: ({ row }) => (
+        <div className="font-medium">
+          {row.accreditedInstitutionName || row.name || "-"}
+        </div>
+      ),
     },
     {
       id: "institutionType",
       header: "Type",
-      accessorKey: "institutionType",
-      cell: ({ row }) => <div>{row.institutionType ?? "-"}</div>,
+      accessorKey: "institutionTypeDescription",
+      cell: ({ row }) => (
+        <div>{row.institutionTypeDescription || row.institutionType || "-"}</div>
+      ),
     },
     {
       id: "email",
       header: "Email",
-      accessorKey: "email",
-      cell: ({ row }) => <div>{row.email ?? "-"}</div>,
-    },
-    {
-      id: "nimasaAccreditationNo",
-      header: "NIMASA Accreditation",
-      accessorKey: "nimasaAccreditationNo",
-      cell: ({ row }) => <div>{row.nimasaAccreditationNo ?? "-"}</div>,
-    },
-    {
-      id: "isActive",
-      header: "Status",
-      accessorKey: "isActive",
+      accessorKey: "accreditedInstitutionEmail",
       cell: ({ row }) => (
-        <Badge variant={row.isActive ? "success" : "secondary"}>
-          {row.isActive ? "Active" : "Inactive"}
-        </Badge>
+        <div>{row.accreditedInstitutionEmail || row.email || "-"}</div>
       ),
     },
     {
-      id: "createdAt",
-      header: "Created",
-      accessorKey: "createdAt",
+      id: "phone",
+      header: "Phone",
+      accessorKey: "accreditedInstitutionPhone",
+      cell: ({ row }) => <div>{row.accreditedInstitutionPhone || "-"}</div>,
+    },
+    {
+      id: "address",
+      header: "Address",
+      accessorKey: "accreditedInstitutionAddress",
       cell: ({ row }) => (
-        <div>{row.createdAt ? formatDate(row.createdAt) : "-"}</div>
+        <div className="max-w-md truncate">
+          {row.accreditedInstitutionAddress || row.physicalAddress || "-"}
+        </div>
+      ),
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorKey: "accreditationStatus",
+      cell: ({ row }) => {
+        const status = row.accreditationStatus || (row.isApproved ? "APPROVED" : "PENDING");
+        return (
+          <Badge variant={status === "APPROVED" || row.isApproved ? "success" : "secondary"}>
+            {status}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: "expiryDate",
+      header: "Expiry Date",
+      accessorKey: "expiryDate",
+      cell: ({ row }) => (
+        <div>{row.expiryDate ? formatDate(row.expiryDate) : "-"}</div>
       ),
     },
     {
@@ -354,7 +352,7 @@ export default function InstitutionsPage() {
         emptyMessage="No institutions found"
         emptyDescription="Get started by adding your first institution."
         searchPlaceholder="Search institutions..."
-        getRowId={(row) => row.id}
+        getRowId={(row) => row.accreditedInstitutionsId || row.id || ""}
       />
 
       {/* Create Dialog */}

@@ -42,6 +42,7 @@ import {
 import {
   getAllAccreditations,
   getAccreditationDetails,
+  type AccreditedInstitutionDto,
   type InstitutionAccreditationDto,
 } from "@/lib/services/accreditation-service";
 import { formatDate } from "@/lib/utils";
@@ -89,7 +90,7 @@ const statusConfig: Record<
 export default function MyAccreditationsPage() {
   const router = useRouter();
   const [accreditations, setAccreditations] = useState<
-    InstitutionAccreditationDto[]
+    AccreditedInstitutionDto[]
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -113,26 +114,26 @@ export default function MyAccreditationsPage() {
       });
       const ok = response.success ?? (response as any).successful;
       if ((ok || response.data) && response.data) {
-        // Handle response data which could be array or paginated response
+        // Handle response data which is an array of AccreditedInstitutionDto
         const responseData = response.data as any;
-        let data: InstitutionAccreditationDto[] = Array.isArray(responseData)
+        let data: AccreditedInstitutionDto[] = Array.isArray(responseData)
           ? responseData
           : responseData?.items || [];
 
         // Apply filters
         if (statusFilter !== "all") {
           data = data.filter(
-            (acc: InstitutionAccreditationDto) =>
-              acc.status?.toLowerCase() === statusFilter.toLowerCase() ||
-              acc.status?.toLowerCase().replace(/\s+/g, "-") ===
+            (acc: AccreditedInstitutionDto) =>
+              acc.accreditationStatus?.toLowerCase() === statusFilter.toLowerCase() ||
+              acc.accreditationStatus?.toLowerCase().replace(/\s+/g, "-") ===
                 statusFilter.toLowerCase()
           );
         }
 
         if (typeFilter !== "all") {
           data = data.filter(
-            (acc: InstitutionAccreditationDto) =>
-              acc.accreditationType?.toLowerCase() === typeFilter.toLowerCase()
+            (acc: AccreditedInstitutionDto) =>
+              acc.institutionTypeDescription?.toLowerCase() === typeFilter.toLowerCase()
           );
         }
 
@@ -150,13 +151,18 @@ export default function MyAccreditationsPage() {
     }
   };
 
-  const handleViewDetails = async (accreditation: InstitutionAccreditationDto) => {
+  const handleViewDetails = async (accreditation: AccreditedInstitutionDto) => {
     try {
-      const response = await getAccreditationDetails(accreditation.id);
+      const accreditationId = accreditation.accreditedInstitutionsId || accreditation.id;
+      if (!accreditationId) {
+        toast.error("Accreditation ID not found");
+        return;
+      }
+      const response = await getAccreditationDetails(accreditationId);
       const ok = response.success ?? (response as any).successful;
       if (ok && response.data) {
         // Navigate to a detail page or show in a dialog
-        router.push(`/accreditations/${accreditation.id}`);
+        router.push(`/accreditations/${accreditationId}`);
       } else {
         toast.error(response.message || "Failed to load accreditation details");
       }
@@ -168,11 +174,12 @@ export default function MyAccreditationsPage() {
 
   const getStatusBadge = (status?: string) => {
     if (!status) return null;
+    const normalizedStatus = status.toUpperCase();
     const config =
       statusConfig[status] ||
       statusConfig[
         Object.keys(statusConfig).find(
-          (key) => key.toLowerCase() === status.toLowerCase()
+          (key) => key.toLowerCase() === normalizedStatus.toLowerCase()
         ) || ""
       ] ||
       {
@@ -190,44 +197,45 @@ export default function MyAccreditationsPage() {
     );
   };
 
-  const getAccreditationTypeLabel = (type?: string) => {
-    if (!type) return "N/A";
-    return type
-      .split("_")
-      .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
-      .join(" ");
-  };
-
-  const columns: DataTableColumn<InstitutionAccreditationDto>[] = [
+  const columns: DataTableColumn<AccreditedInstitutionDto>[] = [
     {
-      id: "accreditationType",
-      header: "Type",
+      id: "accreditedInstitutionName",
+      header: "Institution Name",
       cell: ({ row }) => (
         <div className="font-medium">
-          {getAccreditationTypeLabel(row.accreditationType)}
+          {row.accreditedInstitutionName || "N/A"}
         </div>
       ),
     },
     {
-      id: "status",
-      header: "Status",
-      cell: ({ row }) => getStatusBadge(row.status),
+      id: "institutionTypeDescription",
+      header: "Type",
+      cell: ({ row }) => (
+        <div>
+          {row.institutionTypeDescription || "N/A"}
+        </div>
+      ),
     },
     {
-      id: "certificateNumber",
-      header: "Certificate Number",
+      id: "accreditationStatus",
+      header: "Status",
+      cell: ({ row }) => getStatusBadge(row.accreditationStatus),
+    },
+    {
+      id: "accreditedInstitutionEmail",
+      header: "Email",
       cell: ({ row }) => (
-        <span className="font-mono text-sm">
-          {row.certificateNumber || "N/A"}
+        <span className="text-sm">
+          {row.accreditedInstitutionEmail || "N/A"}
         </span>
       ),
     },
     {
-      id: "issueDate",
-      header: "Issue Date",
+      id: "accreditedInstitutionPhone",
+      header: "Phone",
       cell: ({ row }) => (
         <span className="text-sm">
-          {row.issueDate ? formatDate(row.issueDate) : "N/A"}
+          {row.accreditedInstitutionPhone || "N/A"}
         </span>
       ),
     },
@@ -237,15 +245,6 @@ export default function MyAccreditationsPage() {
       cell: ({ row }) => (
         <span className="text-sm">
           {row.expiryDate ? formatDate(row.expiryDate) : "N/A"}
-        </span>
-      ),
-    },
-    {
-      id: "lastAuditDate",
-      header: "Last Audit",
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {row.lastAuditDate ? formatDate(row.lastAuditDate) : "N/A"}
         </span>
       ),
     },
@@ -282,14 +281,14 @@ export default function MyAccreditationsPage() {
   const uniqueStatuses = Array.from(
     new Set(
       accreditations
-        .map((acc) => acc.status)
+        .map((acc) => acc.accreditationStatus)
         .filter((status): status is string => !!status)
     )
   );
   const uniqueTypes = Array.from(
     new Set(
       accreditations
-        .map((acc) => acc.accreditationType)
+        .map((acc) => acc.institutionTypeDescription)
         .filter((type): type is string => !!type)
     )
   );
@@ -316,7 +315,7 @@ export default function MyAccreditationsPage() {
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             {uniqueStatuses.map((status) => (
-              <SelectItem key={status} value={status.toLowerCase()}>
+              <SelectItem key={status} value={status.toLowerCase().replace(/\s+/g, "-")}>
                 {status}
               </SelectItem>
             ))}
@@ -331,7 +330,7 @@ export default function MyAccreditationsPage() {
             <SelectItem value="all">All Types</SelectItem>
             {uniqueTypes.map((type) => (
               <SelectItem key={type} value={type.toLowerCase()}>
-                {getAccreditationTypeLabel(type)}
+                {type}
               </SelectItem>
             ))}
           </SelectContent>
@@ -368,6 +367,7 @@ export default function MyAccreditationsPage() {
           pageSize={pageSize}
           onPageChange={setCurrentPage}
           searchable={false}
+          getRowId={(row) => row.accreditedInstitutionsId || ""}
         />
       )}
     </div>

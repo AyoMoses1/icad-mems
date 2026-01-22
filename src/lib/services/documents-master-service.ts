@@ -58,56 +58,95 @@ export interface PagedResult<T> {
 
 /**
  * Get paginated list of document masters
- * GET /api/Documents
+ * ⚠️ DEPRECATED: The GET /seafarer/api/v1/documents endpoint does not exist in swagger.json
+ * Only specific sub-paths exist (profile/{rn}, education/{educationId}, institutions/{institutionId}, applications/{applicationId}/upload).
+ * Use lookup-service.ts getDocumentTypes() for document type master data.
+ * 
+ * @deprecated Use lookup-service.ts getDocumentTypes() instead
  */
 export async function getDocumentMasters(params?: {
   pageNumber?: number;
   pageSize?: number;
   sortDirection?: string;
 }): Promise<ApiResponse<PagedResult<DocumentMasterDto>>> {
-  const searchParams = new URLSearchParams();
-  if (params?.pageNumber) searchParams.append("pageNumber", params.pageNumber.toString());
-  if (params?.pageSize) searchParams.append("pageSize", params.pageSize.toString());
-  if (params?.sortDirection) searchParams.append("sortDirection", params.sortDirection);
-  
-  const url = searchParams.toString() ? `${API_BASE}?${searchParams.toString()}` : API_BASE;
-  return apiGetMain<PagedResult<DocumentMasterDto>>(url);
+  // Endpoint GET /seafarer/api/v1/documents does not exist in swagger.json
+  // Use lookup-service.ts getDocumentTypes() instead
+  return {
+    success: false,
+    error: { message: "GET /seafarer/api/v1/documents does not exist. Use lookup-service.ts getDocumentTypes() instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: {
+      items: [],
+      pageNumber: params?.pageNumber || 1,
+      pageSize: params?.pageSize || 100,
+      totalNumber: 0,
+    },
+  };
 }
 
 /**
  * Get document master by ID
- * GET /api/Documents/{id}
+ * ⚠️ DEPRECATED: The GET /seafarer/api/v1/documents/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getDocumentMasterById(id: string): Promise<ApiResponse<DocumentMasterDto>> {
-  return apiGetMain<DocumentMasterDto>(`${API_BASE}/${id}`);
+  // Endpoint GET /seafarer/api/v1/documents/{id} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint GET /seafarer/api/v1/documents/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Create a new document master
- * POST /api/Documents
+ * ⚠️ DEPRECATED: The POST /seafarer/api/v1/documents endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function createDocumentMaster(
   data: CreateDocumentMasterRequest
 ): Promise<ApiResponse<DocumentMasterDto>> {
-  return apiPostMain<DocumentMasterDto>(API_BASE, data);
+  // Endpoint POST /seafarer/api/v1/documents does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint POST /seafarer/api/v1/documents does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Update a document master
- * PUT /api/Documents/{id}
+ * ⚠️ DEPRECATED: The PUT /seafarer/api/v1/documents/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function updateDocumentMaster(
   id: string,
   data: UpdateDocumentMasterRequest
 ): Promise<ApiResponse<DocumentMasterDto>> {
-  return apiPutMain<DocumentMasterDto>(`${API_BASE}/${id}`, data);
+  // Endpoint PUT /seafarer/api/v1/documents/{id} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint PUT /seafarer/api/v1/documents/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Delete a document master
- * DELETE /api/Documents/{id}
+ * ⚠️ DEPRECATED: The DELETE /seafarer/api/v1/documents/{id} endpoint does not exist in swagger.json
+ * Use document-service.ts delete functions instead (deleteProfileDocument, deleteEducationDocument, etc.)
+ * 
+ * @deprecated Use document-service.ts delete functions instead
  */
 export async function deleteDocumentMaster(id: string): Promise<ApiResponse<void>> {
-  return apiDeleteMain<void>(`${API_BASE}/${id}`);
+  // Endpoint DELETE /seafarer/api/v1/documents/{id} does not exist in swagger.json
+  // Use document-service.ts delete functions instead
+  return {
+    success: false,
+    error: { message: "Endpoint DELETE /seafarer/api/v1/documents/{id} does not exist. Use document-service.ts delete functions instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 

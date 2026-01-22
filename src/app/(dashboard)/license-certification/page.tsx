@@ -8,7 +8,7 @@ import { PageHeader, LoadingSpinner, EmptyState } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getApplications, type ApplicationDto } from "@/lib/services/application-service";
+import { getMyApplications, type ApplicationDto } from "@/lib/services/application-service";
 import { formatDate } from "@/lib/utils";
 
 const statusConfig: Record<
@@ -39,13 +39,12 @@ export default function LicenseCertificationPage() {
     setIsLoading(true);
     try {
       // Get current user's applications (certificates/licenses)
-      const response = await getApplications({
-        pageNumber: 1,
-        pageSize: 100, // Get all for overview
-      });
+      // Use getMyApplications() which calls GET /seafarer/api/v1/Applications/my-applications
+      const response = await getMyApplications();
 
       if (response.success && response.data) {
-        setApplications(response.data.items);
+        // getMyApplications returns ApplicationDto[] directly, not a paginated response
+        setApplications(Array.isArray(response.data) ? response.data : []);
       } else {
         toast.error(response.message || "Failed to fetch certificates");
       }

@@ -23,8 +23,6 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  getAccreditationRequirements,
-  checkAccreditationStatus,
   applyForAccreditation,
   uploadAccreditationEvidence,
   finalizeAccreditation,
@@ -32,7 +30,6 @@ import {
   getAccreditationInvoice,
   verifyAccreditationPayment,
   getAccreditationDetails,
-  type AccreditationRequirement,
   type InstitutionAccreditationDto,
 } from "@/lib/services/accreditation-service";
 import { PageHeader, LoadingSpinner } from "@/components/shared";
@@ -51,23 +48,18 @@ import {
 import { formatDate } from "@/lib/utils";
 import { useAuthStore } from "@/store";
 
-type Step = "requirements" | "apply" | "upload" | "finalize" | "payment";
+type Step = "apply" | "upload" | "finalize" | "payment";
 
 export default function AccreditationApplyPage() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const [currentStep, setCurrentStep] = useState<Step>("requirements");
-  const [requirements, setRequirements] = useState<AccreditationRequirement[]>(
-    [],
-  );
+  const [currentStep, setCurrentStep] = useState<Step>("apply");
   const [accreditation, setAccreditation] =
     useState<InstitutionAccreditationDto | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [institutions, setInstitutions] = useState<InstitutionDto[]>([]);
   const [isLoadingInstitutions, setIsLoadingInstitutions] = useState(false);
   const [selectedInstitution, setSelectedInstitution] = useState<string>("");
-  const [gapAnalysis, setGapAnalysis] = useState<any>(null);
 
   const [form, setForm] = useState({
     accreditationType: "",
@@ -87,55 +79,6 @@ export default function AccreditationApplyPage() {
     loadInstitutions();
   }, []);
 
-  // Load requirements when institution is selected
-  useEffect(() => {
-    if (selectedInstitution && user?.id && institutions.length > 0) {
-      loadRequirements();
-    } else {
-      setRequirements([]);
-    }
-  }, [selectedInstitution, user?.id, institutions]);
-
-  const loadRequirements = async () => {
-    if (!selectedInstitution || !user?.id) {
-      toast.error("Please select an institution first");
-      return;
-    }
-
-    // Find the selected institution to get its institutionType
-    const selectedInstitutionObj = institutions.find(
-      (inst) => inst.id === selectedInstitution,
-    );
-
-    if (!selectedInstitutionObj) {
-      toast.error("Selected institution not found");
-      return;
-    }
-
-    // Use institutionType as userType for requirements
-    const userType = selectedInstitutionObj.institutionType;
-
-    try {
-      setIsLoading(true);
-      const res = await getAccreditationRequirements({
-        authUserId: user.id,
-        institutionId: selectedInstitution,
-        userType: userType || undefined,
-      });
-      const ok = res.success ?? (res as any).successful;
-      if (ok && res.data) {
-        const reqs = Array.isArray(res.data) ? res.data : [];
-        setRequirements(reqs);
-      } else {
-        toast.error(res.message || "Failed to load requirements");
-      }
-    } catch (e) {
-      console.error("Failed to load requirements", e);
-      toast.error("Failed to load requirements");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const loadInstitutions = async () => {
     setIsLoadingInstitutions(true);
@@ -145,65 +88,25 @@ export default function AccreditationApplyPage() {
         pageSize: 100,
         sortDirection: "asc",
       });
-      // const ok = res.success ?? (res as any).successful;
-      // if (ok && res.data) {
-      // }
-      setInstitutions(
-        Array.isArray(res.items) ? res.items : (res.items as any) || [],
-      );
+      // API returns PagedResult with items array
+      const items = Array.isArray(res.items) ? res.items : [];
+      setInstitutions(items);
+      console.log(`Loaded ${items.length} institutions`);
     } catch (e) {
       console.error("Failed to load institutions", e);
       toast.error("Failed to load institutions");
+      setInstitutions([]);
     } finally {
       setIsLoadingInstitutions(false);
     }
   };
 
-  const handleCheckStatus = async () => {
+
+  const handleApply = async () => {
     if (!selectedInstitution) {
       toast.error("Please select an institution first");
       return;
     }
-
-    // Find the selected institution to get its institutionType
-    const selectedInstitutionObj = institutions.find(
-      (inst) => inst.id === selectedInstitution,
-    );
-
-    if (!selectedInstitutionObj) {
-      toast.error("Selected institution not found");
-      return;
-    }
-
-    // Use institutionType as userType for status check
-    const userType = selectedInstitutionObj.institutionType;
-
-    try {
-      setIsSubmitting(true);
-      const res = await checkAccreditationStatus({
-        institutionId: selectedInstitution,
-        userType: userType || undefined,
-      });
-      const ok = res.success ?? (res as any).successful;
-      if (ok && res.data) {
-        setGapAnalysis(res.data);
-        if (res.data.isEligible) {
-          toast.success("Institution is eligible for accreditation");
-          setCurrentStep("apply");
-        } else {
-          toast.warning(
-            res.data.message || "Institution has missing requirements",
-          );
-        }
-      }
-    } catch (e: any) {
-      toast.error(e.message || "Failed to check status");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleApply = async () => {
     if (!form.accreditationType || !form.applicationFile) {
       toast.error("Accreditation type and application file are required");
       return;
@@ -220,7 +123,7 @@ export default function AccreditationApplyPage() {
         toast.success("Application submitted successfully");
         setCurrentStep("upload");
       } else {
-        toast.error(res.message || "Failed to submit application");
+        toast.error(res.message || res.error?.message || "Failed to submit application");
       }
     } catch (e: any) {
       toast.error(e.message || "Failed to submit application");
@@ -339,147 +242,6 @@ export default function AccreditationApplyPage() {
         description="Submit accreditation application and track status"
       />
 
-      {/* Requirements Step */}
-      {currentStep === "requirements" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Accreditation Requirements</CardTitle>
-            <CardDescription>
-              Review the requirements before applying
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label required>Select Institution</Label>
-              <Select
-                value={selectedInstitution}
-                onValueChange={(value) => {
-                  setSelectedInstitution(value);
-                  setRequirements([]); // Clear requirements when institution changes
-                }}
-                disabled={isLoadingInstitutions}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select institution" />
-                </SelectTrigger>
-                <SelectContent>
-                  {institutions.map((inst) => (
-                    <SelectItem key={inst.id} value={inst.id}>
-                      {inst.name || inst.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {!selectedInstitution && (
-                <p className="text-sm text-muted-foreground">
-                  Please select an institution to view requirements
-                </p>
-              )}
-            </div>
-
-            {isLoading && (
-              <div className="flex items-center justify-center py-4">
-                <LoadingSpinner />
-                <span className="ml-2 text-sm text-muted-foreground">
-                  Loading requirements...
-                </span>
-              </div>
-            )}
-
-            {!selectedInstitution && (
-              <div className="p-4 rounded-lg border border-dashed text-center text-muted-foreground">
-                <p>
-                  Please select an institution to view accreditation
-                  requirements
-                </p>
-              </div>
-            )}
-
-            {selectedInstitution && requirements.length === 0 && !isLoading && (
-              <div className="p-4 rounded-lg border border-yellow-200 bg-yellow-50">
-                <p className="text-sm text-yellow-800">
-                  No requirements found for this institution. Click the button
-                  below to check eligibility status.
-                </p>
-              </div>
-            )}
-
-            {/* <Button
-              onClick={handleCheckStatus}
-              disabled={!selectedInstitution || isSubmitting}
-              loading={isSubmitting}
-            >
-              Check Eligibility Status
-            </Button> */}
-
-            {gapAnalysis && (
-              <div className="p-4 rounded-lg border">
-                <div className="flex items-center gap-2 mb-2">
-                  {gapAnalysis.isEligible ? (
-                    <>
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      <span className="font-medium text-green-600">
-                        Eligible for Accreditation
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="h-5 w-5 text-orange-600" />
-                      <span className="font-medium text-orange-600">
-                        Missing Requirements
-                      </span>
-                    </>
-                  )}
-                </div>
-                {gapAnalysis.missingRequirements &&
-                  gapAnalysis.missingRequirements.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-sm font-medium">Missing:</p>
-                      <ul className="list-disc list-inside text-sm text-muted-foreground">
-                        {gapAnalysis.missingRequirements.map(
-                          (req: string, idx: number) => (
-                            <li key={idx}>{req}</li>
-                          ),
-                        )}
-                      </ul>
-                    </div>
-                  )}
-              </div>
-            )}
-
-            <div className="space-y-3">
-              {requirements.map((req) => (
-                <div
-                  key={req.id}
-                  className="flex items-start justify-between rounded-lg border p-3"
-                >
-                  <div>
-                    <p className="font-medium">{req.name}</p>
-                    {req.categoryType && (
-                      <p className="text-sm text-muted-foreground">
-                        Category: {req.categoryType}
-                      </p>
-                    )}
-                  </div>
-                  {req.isMandatory && (
-                    <Badge variant="destructive">Required</Badge>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <Button
-              onClick={() => setCurrentStep("apply")}
-              className="w-full"
-              disabled={!selectedInstitution}
-            >
-              Continue to Application
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Apply Step */}
       {currentStep === "apply" && (
         <Card>
@@ -490,6 +252,45 @@ export default function AccreditationApplyPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label required>Select Institution</Label>
+              <Select
+                value={selectedInstitution}
+                onValueChange={(value) => {
+                  setSelectedInstitution(value);
+                }}
+                disabled={isLoadingInstitutions}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select institution" />
+                </SelectTrigger>
+                <SelectContent>
+                  {institutions.length === 0 && !isLoadingInstitutions ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      No institutions available
+                    </div>
+                  ) : (
+                    institutions.map((inst) => {
+                      // Use accreditedInstitutionsId or id as the value
+                      const institutionId = inst.accreditedInstitutionsId || inst.id || "";
+                      // Use accreditedInstitutionName or name as the display
+                      const institutionName = inst.accreditedInstitutionName || inst.name || institutionId;
+                      return (
+                        <SelectItem key={institutionId} value={institutionId}>
+                          {institutionName}
+                        </SelectItem>
+                      );
+                    })
+                  )}
+                </SelectContent>
+              </Select>
+              {!selectedInstitution && (
+                <p className="text-sm text-muted-foreground">
+                  Please select an institution first
+                </p>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label required>Accreditation Type</Label>
               <Select
@@ -539,14 +340,12 @@ export default function AccreditationApplyPage() {
             </div>
 
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setCurrentStep("requirements")}
+              <Button 
+                onClick={handleApply} 
+                disabled={!selectedInstitution || !form.accreditationType || !form.applicationFile || isSubmitting}
+                className="w-full"
               >
-                Back
-              </Button>
-              <Button onClick={handleApply} loading={isSubmitting}>
-                Submit Application
+                {isSubmitting ? "Submitting..." : "Submit Application"}
               </Button>
             </div>
           </CardContent>

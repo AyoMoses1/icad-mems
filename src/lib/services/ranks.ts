@@ -38,88 +38,79 @@ export interface PagedResult<T> {
   totalNumber: number;
 }
 
+/**
+ * ⚠️ DEPRECATED: The /api/Ranks endpoint does not exist in swagger.json
+ * Use getAllRanks() instead which calls /api/seafarer/MasterData/ranks
+ * 
+ * @deprecated Use getAllRanks() instead
+ */
 export async function getRanks(params?: {
   pageNumber?: number;
   pageSize?: number;
   sortDirection?: string;
 }): Promise<PagedResult<RankDto>> {
-  const queryParams = new URLSearchParams();
-  if (params?.pageNumber)
-    queryParams.append("pageNumber", params.pageNumber.toString());
-  if (params?.pageSize)
-    queryParams.append("pageSize", params.pageSize.toString());
-  if (params?.sortDirection)
-    queryParams.append("sortDirection", params.sortDirection);
-
-  const response = await apiGetMain<any>(
-    `/api/Ranks${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
-  );
-
-  const ok = response.success ?? (response as any).successful;
-  if (!ok) {
-    throw new Error(
-      response.error?.message || response.message || "Failed to fetch ranks",
-    );
-  }
-
-  const data = response.data;
-  const items =
-    (data && Array.isArray(data.items) && data.items) ||
-    (Array.isArray(data) ? data : []);
-
+  // Endpoint /api/Ranks does not exist in swagger.json
+  // Use getAllRanks() instead which calls /api/seafarer/MasterData/ranks
+  const allRanks = await getAllRanks();
+  const pageNumber = params?.pageNumber || 1;
+  const pageSize = params?.pageSize || 100;
+  const startIndex = (pageNumber - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedRanks = allRanks.slice(startIndex, endIndex);
+  
   return {
-    items,
-    pageNumber: data?.pageNumber || params?.pageNumber || 1,
-    pageSize: data?.pageSize || params?.pageSize || items.length || 0,
-    totalNumber: data?.totalNumber || items.length,
+    items: paginatedRanks,
+    pageNumber,
+    pageSize,
+    totalNumber: allRanks.length,
   };
 }
 
 export async function getRankById(id: string): Promise<RankDto> {
-  const response = await apiGetMain<RankDto>(`/api/Ranks/${id}`);
-
-  const ok = response.success ?? (response as any).successful;
-  if (!ok || !response.data) {
-    throw new Error(response.error?.message || "Failed to fetch rank");
+  // Endpoint /api/Ranks/{id} does not exist in swagger.json
+  // Try to find in MasterData ranks
+  const allRanks = await getAllRanks();
+  const rank = allRanks.find(r => r.id === id);
+  if (!rank) {
+    throw new Error(`Rank with id ${id} not found`);
   }
-
-  return response.data;
+  return rank;
 }
 
+/**
+ * ⚠️ DEPRECATED: This endpoint does not exist in swagger.json
+ * The /seafarer/api/Ranks endpoint returns 404.
+ * 
+ * @deprecated This endpoint does not exist in the API
+ */
 export async function createRank(data: CreateRankRequest): Promise<RankDto> {
-  const response = await apiPostMain<RankDto>("/seafarer/api/Ranks", data);
-
-  const ok = response.success ?? (response as any).successful;
-  if (!ok || !response.data) {
-    throw new Error(response.error?.message || "Failed to create rank");
-  }
-
-  return response.data;
+  // Endpoint /seafarer/api/Ranks does not exist in swagger.json
+  throw new Error("Endpoint /seafarer/api/Ranks does not exist in the API");
 }
 
+/**
+ * ⚠️ DEPRECATED: This endpoint does not exist in swagger.json
+ * The /api/Ranks/{id} endpoint returns 404.
+ * 
+ * @deprecated This endpoint does not exist in the API
+ */
 export async function updateRank(
   id: string,
   data: UpdateRankRequest,
 ): Promise<boolean> {
-  const response = await apiPutMain<boolean>(`/api/Ranks/${id}`, data);
-
-  const ok = response.success ?? (response as any).successful;
-  if (!ok) {
-    throw new Error(response.error?.message || "Failed to update rank");
-  }
-
-  return response.data ?? true;
+  // Endpoint /api/Ranks/{id} does not exist in swagger.json
+  throw new Error("Endpoint /api/Ranks/{id} does not exist in the API");
 }
 
+/**
+ * ⚠️ DEPRECATED: This endpoint does not exist in swagger.json
+ * The /api/Ranks/{id} endpoint returns 404.
+ * 
+ * @deprecated This endpoint does not exist in the API
+ */
 export async function deleteRank(id: string): Promise<boolean> {
-  const response = await apiDeleteMain<boolean>(`/api/Ranks/${id}`);
-
-  const ok = response.success ?? (response as any).successful;
-  if (!ok) {
-    throw new Error(response.error?.message || "Failed to delete rank");
-  }
-
-  return response.data ?? true;
+  // Endpoint /api/Ranks/{id} does not exist in swagger.json
+  throw new Error("Endpoint /api/Ranks/{id} does not exist in the API");
 }
 
 /**

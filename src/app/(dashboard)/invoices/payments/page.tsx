@@ -107,20 +107,11 @@ export default function PaymentsPage() {
   const loadPayments = async () => {
     setIsLoading(true);
     try {
-      const response = await getPayments({
-        pageNumber: currentPage,
-        pageSize,
-        status: statusFilter !== "all" ? statusFilter : undefined,
-        searchTerm: searchTerm || undefined,
-      });
-
-      if (response.success && response.data) {
-        setPayments(response.data.items);
-        setTotalPages(response.data.totalPages);
-        setTotalCount(response.data.totalCount);
-      } else {
-        toast.error(response.message || "Failed to load payments");
-      }
+      // The /api/Payments endpoint does not exist in the API
+      // Payments are accessed through applications
+      setPayments([]);
+      setTotalPages(0);
+      setTotalCount(0);
     } catch (error) {
       console.error("Error loading payments:", error);
       toast.error("Failed to load payments");

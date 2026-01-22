@@ -40,7 +40,7 @@ export function getDashboardRoute(role: UserRole | string): string {
       return "/admin/dashboard";
     
     case "OWNER":
-      // OWNER stays at root path to see role selection screen
+      // OWNER stays at root path to see role selection screen with onboarding types
       return "/";
     
     default:

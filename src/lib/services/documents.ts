@@ -43,87 +43,76 @@ export interface PagedResult<T> {
 
 /**
  * Get all documents with pagination
+ * ⚠️ DEPRECATED: The /api/Documents endpoint does not exist in swagger.json
+ * Use document-service.ts for specific document operations (profile, education, institutions, applications)
+ * or lookup-service.ts getDocumentTypes() for document type master data.
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getDocuments(params?: {
   pageNumber?: number;
   pageSize?: number;
   sortDirection?: string;
 }): Promise<PagedResult<DocumentMasterDto>> {
-  const queryParams = new URLSearchParams();
-  if (params?.pageNumber) queryParams.append("pageNumber", params.pageNumber.toString());
-  if (params?.pageSize) queryParams.append("pageSize", params.pageSize.toString());
-  if (params?.sortDirection) queryParams.append("sortDirection", params.sortDirection);
-
-  const response = await apiGetMain<PagedResult<DocumentMasterDto>>(
-    `/api/Documents${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
-  );
-
-  const ok = response.success ?? (response as any).successful;
-  if (!ok || !response.data) {
-    throw new Error(response.error?.message || "Failed to fetch documents");
-  }
-
-  return response.data;
+  // Endpoint /api/Documents does not exist in swagger.json
+  // Use document-service.ts or lookup-service.ts getDocumentTypes() instead
+  return {
+    items: [],
+    pageNumber: params?.pageNumber || 1,
+    pageSize: params?.pageSize || 100,
+    totalNumber: 0,
+  };
 }
 
 /**
  * Get document by ID
+ * ⚠️ DEPRECATED: The /api/Documents/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getDocumentById(id: string): Promise<DocumentMasterDto> {
-  const response = await apiGetMain<DocumentMasterDto>(`/api/Documents/${id}`);
-
-  const ok = response.success ?? (response as any).successful;
-  if (!ok || !response.data) {
-    throw new Error(response.error?.message || "Failed to fetch document");
-  }
-
-  return response.data;
+  // Endpoint /api/Documents/{id} does not exist in swagger.json
+  throw new Error("Endpoint /api/Documents/{id} does not exist in the API");
 }
 
 /**
  * Create a new document
+ * ⚠️ DEPRECATED: The /seafarer/api/Documents endpoint does not exist in swagger.json
+ * Use document-service.ts upload functions instead.
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function createDocument(
   data: CreateDocumentMasterRequest
 ): Promise<DocumentMasterDto> {
-  const response = await apiPostMain<DocumentMasterDto>("/seafarer/api/Documents", data);
-
-  const ok = response.success ?? (response as any).successful;
-  if (!ok || !response.data) {
-    throw new Error(response.error?.message || "Failed to create document");
-  }
-
-  return response.data;
+  // Endpoint /seafarer/api/Documents does not exist in swagger.json
+  throw new Error("Endpoint /seafarer/api/Documents does not exist in the API. Use document-service.ts upload functions instead.");
 }
 
 /**
  * Update a document
+ * ⚠️ DEPRECATED: The /api/Documents/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function updateDocument(
   id: string,
   data: UpdateDocumentMasterRequest
 ): Promise<boolean> {
-  const response = await apiPutMain<boolean>(`/api/Documents/${id}`, data);
-
-  const ok = response.success ?? (response as any).successful;
-  if (!ok) {
-    throw new Error(response.error?.message || "Failed to update document");
-  }
-
-  return response.data ?? true;
+  // Endpoint /api/Documents/{id} does not exist in swagger.json
+  throw new Error("Endpoint /api/Documents/{id} does not exist in the API");
 }
 
 /**
  * Delete a document
+ * ⚠️ DEPRECATED: The /api/Documents/{id} endpoint does not exist in swagger.json
+ * Use document-service.ts delete functions instead (deleteProfileDocument, deleteEducationDocument, etc.)
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function deleteDocument(id: string): Promise<boolean> {
-  const response = await apiDeleteMain<boolean>(`/api/Documents/${id}`);
-
-  const ok = response.success ?? (response as any).successful;
-  if (!ok) {
-    throw new Error(response.error?.message || "Failed to delete document");
-  }
-
-  return response.data ?? true;
+  // Endpoint /api/Documents/{id} does not exist in swagger.json
+  // Use document-service.ts delete functions instead
+  throw new Error("Endpoint /api/Documents/{id} does not exist in the API. Use document-service.ts delete functions instead.");
 }
 

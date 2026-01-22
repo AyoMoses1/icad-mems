@@ -16,53 +16,57 @@ import type {
   PaginatedResponse,
 } from "@/types/seafarer";
 
-const API_BASE = "/api/Enrollments";
+const API_BASE = "/api/Enrollments"; // ⚠️ This endpoint does not exist in swagger.json
 
 /**
  * Get paginated list of enrollments
+ * ⚠️ DEPRECATED: The /api/Enrollments endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getEnrollments(
   filters: EnrollmentFilters = {}
 ): Promise<ApiResponse<PaginatedResponse<EnrollmentDto>>> {
-  const {
-    pageNumber = 1,
-    pageSize = 20,
-    applicantId,
-    courseId,
-    programId,
-    status,
-    searchTerm,
-  } = filters;
-
-  const params = new URLSearchParams({
-    pageNumber: pageNumber.toString(),
-    pageSize: pageSize.toString(),
-  });
-
-  if (applicantId) params.append("applicantId", applicantId.toString());
-  if (courseId) params.append("courseId", courseId.toString());
-  if (programId) params.append("programId", programId.toString());
-  if (status) params.append("status", status);
-  if (searchTerm) params.append("searchTerm", searchTerm);
-
-  return apiGetMain<PaginatedResponse<EnrollmentDto>>(
-    `${API_BASE}?${params.toString()}`
-  );
+  // Endpoint /api/Enrollments does not exist in swagger.json
+  const pageNumber = filters.pageNumber || 1;
+  const pageSize = filters.pageSize || 20;
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Enrollments does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: {
+      items: [],
+      pageNumber,
+      pageSize,
+      totalCount: 0,
+      totalPages: 0,
+      hasPreviousPage: false,
+      hasNextPage: false,
+    },
+  };
 }
 
 /**
  * Get enrollment by ID
+ * ⚠️ DEPRECATED: The /api/Enrollments/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getEnrollmentById(
   enrollmentId: string
 ): Promise<ApiResponse<EnrollmentDto>> {
-  return apiGetMain<EnrollmentDto>(`${API_BASE}/${enrollmentId}`);
+  // Endpoint /api/Enrollments/{id} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Enrollments/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Create enrollment
- * POST /api/Enrollments
- * Based on swagger: CreateEnrollmentRequest requires cohortId, studentId, enrollmentDate (optional)
+ * ⚠️ DEPRECATED: The /api/Enrollments endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function createEnrollment(
   enrollmentData: {
@@ -71,11 +75,19 @@ export async function createEnrollment(
     enrollmentDate?: string | null;
   }
 ): Promise<ApiResponse<EnrollmentDto>> {
-  return apiPostMain<EnrollmentDto>(API_BASE, enrollmentData);
+  // Endpoint /api/Enrollments does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Enrollments does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Update enrollment
+ * ⚠️ DEPRECATED: The /api/Enrollments/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function updateEnrollment(
   enrollmentId: string,
@@ -86,15 +98,28 @@ export async function updateEnrollment(
     grade?: string | null;
   }
 ): Promise<ApiResponse<EnrollmentDto>> {
-  return apiPutMain<EnrollmentDto>(`${API_BASE}/${enrollmentId}`, updates);
+  // Endpoint /api/Enrollments/{id} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Enrollments/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Delete enrollment
+ * ⚠️ DEPRECATED: The /api/Enrollments/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function deleteEnrollment(
   enrollmentId: string
 ): Promise<ApiResponse<void>> {
-  return apiDeleteMain<void>(`${API_BASE}/${enrollmentId}`);
+  // Endpoint /api/Enrollments/{id} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Enrollments/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 

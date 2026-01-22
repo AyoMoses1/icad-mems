@@ -11,7 +11,7 @@ import {
   type ApiResponse,
 } from "@/lib/api-client";
 
-const API_BASE = "/api/Certificates";
+const API_BASE = "/api/Certificates"; // ⚠️ This endpoint does not exist in swagger.json
 
 // ============================================================================
 // Types
@@ -98,57 +98,93 @@ export interface PagedResult<T> {
 
 /**
  * Get paginated list of certificates
- * GET /api/Certificates
+ * ⚠️ DEPRECATED: The /api/Certificates endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getCertificates(params?: {
   pageNumber?: number;
   pageSize?: number;
   sortDirection?: string;
 }): Promise<ApiResponse<PagedResult<CertificateDto>>> {
-  const searchParams = new URLSearchParams();
-  if (params?.pageNumber) searchParams.append("pageNumber", params.pageNumber.toString());
-  if (params?.pageSize) searchParams.append("pageSize", params.pageSize.toString());
-  if (params?.sortDirection) searchParams.append("sortDirection", params.sortDirection);
-  
-  const url = searchParams.toString() ? `${API_BASE}?${searchParams.toString()}` : API_BASE;
-  return apiGetMain<PagedResult<CertificateDto>>(url);
+  // Endpoint /api/Certificates does not exist in swagger.json
+  const pageNumber = params?.pageNumber || 1;
+  const pageSize = params?.pageSize || 100;
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Certificates does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: {
+      items: [],
+      pageNumber,
+      pageSize,
+      totalNumber: 0,
+    },
+  };
 }
 
 /**
  * Get certificate by ID
- * GET /api/Certificates/{id}
+ * ⚠️ DEPRECATED: The /api/Certificates/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getCertificateById(id: string): Promise<ApiResponse<CertificateDto>> {
-  return apiGetMain<CertificateDto>(`${API_BASE}/${id}`);
+  // Endpoint /api/Certificates/{id} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Certificates/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Create a new certificate
- * POST /api/Certificates
+ * ⚠️ DEPRECATED: The /api/Certificates endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function createCertificate(
   data: CreateCertificateRequest
 ): Promise<ApiResponse<CertificateDto>> {
-  return apiPostMain<CertificateDto>(API_BASE, data);
+  // Endpoint /api/Certificates does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Certificates does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Update a certificate
- * PUT /api/Certificates/{id}
+ * ⚠️ DEPRECATED: The /api/Certificates/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function updateCertificate(
   id: string,
   data: UpdateCertificateRequest
 ): Promise<ApiResponse<CertificateDto>> {
-  return apiPutMain<CertificateDto>(`${API_BASE}/${id}`, data);
+  // Endpoint /api/Certificates/{id} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Certificates/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Delete a certificate
- * DELETE /api/Certificates/{id}
+ * ⚠️ DEPRECATED: The /api/Certificates/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function deleteCertificate(id: string): Promise<ApiResponse<void>> {
-  return apiDeleteMain<void>(`${API_BASE}/${id}`);
+  // Endpoint /api/Certificates/{id} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Certificates/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 // ============================================================================
@@ -157,60 +193,89 @@ export async function deleteCertificate(id: string): Promise<ApiResponse<void>> 
 
 /**
  * Get requirements for a certificate
- * GET /api/Certificates/{certificateId}/requirements
+ * ⚠️ DEPRECATED: The /api/Certificates/{certificateId}/requirements endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getCertificateRequirements(
   certificateId: string
 ): Promise<ApiResponse<CertificateRequirementDto[]>> {
-  return apiGetMain<CertificateRequirementDto[]>(`${API_BASE}/${certificateId}/requirements`);
+  // Endpoint /api/Certificates/{certificateId}/requirements does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Certificates/{certificateId}/requirements does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Create a certificate requirement
- * POST /api/Certificates/{certificateId}/requirements
+ * ⚠️ DEPRECATED: The /api/Certificates/{certificateId}/requirements endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function createCertificateRequirement(
   certificateId: string,
   data: CreateCertificateRequirementRequest
 ): Promise<ApiResponse<CertificateRequirementDto>> {
-  return apiPostMain<CertificateRequirementDto>(
-    `${API_BASE}/${certificateId}/requirements`,
-    data
-  );
+  // Endpoint /api/Certificates/{certificateId}/requirements does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Certificates/{certificateId}/requirements does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Get certificate requirement by ID
- * GET /api/Certificates/requirements/{requirementId}
+ * ⚠️ DEPRECATED: The /api/Certificates/requirements/{requirementId} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getCertificateRequirement(
   requirementId: string
 ): Promise<ApiResponse<CertificateRequirementDto>> {
-  return apiGetMain<CertificateRequirementDto>(`${API_BASE}/requirements/${requirementId}`);
+  // Endpoint /api/Certificates/requirements/{requirementId} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Certificates/requirements/{requirementId} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Update a certificate requirement
- * PUT /api/Certificates/requirements/{requirementId}
+ * ⚠️ DEPRECATED: The /api/Certificates/requirements/{requirementId} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function updateCertificateRequirement(
   requirementId: string,
   data: CreateCertificateRequirementRequest
 ): Promise<ApiResponse<CertificateRequirementDto>> {
-  return apiPutMain<CertificateRequirementDto>(
-    `${API_BASE}/requirements/${requirementId}`,
-    data
-  );
+  // Endpoint /api/Certificates/requirements/{requirementId} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Certificates/requirements/{requirementId} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Delete a certificate requirement
- * DELETE /api/Certificates/requirements/{requirementId}
+ * ⚠️ DEPRECATED: The /api/Certificates/requirements/{requirementId} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function deleteCertificateRequirement(
   requirementId: string
 ): Promise<ApiResponse<void>> {
-  return apiDeleteMain<void>(`${API_BASE}/requirements/${requirementId}`);
+  // Endpoint /api/Certificates/requirements/{requirementId} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Certificates/requirements/{requirementId} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 // ============================================================================
@@ -219,45 +284,73 @@ export async function deleteCertificateRequirement(
 
 /**
  * Get fees for a certificate
- * GET /api/Certificates/{certificateId}/fees
+ * ⚠️ DEPRECATED: The /api/Certificates/{certificateId}/fees endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getCertificateFees(
   certificateId: string
 ): Promise<ApiResponse<CertificateFeeDto[]>> {
-  return apiGetMain<CertificateFeeDto[]>(`${API_BASE}/${certificateId}/fees`);
+  // Endpoint /api/Certificates/{certificateId}/fees does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Certificates/{certificateId}/fees does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Create a certificate fee
- * POST /api/Certificates/{certificateId}/fees
+ * ⚠️ DEPRECATED: The /api/Certificates/{certificateId}/fees endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function createCertificateFee(
   certificateId: string,
   data: CertificateFeeInput
 ): Promise<ApiResponse<CertificateFeeDto>> {
-  return apiPostMain<CertificateFeeDto>(`${API_BASE}/${certificateId}/fees`, data);
+  // Endpoint /api/Certificates/{certificateId}/fees does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Certificates/{certificateId}/fees does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Update a certificate fee
- * PUT /api/Certificates/{certificateId}/fees/{feeId}
+ * ⚠️ DEPRECATED: The /api/Certificates/{certificateId}/fees/{feeId} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function updateCertificateFee(
   certificateId: string,
   feeId: string,
   data: CertificateFeeInput
 ): Promise<ApiResponse<CertificateFeeDto>> {
-  return apiPutMain<CertificateFeeDto>(`${API_BASE}/${certificateId}/fees/${feeId}`, data);
+  // Endpoint /api/Certificates/{certificateId}/fees/{feeId} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Certificates/{certificateId}/fees/{feeId} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Delete a certificate fee
- * DELETE /api/Certificates/{certificateId}/fees/{feeId}
+ * ⚠️ DEPRECATED: The /api/Certificates/{certificateId}/fees/{feeId} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function deleteCertificateFee(
   certificateId: string,
   feeId: string
 ): Promise<ApiResponse<void>> {
-  return apiDeleteMain<void>(`${API_BASE}/${certificateId}/fees/${feeId}`);
+  // Endpoint /api/Certificates/{certificateId}/fees/{feeId} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Certificates/{certificateId}/fees/{feeId} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 

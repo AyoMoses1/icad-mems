@@ -11,7 +11,7 @@ import {
   type ApiResponse,
 } from "@/lib/api-client";
 
-const API_BASE = "/seafarer/api/v1/cohorts";
+const API_BASE = "/seafarer/api/v1/cohorts"; // ⚠️ This endpoint does not exist in swagger.json
 
 export interface CohortDto {
   id: string;
@@ -50,74 +50,109 @@ export interface PagedResult<T> {
 
 /**
  * Get paginated list of cohorts
- * GET /api/Cohorts
+ * ⚠️ DEPRECATED: The /seafarer/api/v1/cohorts endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getCohorts(params?: {
   pageNumber?: number;
   pageSize?: number;
   sortDirection?: string;
 }): Promise<ApiResponse<PagedResult<CohortDto>>> {
-  const queryParams = new URLSearchParams();
-  if (params?.pageNumber) {
-    queryParams.append("pageNumber", params.pageNumber.toString());
-  }
-  if (params?.pageSize) {
-    queryParams.append("pageSize", params.pageSize.toString());
-  }
-  if (params?.sortDirection) {
-    queryParams.append("sortDirection", params.sortDirection);
-  }
-
-  const url = queryParams.toString()
-    ? `${API_BASE}?${queryParams.toString()}`
-    : API_BASE;
-  return apiGetMain<PagedResult<CohortDto>>(url);
+  // Endpoint /seafarer/api/v1/cohorts does not exist in swagger.json
+  const pageNumber = params?.pageNumber || 1;
+  const pageSize = params?.pageSize || 100;
+  return {
+    success: false,
+    error: { message: "Endpoint /seafarer/api/v1/cohorts does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: {
+      items: [],
+      pageNumber,
+      pageSize,
+      totalNumber: 0,
+    },
+  };
 }
 
 /**
  * Get cohort by ID
- * GET /api/Cohorts/{id}
+ * ⚠️ DEPRECATED: The /seafarer/api/v1/cohorts/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getCohortById(id: string): Promise<ApiResponse<CohortDto>> {
-  return apiGetMain<CohortDto>(`${API_BASE}/${id}`);
+  // Endpoint /seafarer/api/v1/cohorts/{id} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /seafarer/api/v1/cohorts/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Create a new cohort
- * POST /api/Cohorts
+ * ⚠️ DEPRECATED: The /seafarer/api/v1/cohorts endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function createCohort(
   data: CreateCohortRequest
 ): Promise<ApiResponse<CohortDto>> {
-  return apiPostMain<CohortDto>(API_BASE, data);
+  // Endpoint /seafarer/api/v1/cohorts does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /seafarer/api/v1/cohorts does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Update a cohort
- * PUT /api/Cohorts/{id}
+ * ⚠️ DEPRECATED: The /seafarer/api/v1/cohorts/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function updateCohort(
   id: string,
   data: UpdateCohortRequest
 ): Promise<ApiResponse<CohortDto>> {
-  return apiPutMain<CohortDto>(`${API_BASE}/${id}`, data);
+  // Endpoint /seafarer/api/v1/cohorts/{id} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /seafarer/api/v1/cohorts/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Delete a cohort
- * DELETE /api/Cohorts/{id}
+ * ⚠️ DEPRECATED: The /seafarer/api/v1/cohorts/{id} endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function deleteCohort(id: string): Promise<ApiResponse<void>> {
-  return apiDeleteMain<void>(`${API_BASE}/${id}`);
+  // Endpoint /seafarer/api/v1/cohorts/{id} does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /seafarer/api/v1/cohorts/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Get enrollments for a cohort
- * GET /api/Cohorts/{cohortId}/enrollments
+ * ⚠️ DEPRECATED: The /seafarer/api/v1/cohorts/{cohortId}/enrollments endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getCohortEnrollments(
   cohortId: string
 ): Promise<ApiResponse<any[]>> {
-  return apiGetMain<any[]>(`${API_BASE}/${cohortId}/enrollments`);
+  // Endpoint /seafarer/api/v1/cohorts/{cohortId}/enrollments does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /seafarer/api/v1/cohorts/{cohortId}/enrollments does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 

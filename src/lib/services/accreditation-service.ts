@@ -11,8 +11,8 @@ import {
   type ApiResponse,
 } from "@/lib/api-client";
 
-// Match swagger.json paths exactly
-const API_BASE = "/seafarer/api/v1/accreditation";
+// Match swagger.json paths exactly - note capital A in Accreditation
+const API_BASE = "/seafarer/api/v1/Accreditation";
 
 // ============================================================================
 // DTOs from Swagger
@@ -65,48 +65,45 @@ export interface AccreditationGapAnalysisDto {
 
 /**
  * Get accreditation requirements
- * GET /api/Accreditations/requirements
+ * ⚠️ DEPRECATED: The GET /seafarer/api/v1/Accreditation/requirements endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API. Use institution-specific endpoints instead.
  */
 export async function getAccreditationRequirements(params?: {
   userType?: string;
   authUserId?: string;
   institutionId?: string;
 }): Promise<ApiResponse<AccreditationRequirement[]>> {
-  const queryParams = new URLSearchParams();
-  if (params?.userType) {
-    queryParams.append("UserType", params.userType);
-  }
-  if (params?.authUserId) {
-    queryParams.append("authUserId", params.authUserId);
-  }
-  if (params?.institutionId) {
-    queryParams.append("institutionId", params.institutionId);
-  }
-
-  return apiGetMain<AccreditationRequirement[]>(
-    `${API_BASE}/requirements${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
-  );
+  // Endpoint does not exist in swagger.json
+  return {
+    success: false,
+    error: { 
+      message: "Endpoint /seafarer/api/v1/Accreditation/requirements does not exist in the API. Please use institution-specific endpoints instead.", 
+      code: "ENDPOINT_NOT_FOUND" 
+    },
+    data: undefined,
+  };
 }
 
 /**
  * Check accreditation status and gaps
- * GET /api/Accreditations/check-status
+ * ⚠️ DEPRECATED: The GET /seafarer/api/v1/Accreditation/check-status endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function checkAccreditationStatus(params?: {
   institutionId?: string;
   userType?: string;
 }): Promise<ApiResponse<AccreditationGapAnalysisDto>> {
-  const queryParams = new URLSearchParams();
-  if (params?.institutionId) {
-    queryParams.append("InstitutionId", params.institutionId);
-  }
-  if (params?.userType) {
-    queryParams.append("UserType", params.userType);
-  }
-
-  return apiGetMain<AccreditationGapAnalysisDto>(
-    `${API_BASE}/check-status${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
-  );
+  // Endpoint does not exist in swagger.json
+  return {
+    success: false,
+    error: { 
+      message: "Endpoint /seafarer/api/v1/Accreditation/check-status does not exist in the API.", 
+      code: "ENDPOINT_NOT_FOUND" 
+    },
+    data: undefined,
+  };
 }
 
 // ============================================================================
@@ -115,79 +112,113 @@ export async function checkAccreditationStatus(params?: {
 
 /**
  * Apply for accreditation
- * POST /api/Accreditations/apply
- * multipart/form-data: AccreditationType (required), File (required)
+ * ⚠️ DEPRECATED: The POST /seafarer/api/v1/Accreditation/apply endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API. Use institution-specific endpoints instead.
  */
 export async function applyForAccreditation(
   accreditationType: string,
   file: File,
 ): Promise<ApiResponse<InstitutionAccreditationDto>> {
-  const formData = new FormData();
-  formData.append("AccreditationType", accreditationType);
-  formData.append("File", file);
-
-  return apiPostMultipartMain<InstitutionAccreditationDto>(
-    `${API_BASE}/apply`,
-    formData,
-  );
+  // Endpoint does not exist in swagger.json
+  return {
+    success: false,
+    error: { 
+      message: "Endpoint /seafarer/api/v1/Accreditation/apply does not exist in the API.", 
+      code: "ENDPOINT_NOT_FOUND" 
+    },
+    data: undefined,
+  };
 }
 
 /**
  * Upload evidence/document for accreditation
- * POST /api/Accreditations/{id}/upload
- * multipart/form-data: File (required)
+ * ⚠️ DEPRECATED: The POST /seafarer/api/v1/Accreditation/{id}/upload endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function uploadAccreditationEvidence(
   accreditationId: string,
   file: File,
 ): Promise<ApiResponse<InstitutionAccreditationDto>> {
-  const formData = new FormData();
-  formData.append("File", file);
-
-  return apiPostMultipartMain<InstitutionAccreditationDto>(
-    `${API_BASE}/${accreditationId}/upload`,
-    formData,
-  );
+  // Endpoint does not exist in swagger.json
+  return {
+    success: false,
+    error: { 
+      message: "Endpoint /seafarer/api/v1/Accreditation/{id}/upload does not exist in the API.", 
+      code: "ENDPOINT_NOT_FOUND" 
+    },
+    data: undefined,
+  };
 }
 
 /**
  * Finalize accreditation application
- * PATCH /api/Accreditations/{id}/finalize
+ * ⚠️ DEPRECATED: The PATCH /seafarer/api/v1/Accreditation/{id}/finalize endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function finalizeAccreditation(
   accreditationId: string,
   data?: FinalizeAccreditationRequest,
 ): Promise<ApiResponse<boolean>> {
-  return apiPatchMain<boolean>(
-    `${API_BASE}/${accreditationId}/finalize`,
-    data || {},
-  );
+  // Endpoint does not exist in swagger.json
+  return {
+    success: false,
+    error: { 
+      message: "Endpoint /seafarer/api/v1/Accreditation/{id}/finalize does not exist in the API.", 
+      code: "ENDPOINT_NOT_FOUND" 
+    },
+    data: undefined,
+  };
 }
 
 /**
  * Generate invoice for accreditation
- * POST /api/Accreditations/{id}/invoice
+ * ⚠️ DEPRECATED: The POST /seafarer/api/v1/Accreditation/{id}/invoice endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function generateAccreditationInvoice(
   accreditationId: string,
   data: GenerateAccreditationInvoiceRequest,
 ): Promise<ApiResponse<any>> {
-  return apiPostMain<any>(`${API_BASE}/${accreditationId}/invoice`, data);
+  // Endpoint does not exist in swagger.json
+  return {
+    success: false,
+    error: { 
+      message: "Endpoint /seafarer/api/v1/Accreditation/{id}/invoice does not exist in the API.", 
+      code: "ENDPOINT_NOT_FOUND" 
+    },
+    data: undefined,
+  };
 }
 
 /**
  * Get invoice for accreditation
- * GET /api/Accreditations/{id}/invoice
+ * ⚠️ DEPRECATED: The GET /seafarer/api/v1/Accreditation/{id}/invoice endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getAccreditationInvoice(
   accreditationId: string,
 ): Promise<ApiResponse<any>> {
-  return apiGetMain<any>(`${API_BASE}/${accreditationId}/invoice`);
+  // Endpoint does not exist in swagger.json
+  return {
+    success: false,
+    error: { 
+      message: "Endpoint /seafarer/api/v1/Accreditation/{id}/invoice does not exist in the API.", 
+      code: "ENDPOINT_NOT_FOUND" 
+    },
+    data: undefined,
+  };
 }
 
 /**
  * Verify payment for accreditation
- * POST /api/Accreditations/{id}/verify-payment
+ * ⚠️ DEPRECATED: The POST /seafarer/api/v1/Accreditation/{id}/verify-payment endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export interface VerifyAccreditationPaymentRequest {
   paymentReference?: string;
@@ -203,34 +234,55 @@ export async function verifyAccreditationPayment(
   accreditationId: string,
   data: VerifyAccreditationPaymentRequest,
 ): Promise<ApiResponse<VerifyAccreditationPaymentResponse>> {
-  return apiPostMain<VerifyAccreditationPaymentResponse>(
-    `${API_BASE}/${accreditationId}/verify-payment`,
-    data,
-  );
+  // Endpoint does not exist in swagger.json
+  return {
+    success: false,
+    error: { 
+      message: "Endpoint /seafarer/api/v1/Accreditation/{id}/verify-payment does not exist in the API.", 
+      code: "ENDPOINT_NOT_FOUND" 
+    },
+    data: undefined,
+  };
 }
 
 /**
  * Get accreditation details
- * GET /api/Accreditations/{id}
+ * GET /seafarer/api/v1/Accreditation/institutions/{id}
+ * Based on swagger.json - use institutions endpoint with ID
  */
 export async function getAccreditationDetails(
   accreditationId: string,
 ): Promise<ApiResponse<InstitutionAccreditationDto>> {
   return apiGetMain<InstitutionAccreditationDto>(
-    `${API_BASE}/${accreditationId}`,
+    `${API_BASE}/institutions/${accreditationId}`,
   );
 }
 
 /**
  * Get all accreditations for the current user/institution
- * This endpoint may vary based on backend implementation
- * For now, we'll use a generic approach that can be adjusted
+ * GET /seafarer/api/v1/Accreditation/requests
+ * Based on swagger.json - this endpoint returns AccreditedInstitutionDto[]
  */
+export interface AccreditedInstitutionDto {
+  accreditedInstitutionsId?: string;
+  accreditedInstitutionName?: string;
+  accreditedInstitutionAddress?: string;
+  institutionTypeId?: string;
+  institutionTypeDescription?: string;
+  isApproved?: boolean;
+  accreditationStatusId?: string;
+  accreditationStatus?: string;
+  accreditedInstitutionEmail?: string;
+  accreditedInstitutionPhone?: string;
+  expiryDate?: string;
+  stcwAccreditations?: any[];
+}
+
 export async function getAllAccreditations(params?: {
   pageNumber?: number;
   pageSize?: number;
   sortDirection?: string;
-}): Promise<ApiResponse<InstitutionAccreditationDto[]>> {
+}): Promise<ApiResponse<AccreditedInstitutionDto[]>> {
   const queryParams = new URLSearchParams();
   if (params?.pageNumber) {
     queryParams.append("pageNumber", params.pageNumber.toString());
@@ -242,11 +294,9 @@ export async function getAllAccreditations(params?: {
     queryParams.append("sortDirection", params.sortDirection);
   }
 
-  const url = queryParams.toString()
-    ? `${API_BASE}?${queryParams.toString()}`
-    : API_BASE;
-
-  return apiGetMain<InstitutionAccreditationDto[]>(url);
+  return apiGetMain<AccreditedInstitutionDto[]>(
+    `${API_BASE}/requests${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
+  );
 }
 
 // ============================================================================
@@ -332,7 +382,8 @@ export async function updateStcwAccreditationStatus(
 
 /**
  * Get accredited institutions (public endpoint)
- * GET /seafarer/api/v1/accreditation/institutions
+ * GET /seafarer/api/v1/Accreditation/institutions
+ * Based on swagger.json
  */
 export async function getAccreditedInstitutions(): Promise<ApiResponse<any[]>> {
   return apiGetMain<any[]>(`${API_BASE}/institutions`);
@@ -340,7 +391,8 @@ export async function getAccreditedInstitutions(): Promise<ApiResponse<any[]>> {
 
 /**
  * Get accreditation requests (Officer only)
- * GET /seafarer/api/v1/accreditation/requests
+ * GET /seafarer/api/v1/Accreditation/requests
+ * Based on swagger.json
  */
 export async function getAccreditationRequests(): Promise<ApiResponse<any[]>> {
   return apiGetMain<any[]>(`${API_BASE}/requests`);

@@ -11,7 +11,7 @@ import {
   type ApiResponse,
 } from "@/lib/api-client";
 
-const API_BASE = "/seafarer/api/v1/applications";
+const API_BASE = "/seafarer/api/v1/Applications";
 
 // ============================================================================
 // Types and Interfaces
@@ -245,9 +245,12 @@ export async function submitApplication(
 /**
  * Get my applications
  * GET /seafarer/api/v1/Applications/my-applications
+ * Note: The base endpoint /seafarer/api/v1/Applications only supports POST, not GET
  */
 export async function getMyApplications(): Promise<ApiResponse<ApplicationDto[]>> {
-  return apiGetMain<ApplicationDto[]>(`${API_BASE}/my-applications`);
+  // Ensure endpoint doesn't have trailing slash - use /my-applications suffix
+  const endpoint = `${API_BASE}/my-applications`;
+  return apiGetMain<ApplicationDto[]>(endpoint);
 }
 
 /**
@@ -332,27 +335,43 @@ export async function getApplicationInvoice(
 
 /**
  * Get requirements for an application
+ * ⚠️ DEPRECATED: The /seafarer/api/v1/Applications/{id}/requirements endpoint does not exist in swagger.json
+ * Use getServiceChecklist() to get requirements before creating an application,
+ * or getApplicationById() which may include requirements in the response.
+ * 
+ * @deprecated Use getServiceChecklist() or getApplicationById() instead
  */
 export async function getApplicationRequirements(
   applicationId: string
 ): Promise<ApiResponse<ApplicationRequirementDto[]>> {
-  return apiGetMain<ApplicationRequirementDto[]>(
-    `${API_BASE}/${applicationId}/requirements`
-  );
+  // Endpoint /seafarer/api/v1/Applications/{id}/requirements does not exist in swagger.json
+  // Use getServiceChecklist() or getApplicationById() instead
+  return {
+    success: false,
+    error: { message: "Endpoint /seafarer/api/v1/Applications/{id}/requirements does not exist. Use getServiceChecklist() or getApplicationById() instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Fulfill an application requirement
+ * ⚠️ DEPRECATED: The /seafarer/api/v1/Applications/{id}/requirements/{requirementId} endpoint does not exist in swagger.json
+ * Submit requirement values when calling submitApplication() instead.
+ * 
+ * @deprecated Submit requirement values when calling submitApplication() instead
  */
 export async function fulfillApplicationRequirement(
   applicationId: string,
   requirementId: string,
   fulfillmentData: { documentId?: string; value?: string }
 ): Promise<ApiResponse<ApplicationRequirementDto>> {
-  return apiPatchMain<ApplicationRequirementDto>(
-    `${API_BASE}/${applicationId}/requirements/${requirementId}`,
-    fulfillmentData
-  );
+  // Endpoint /seafarer/api/v1/Applications/{id}/requirements/{requirementId} does not exist in swagger.json
+  // Submit requirement values when calling submitApplication() instead
+  return {
+    success: false,
+    error: { message: "Endpoint /seafarer/api/v1/Applications/{id}/requirements/{requirementId} does not exist. Submit requirement values when calling submitApplication() instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 // ============================================================================
@@ -406,66 +425,95 @@ export interface GenerateInvoiceRequest {
 
 /**
  * Check eligibility for certificate application
- * POST /api/Applications/check-eligibility
+ * ⚠️ DEPRECATED: The /api/Applications/check-eligibility endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function checkEligibility(
   data: CheckEligibilityRequest
 ): Promise<ApiResponse<EligibilityResultDto>> {
-  return apiPostMain<EligibilityResultDto>(
-    `/api/Applications/check-eligibility`,
-    data
-  );
+  // Endpoint /api/Applications/check-eligibility does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Applications/check-eligibility does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Check eligibility for current user
- * POST /api/Applications/me/check-eligibility
+ * ⚠️ DEPRECATED: The /api/Applications/me/check-eligibility endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function checkEligibilityForCurrentUser(
   data: { targetDocumentMasterId: string }
 ): Promise<ApiResponse<EligibilityResultDto>> {
-  return apiPostMain<EligibilityResultDto>(
-    `/api/Applications/me/check-eligibility`,
-    data
-  );
+  // Endpoint /api/Applications/me/check-eligibility does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Applications/me/check-eligibility does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Create a draft application
- * POST /api/Applications/draft
+ * ⚠️ DEPRECATED: The /api/Applications/draft endpoint does not exist in swagger.json
+ * Use createApplication() instead which calls POST /seafarer/api/v1/Applications
+ * 
+ * @deprecated Use createApplication() instead
  */
 export async function createDraftApplication(
   data: CreateDraftApplicationRequest
 ): Promise<ApiResponse<ApplicationDto>> {
-  return apiPostMain<ApplicationDto>(`/api/Applications/draft`, data);
+  // Endpoint /api/Applications/draft does not exist in swagger.json
+  // Use createApplication() instead
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Applications/draft does not exist. Use createApplication() instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Attach documents to an application
- * POST /api/Applications/{id}/attach
+ * ⚠️ DEPRECATED: The /api/Applications/{id}/attach endpoint does not exist in swagger.json
+ * Use uploadApplicationDocument() from document-service.ts instead which calls /seafarer/api/v1/documents/applications/{applicationId}/upload
+ * 
+ * @deprecated Use uploadApplicationDocument() from document-service.ts instead
  */
 export async function attachDocumentsToApplication(
   applicationId: string,
   attachments: AddApplicationAttachmentRequest[]
 ): Promise<ApiResponse<ApplicationAttachmentDto[]>> {
-  return apiPostMain<ApplicationAttachmentDto[]>(
-    `/api/Applications/${applicationId}/attach`,
-    attachments
-  );
+  // Endpoint /api/Applications/{id}/attach does not exist in swagger.json
+  // Use uploadApplicationDocument() from document-service.ts instead
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Applications/{id}/attach does not exist. Use uploadApplicationDocument() from document-service.ts instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Generate invoice for an application (with fee details)
- * POST /api/Applications/{id}/generate-invoice
+ * ⚠️ DEPRECATED: The /api/Applications/{id}/generate-invoice endpoint does not exist in swagger.json
+ * Use generateApplicationInvoice() instead which calls POST /seafarer/api/v1/Applications/{id}/invoice
+ * 
+ * @deprecated Use generateApplicationInvoice() instead
  */
 export async function generateApplicationInvoiceWithFee(
   applicationId: string,
   data: GenerateInvoiceRequest
 ): Promise<ApiResponse<ApplicationInvoiceDto>> {
-  return apiPostMain<ApplicationInvoiceDto>(
-    `/api/Applications/${applicationId}/generate-invoice`,
-    data
-  );
+  // Endpoint /api/Applications/{id}/generate-invoice does not exist in swagger.json
+  // Use generateApplicationInvoice() instead
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Applications/{id}/generate-invoice does not exist. Use generateApplicationInvoice() instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 // ============================================================================
@@ -474,45 +522,65 @@ export async function generateApplicationInvoiceWithFee(
 
 /**
  * Approve application (Officer/Admin only)
+ * ⚠️ DEPRECATED: The /seafarer/api/v1/Applications/{id}/approve endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function approveApplication(
   applicationId: string,
   approvalData?: { comments?: string }
 ): Promise<ApiResponse<ApplicationDto>> {
-  return apiPostMain<ApplicationDto>(
-    `${API_BASE}/${applicationId}/approve`,
-    approvalData || {}
-  );
+  // Endpoint /seafarer/api/v1/Applications/{id}/approve does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /seafarer/api/v1/Applications/{id}/approve does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Reject application (Officer/Admin only)
+ * ⚠️ DEPRECATED: The /seafarer/api/v1/Applications/{id}/reject endpoint does not exist in swagger.json
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function rejectApplication(
   applicationId: string,
   rejectionData: { reason?: string; comments?: string }
 ): Promise<ApiResponse<ApplicationDto>> {
-  return apiPostMain<ApplicationDto>(`${API_BASE}/${applicationId}/reject`, rejectionData);
+  // Endpoint /seafarer/api/v1/Applications/{id}/reject does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /seafarer/api/v1/Applications/{id}/reject does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Get paginated list of applications with optional filtering
+ * ⚠️ DEPRECATED: The GET /seafarer/api/v1/Applications endpoint does not exist in swagger.json
+ * Only POST /seafarer/api/v1/Applications exists (for creating applications).
+ * Use getMyApplications() instead which calls GET /seafarer/api/v1/Applications/my-applications
+ * or getApplicationsWithHistory() which calls GET /seafarer/api/v1/Applications/history
+ * 
+ * @deprecated Use getMyApplications() or getApplicationsWithHistory() instead
  */
 export async function getApplications(
   filters: ApplicationFilters = {}
 ): Promise<ApiResponse<PaginatedApplications>> {
-  const { pageNumber = 1, pageSize = 20, applicantId, programId, statusId, searchTerm } =
-    filters;
-
-  const params = new URLSearchParams({
-    pageNumber: pageNumber.toString(),
-    pageSize: pageSize.toString(),
-  });
-
-  if (applicantId) params.append("applicantId", applicantId.toString());
-  if (programId) params.append("programId", programId.toString());
-  if (statusId) params.append("statusId", statusId.toString());
-  if (searchTerm) params.append("searchTerm", searchTerm);
-
-  return apiGetMain<PaginatedApplications>(`${API_BASE}?${params.toString()}`);
+  // Endpoint GET /seafarer/api/v1/Applications does not exist in swagger.json
+  // Only POST exists. Use getMyApplications() or getApplicationsWithHistory() instead
+  return {
+    success: false,
+    error: { message: "GET /seafarer/api/v1/Applications does not exist. Use getMyApplications() or getApplicationsWithHistory() instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: {
+      items: [],
+      totalCount: 0,
+      pageNumber: filters.pageNumber || 1,
+      pageSize: filters.pageSize || 20,
+      totalPages: 0,
+      hasPreviousPage: false,
+      hasNextPage: false,
+    },
+  };
 }

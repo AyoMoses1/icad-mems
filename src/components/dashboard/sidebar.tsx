@@ -113,15 +113,6 @@ const seafarerMenuItems: MenuItem[] = [
       { title: "Payment History", href: "/invoices/payments" },
     ],
   },
-  {
-    title: "Training",
-    href: "#",
-    icon: GraduationCap,
-    children: [
-      { title: "Available Courses", href: "/training/courses" },
-      { title: "My Enrollments", href: "/training/enrollments" },
-    ],
-  },
 ];
 
 /**
@@ -146,17 +137,6 @@ const trainingInstitutionMenuItems: MenuItem[] = [
     children: [
       { title: "My Institution", href: "/institutions" },
       { title: "Documents", href: "/documents" },
-    ],
-  },
-  {
-    title: "Training Programs",
-    href: "#",
-    icon: GraduationCap,
-    children: [
-      { title: "Courses", href: "/training/courses" },
-      { title: "Programs", href: "/training/programs" },
-      { title: "Cohorts", href: "/training/cohorts" },
-      { title: "Enrollments", href: "/training/enrollments" },
     ],
   },
   {
@@ -187,7 +167,7 @@ const trainingInstitutionMenuItems: MenuItem[] = [
 const agentMenuItems: MenuItem[] = [
   {
     title: "Dashboard",
-    href: "/institution/dashboard",
+    href: "/agent/dashboard",
     icon: LayoutDashboard,
   },
   {
@@ -355,6 +335,97 @@ const financeMenuItems: MenuItem[] = [
 ];
 
 /**
+ * OWNER Menu Items
+ * Owners are owners of just one tenant and can:
+ * - View and access the three onboarding types (Seafarer, Agent, Training Institution)
+ * - Access all sections that seafarer, agent, and training institution can access
+ * - Complete onboarding for any of these roles
+ * - They do NOT have admin access (different from admin menu)
+ */
+const ownerMenuItems: MenuItem[] = [
+  // Dashboard - points to role selection screen
+  { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  
+  // Seafarer menu items (except dashboard)
+  {
+    title: "My Profile",
+    href: "#",
+    icon: User,
+    children: [
+      { title: "Profile & Documents", href: "/profile-documents" },
+      { title: "Education Details", href: "/seafarer/profile/education" },
+      { title: "Contact Details", href: "/seafarer/profile/contact" },
+    ],
+  },
+  {
+    title: "Services",
+    href: "/seafarer/services",
+    icon: Briefcase,
+  },
+  {
+    title: "Applications",
+    href: "#",
+    icon: FileText,
+    children: [
+      { title: "My Applications", href: "/seafarer/applications" },
+      { title: "Application History", href: "/seafarer/applications/history" },
+    ],
+  },
+  {
+    title: "Billing & Payments",
+    href: "#",
+    icon: CreditCard,
+    children: [
+      { title: "My Invoices", href: "/invoices/my-invoices" },
+      { title: "Payment History", href: "/invoices/payments" },
+    ],
+  },
+  
+  // Training Institution menu items (except dashboard)
+  {
+    title: "Institution Management",
+    href: "#",
+    icon: Building2,
+    children: [
+      { title: "My Institution", href: "/institutions" },
+      { title: "Documents", href: "/documents" },
+    ],
+  },
+  {
+    title: "Accreditation",
+    href: "#",
+    icon: Award,
+    children: [
+      { title: "Apply for Accreditation", href: "/accreditations/apply" },
+      { title: "My Accreditations", href: "/accreditations" },
+      { title: "STCW Standards", href: "/accreditations/stcw" },
+    ],
+  },
+  {
+    title: "Inspections & Deficiencies",
+    href: "#",
+    icon: ClipboardCheck,
+    children: [
+      { title: "Scheduled Inspections", href: "/institution/inspections" },
+      { title: "Deficiency Reports", href: "/institution/deficiencies" },
+    ],
+  },
+  
+  // Agent menu items (except dashboard)
+  // Note: Agency Management is similar to Institution Management but kept separate
+  // Accreditation from agent doesn't include STCW Standards, so we use Training Institution's version above
+  {
+    title: "Agency Management",
+    href: "#",
+    icon: Building2,
+    children: [
+      { title: "My Agency", href: "/institutions" },
+      { title: "Documents", href: "/documents" },
+    ],
+  },
+];
+
+/**
  * ADMIN Menu Items
  * Admins have full access to all features:
  * - Onboarding management
@@ -367,7 +438,7 @@ const financeMenuItems: MenuItem[] = [
  * - System configuration
  */
 const adminMenuItems: MenuItem[] = [
-  { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  { title: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   {
     title: "Onboarding",
     href: "#",
@@ -468,6 +539,9 @@ const getMenuItemsByRole = (role: string | null): MenuItem[] => {
   const normalizedRole = role.toUpperCase().replace(/\s+/g, "_");
 
   switch (normalizedRole) {
+    case "OWNER":
+      return ownerMenuItems;
+    
     case "SEAFARER":
     case "SEA_FARER":
       return seafarerMenuItems;
@@ -577,7 +651,17 @@ export function Sidebar() {
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
     if (href === "#") return false;
-    return pathname.startsWith(href);
+    // Exact match - this is the most important check
+    if (pathname === href) return true;
+    // For nested paths, only match if pathname starts with href followed by end of string, query, or hash
+    // This prevents /seafarer/applications from matching /seafarer/applications/history
+    if (pathname.startsWith(href)) {
+      const nextChar = pathname[href.length];
+      // Only match if href is at the end of pathname, or followed by query/hash
+      // This ensures /seafarer/applications doesn't match /seafarer/applications/history
+      return nextChar === undefined || nextChar === "?" || nextChar === "#";
+    }
+    return false;
   };
 
   const isChildActive = (children?: { title: string; href: string }[]) => {
@@ -613,12 +697,18 @@ export function Sidebar() {
     item,
     isChild = false,
     icon,
+    parentHref,
   }: {
     item: { title: string; href: string };
     isChild?: boolean;
     icon?: React.ComponentType<{ className?: string }>;
+    parentHref?: string;
   }) => {
-    const active = isActive(item.href);
+    // For child items, use exact match only (no startsWith to prevent multiple highlights)
+    // For parent items, use isActive which checks exact match
+    const active = isChild 
+      ? pathname === item.href
+      : isActive(item.href);
     const Icon = icon;
 
     if (isChild) {
@@ -690,13 +780,18 @@ export function Sidebar() {
               isActive(item.href) || isChildActive(item.children);
 
             if (hasChildren) {
+              // Check if any child is active (exact match only)
+              const hasActiveChild = item.children?.some(child => {
+                return pathname === child.href;
+              }) || false;
+              
               return (
                 <div key={item.title}>
                   <button
                     onClick={() => toggleExpand(item.title)}
                     className={cn(
                       "flex items-center justify-between w-full px-3 py-2.5 text-sm rounded-lg transition-colors border",
-                      isItemActive
+                      hasActiveChild
                         ? "bg-[#1E40AF] border-[#3B82F6] text-white font-medium"
                         : "text-sidebar-foreground hover:bg-sidebar-muted border-transparent",
                     )}
@@ -714,7 +809,12 @@ export function Sidebar() {
                   {isExpanded && (
                     <div className="mt-1 space-y-1 ml-0">
                       {item.children?.map((child) => (
-                        <NavLink key={child.href} item={child} isChild />
+                        <NavLink 
+                          key={child.href} 
+                          item={child} 
+                          isChild 
+                          parentHref={item.href}
+                        />
                       ))}
                     </div>
                   )}

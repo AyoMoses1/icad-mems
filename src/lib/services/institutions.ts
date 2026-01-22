@@ -6,7 +6,20 @@ import {
 } from "@/lib/api-client";
 
 export interface InstitutionDto {
-  id: string;
+  id?: string;
+  accreditedInstitutionsId?: string;
+  accreditedInstitutionName?: string;
+  accreditedInstitutionAddress?: string;
+  institutionTypeId?: string;
+  institutionTypeDescription?: string;
+  isApproved?: boolean;
+  accreditationStatusId?: string;
+  accreditationStatus?: string;
+  accreditedInstitutionEmail?: string;
+  accreditedInstitutionPhone?: string;
+  expiryDate?: string;
+  stcwAccreditations?: any[];
+  // Legacy fields for backward compatibility
   name?: string;
   institutionType?: string;
   nimasaAccreditationNo?: string;
@@ -60,7 +73,7 @@ export async function getInstitutions(params?: {
   if (params?.sortDirection)
     queryParams.append("sortDirection", params.sortDirection);
 
-  const response = await apiGetMain<PagedResult<InstitutionDto>>(
+  const response = await apiGetMain<InstitutionDto[]>(
     `/seafarer/api/v1/Accreditation/institutions${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
   );
 
@@ -69,7 +82,14 @@ export async function getInstitutions(params?: {
     throw new Error(response.error?.message || "Failed to fetch institutions");
   }
 
-  return response.data;
+  // API returns array directly, convert to PagedResult format
+  const items = Array.isArray(response.data) ? response.data : [];
+  return {
+    items,
+    pageNumber: params?.pageNumber || 1,
+    pageSize: params?.pageSize || items.length,
+    totalNumber: items.length,
+  };
 }
 
 export async function getInstitutionById(id: string): Promise<InstitutionDto> {

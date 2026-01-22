@@ -59,12 +59,29 @@ export interface CreateSeafarerRequest {
   idNumber?: string;
 }
 
+/**
+ * ⚠️ DEPRECATED: This endpoint does not exist in swagger.json
+ * The /api/Seafarers endpoint returns 404.
+ * 
+ * @deprecated This endpoint does not exist in the API
+ */
 export async function createSeafarer(
   data: CreateSeafarerRequest,
 ): Promise<ApiResponse<any>> {
-  return apiPostMain<any>("/api/Seafarers", data);
+  // Endpoint /api/Seafarers does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Seafarers does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
+/**
+ * ⚠️ DEPRECATED: This endpoint does not exist in swagger.json
+ * The /api/Seafarers endpoint returns 404.
+ * 
+ * @deprecated This endpoint does not exist in the API
+ */
 export async function getSeafarers(params?: {
   pageNumber?: number;
   pageSize?: number;
@@ -72,16 +89,17 @@ export async function getSeafarers(params?: {
   status?: string;
   sortDirection?: string;
 }): Promise<ApiResponse<PagedResult<SeafarerDto>>> {
-  const queryParams = new URLSearchParams();
-  if (params?.pageNumber) queryParams.append("pageNumber", params.pageNumber.toString());
-  if (params?.pageSize) queryParams.append("pageSize", params.pageSize.toString());
-  if (params?.searchTerm) queryParams.append("searchTerm", params.searchTerm);
-  if (params?.status) queryParams.append("status", params.status);
-  if (params?.sortDirection) queryParams.append("sortDirection", params.sortDirection);
-
-  return apiGetMain<PagedResult<SeafarerDto>>(
-    `/api/Seafarers${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
-  );
+  // Endpoint /api/Seafarers does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Seafarers does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: {
+      items: [],
+      pageNumber: params?.pageNumber || 1,
+      pageSize: params?.pageSize || 100,
+      totalNumber: 0,
+    },
+  };
 }
 
 export interface SeafarerOnboardingStatus {
@@ -90,20 +108,39 @@ export interface SeafarerOnboardingStatus {
   nextStep?: string;
 }
 
+/**
+ * ⚠️ DEPRECATED: This endpoint does not exist in swagger.json
+ * The /api/Seafarers/me/onboarding-status endpoint returns 404.
+ * Use onboarding-service.ts getMyOnboarding() instead.
+ * 
+ * @deprecated This endpoint does not exist in the API
+ */
 export async function getMySeafarerOnboardingStatus(): Promise<
   ApiResponse<SeafarerOnboardingStatus>
 > {
-  return apiGetMain<SeafarerOnboardingStatus>(
-    "/api/Seafarers/me/onboarding-status",
-  );
+  // Endpoint /api/Seafarers/me/onboarding-status does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Seafarers/me/onboarding-status does not exist in the API. Use onboarding-service.ts getMyOnboarding() instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
  * Get current seafarer's profile
- * GET /api/Seafarers/me
+ * ⚠️ DEPRECATED: This endpoint does not exist in swagger.json
+ * The /api/Seafarers/me endpoint returns 404.
+ * Use profile-service.ts getContactDetails() or getEducation() instead for profile data.
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getMySeafarer(): Promise<ApiResponse<SeafarerDto>> {
-  return apiGetMain<SeafarerDto>("/api/Seafarers/me");
+  // Endpoint /api/Seafarers/me does not exist in swagger.json
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Seafarers/me does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 
 /**
@@ -123,21 +160,19 @@ export interface SeafarerHeldDocumentDto {
 
 /**
  * Get current seafarer's documents
- * GET /api/Seafarers/{seafarerId}/documents
- * First gets the seafarer ID from /api/Seafarers/me, then fetches documents
+ * ⚠️ DEPRECATED: This endpoint does not exist in swagger.json
+ * The /api/Seafarers/{seafarerId}/documents endpoint returns 404.
+ * Use document-service.ts getProfileDocuments(rn) instead with the user's RN.
+ * 
+ * @deprecated This endpoint does not exist in the API
  */
 export async function getMySeafarerDocuments(): Promise<ApiResponse<SeafarerHeldDocumentDto[]>> {
-  // First get the seafarer profile to get the ID
-  const seafarerResponse = await getMySeafarer();
-  const ok = seafarerResponse.success ?? (seafarerResponse as any).successful;
-  
-  if (!ok || !seafarerResponse.data || !seafarerResponse.data.id) {
-    throw new Error("Failed to get seafarer profile");
-  }
-  
-  const seafarerId = seafarerResponse.data.id;
-  
-  // Then get the documents using the seafarer ID
-  return apiGetMain<SeafarerHeldDocumentDto[]>(`/api/Seafarers/${seafarerId}/documents`);
+  // Endpoint /api/Seafarers/{seafarerId}/documents does not exist in swagger.json
+  // Use document-service.ts getProfileDocuments(rn) instead
+  return {
+    success: false,
+    error: { message: "Endpoint /api/Seafarers/{seafarerId}/documents does not exist in the API. Use document-service.ts getProfileDocuments(rn) instead.", code: "ENDPOINT_NOT_FOUND" },
+    data: null,
+  };
 }
 

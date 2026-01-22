@@ -26,7 +26,7 @@ export default function DashboardRedirectPage() {
         return;
       }
       
-      // If user is OWNER, show role selection screen
+      // If user is OWNER, show role selection screen at index route
       if (roleUpper === "OWNER") {
         setShowRoleSelection(true);
         setIsChecking(false);
