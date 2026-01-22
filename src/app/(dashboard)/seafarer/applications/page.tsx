@@ -83,7 +83,10 @@ export default function SeafarerApplicationsPage() {
         return;
       }
 
-      const items = response.data || [];
+      const items = (response.data || []).map((item: any) => ({
+        ...item,
+        id: item.applicationId,
+      }));
       setApplications(items);
     } catch (error) {
       console.error("Error loading applications:", error);
@@ -128,10 +131,10 @@ export default function SeafarerApplicationsPage() {
     {
       id: "applicationId",
       header: "Application ID",
-      accessorKey: "id",
+      accessorKey: "applicationId",
       cell: ({ row }) => (
         <span className="font-mono font-medium text-xs">
-          {row.id?.slice(0, 8).toUpperCase() || "N/A"}
+          {row.applicationId?.slice(0, 8).toUpperCase() || "N/A"}
         </span>
       ),
     },
@@ -205,7 +208,7 @@ export default function SeafarerApplicationsPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => loadApplicationDetail(row.id || "")}
+            onClick={() => loadApplicationDetail(row.applicationId || "")}
             disabled={isLoadingDetail}
           >
             <Eye className="h-4 w-4" />
@@ -436,7 +439,7 @@ export default function SeafarerApplicationsPage() {
               <Button
                 onClick={() => {
                   setDetailDialogOpen(false);
-                  router.push(`/seafarer/applications/${selectedApplication.id}`);
+                  router.push(`/seafarer/applications/${selectedApplication.applicationId}`);
                 }}
               >
                 View Full Details

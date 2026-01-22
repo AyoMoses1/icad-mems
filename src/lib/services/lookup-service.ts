@@ -74,6 +74,13 @@ export interface ServiceTypeDto {
   description: string;
 }
 
+export interface CurrencyDto {
+  currencyId: string; // UUID
+  code?: string | null;
+  name?: string | null;
+  symbol?: string | null;
+}
+
 export interface WorkTypeDto {
   workTypeId: string;
   description: string;
@@ -253,6 +260,14 @@ export async function getTradingAreas(): Promise<ApiResponse<TradingAreaDto[]>> 
  */
 export async function getServiceTypes(): Promise<ApiResponse<ServiceTypeDto[]>> {
   return apiGetMain<ServiceTypeDto[]>(`${API_BASE}/service-types`);
+}
+
+/**
+ * Currencies
+ * GET /api/seafarer/MasterData/currencies
+ */
+export async function getCurrencies(): Promise<ApiResponse<CurrencyDto[]>> {
+  return apiGetMain<CurrencyDto[]>(`${API_BASE}/currencies`);
 }
 
 /**
