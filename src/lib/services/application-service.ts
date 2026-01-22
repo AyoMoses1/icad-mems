@@ -55,6 +55,8 @@ export interface ApplicationRequirementDto {
   isRequired?: boolean;
   isSubmitted?: boolean;
   dateSubmitted?: string | null;
+  documentTypesId?: string | null; // Direct FK to document type (V2)
+  documentTypeDescription?: string | null; // Document type name (V2)
 }
 
 export interface RequirementValueDto {
@@ -260,6 +262,7 @@ export async function getMyApplications(): Promise<ApiResponse<ApplicationDto[]>
 export async function getApplicationById(
   applicationId: string
 ): Promise<ApiResponse<ApplicationDto>> {
+  console.log("applicationId", applicationId);
   return apiGetMain<ApplicationDto>(`${API_BASE}/${applicationId}`);
 }
 

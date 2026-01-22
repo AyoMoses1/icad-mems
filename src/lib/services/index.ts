@@ -101,6 +101,13 @@ export {
   getServiceRequirements,
 } from "./service-service";
 
+// Service Management API (Admin-only mutations)
+export {
+  serviceManagementApi,
+  servicesApi,
+  requirementListsApi,
+} from "./service-management-api";
+
 // Document service functions
 export {
   uploadEducationDocument,

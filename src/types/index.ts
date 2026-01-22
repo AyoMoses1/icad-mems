@@ -519,3 +519,8 @@ export * from "./payment";
 // Seafarer Portal Types (re-exported from seafarer.ts)
 // ============================================================================
 export * from "./seafarer";
+
+// ============================================================================
+// Service Management Types (re-exported from service-management.ts)
+// ============================================================================
+export * from "./service-management";

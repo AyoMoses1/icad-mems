@@ -512,6 +512,8 @@ const adminMenuItems: MenuItem[] = [
     href: "#",
     icon: Settings,
     children: [
+      { title: "Services", href: "/admin/services" },
+      { title: "Requirement Lists", href: "/admin/requirement-lists" },
       { title: "Certificates", href: "/certificates" },
       { title: "Documents Master", href: "/documents" },
       { title: "Ranks", href: "/ranks" },
