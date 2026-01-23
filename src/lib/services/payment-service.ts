@@ -187,10 +187,14 @@ export interface PaymentWebhookResponse {
 }
 
 export interface PaymentSimulateRequest {
-  invoiceId?: string;
   amount?: number;
+  currency?: string;
+  transactionReference?: string;
   paymentMethod?: string;
-  simulateSuccess?: boolean;
+  notes?: string;
+  payerName?: string;
+  payerEmail?: string;
+  payerPhone?: string;
 }
 
 export interface PaymentSimulateResponse {
@@ -271,9 +275,7 @@ export async function getApplicationPaymentStatus(
   return apiGetMain<PaymentStatusDto>(
     `${SEAFARER_API_BASE}/Payment/applications/${applicationId}/payment-status`
   );
-}
-
-/**
+}/**
  * Download invoice as PDF blob
  * ⚠️ DEPRECATED: The /seafarer/api/v1/invoices/{invoiceId}/download endpoint does not exist in swagger.json
  * 

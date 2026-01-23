@@ -39,6 +39,7 @@ import {
   createApplication,
   submitApplication,
   generateApplicationInvoice,
+  getApplicationById,
   type ServiceDto,
   type ApplicationRequirementDto,
   type ApplicationDto,
@@ -47,8 +48,11 @@ import {
 import { uploadApplicationDocument } from "@/lib/services/document-service";
 import {
   initiateApplicationPayment,
+  simulatePayment,
   type InitiatePaymentResponse,
+  type PaymentSimulateRequest,
 } from "@/lib/services/payment-service";
+import { getCurrencies, type CurrencyDto } from "@/lib/services/lookup-service";
 import { formatDate } from "@/lib/utils";
 
 type Step = "info" | "requirements" | "review" | "invoice" | "complete";
@@ -110,6 +114,41 @@ export default function ServiceApplicationPage() {
       loadServiceData();
     }
   }, [serviceId]);
+
+  // Refresh requirements when on requirements step and application is available
+  // This ensures requirements are loaded even if they weren't in the create response
+  useEffect(() => {
+    const loadApplicationRequirements = async () => {
+      // Only load if we're on requirements step, have an application, but no requirements yet
+      if (currentStep === "requirements" && application && requirements.length === 0) {
+        const appId = application.id || application.applicationId;
+        if (appId) {
+          try {
+            const appResponse = await getApplicationById(appId);
+            const appOk = appResponse.success ?? (appResponse as any).successful;
+            if (appOk && appResponse.data?.requirements && Array.isArray(appResponse.data.requirements)) {
+              const appReqs = appResponse.data.requirements;
+              setRequirements(appReqs);
+              
+              // Initialize requirement values from application requirements
+              const initialValues: RequirementValue[] = appReqs.map((req: any) => ({
+                requirementId: req.applicationRequirementId || req.requirementListId || req.id || "",
+                value: req.actualValue || "",
+                notes: "",
+              }));
+              setRequirementValues(initialValues);
+            }
+          } catch (error) {
+            console.error("Error loading application requirements:", error);
+            // Don't show error to user - requirements might not be available yet
+          }
+        }
+      }
+    };
+
+    loadApplicationRequirements();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, application?.id, application?.applicationId]);
 
   const loadServiceData = async () => {
     setIsLoading(true);
@@ -188,20 +227,40 @@ export default function ServiceApplicationPage() {
         const appData = response.data;
         setApplication(appData);
         
-        // Use requirements from the created application response
-        // V2: Requirements already include documentTypesId
+        // Get application ID for fetching requirements
+        const appId = appData.id || appData.applicationId;
+        
+        // Fetch requirements from the application
+        // The backend returns requirements in { data: [...] } format
+        let appReqs: ApplicationRequirementDto[] = [];
+        
+        // First, try to get requirements from the create response
         if (appData.requirements && Array.isArray(appData.requirements)) {
-          const appReqs = appData.requirements;
-          setRequirements(appReqs);
-          
-          // Initialize requirement values from application requirements
-          const initialValues: RequirementValue[] = appReqs.map((req: any) => ({
-            requirementId: req.applicationRequirementId || req.requirementListId || req.id || "",
-            value: req.actualValue || "",
-            notes: "",
-          }));
-          setRequirementValues(initialValues);
+          appReqs = appData.requirements;
+        } else if (appId) {
+          // If not in response, fetch the application again to get requirements
+          try {
+            const appResponse = await getApplicationById(appId);
+            const appOk = appResponse.success ?? (appResponse as any).successful;
+            if (appOk && appResponse.data?.requirements && Array.isArray(appResponse.data.requirements)) {
+              appReqs = appResponse.data.requirements;
+            }
+          } catch (fetchError) {
+            console.error("Error fetching application requirements:", fetchError);
+            // Continue with empty requirements - will show "No requirements" message
+          }
         }
+        
+        // Set requirements
+        setRequirements(appReqs);
+        
+        // Initialize requirement values from application requirements
+        const initialValues: RequirementValue[] = appReqs.map((req: any) => ({
+          requirementId: req.applicationRequirementId || req.requirementListId || req.id || "",
+          value: req.actualValue || "",
+          notes: "",
+        }));
+        setRequirementValues(initialValues);
         
         setCurrentStep("requirements");
         toast.success("Application created successfully");
@@ -437,8 +496,13 @@ export default function ServiceApplicationPage() {
     // Validate all required requirements are filled
     // V2: Document requirements: check if uploaded (metricDescription === "File/Document" && documentTypesId != null)
     // Non-document requirements: check if value provided based on metric type
+    // Skip validation for already submitted requirements
     const missingRequired = requirements
-      .filter((req: any) => req.requiredValue === "Required" || req.isRequired)
+      .filter((req: any) => {
+        // Only check required items that haven't been submitted yet
+        const isRequired = req.requiredValue === "Required" || req.isRequired;
+        return isRequired && !req.isSubmitted;
+      })
       .filter((req: any) => {
         const reqId = req.applicationRequirementId || req.requirementListId || req.id;
         const metricType = req.metricDescription || req.metricType || "Text";
@@ -578,6 +642,103 @@ export default function ServiceApplicationPage() {
     }
   };
 
+  const handleSimulatePayment = async () => {
+    // Get application ID - check both 'id' and 'applicationId' fields
+    const appId = application?.id || application?.applicationId;
+    if (!appId) {
+      toast.error("Application not found");
+      return;
+    }
+
+    if (!invoice) {
+      toast.error("Invoice not found");
+      return;
+    }
+
+    setIsProcessingPayment(true);
+    try {
+      // Get currency - invoice doesn't return currency, so we need to get it from service or use default
+      let currency = invoice.currency;
+      
+      if (!currency) {
+        // Try to get currency from service's currencyId
+        try {
+          const currenciesResponse = await getCurrencies();
+          const currenciesOk = currenciesResponse.success ?? (currenciesResponse as any).successful;
+          
+          if (currenciesOk && currenciesResponse.data && currenciesResponse.data.length > 0) {
+            const currencies: CurrencyDto[] = currenciesResponse.data;
+            
+            // First, try to get currency from service's currencyId if available
+            if (service?.currencyId) {
+              const serviceCurrency = currencies.find(
+                (c: CurrencyDto) => c.currencyId === service.currencyId
+              );
+              if (serviceCurrency?.code) {
+                currency = serviceCurrency.code;
+              }
+            }
+            
+            // If still no currency, try common currencies based on error patterns
+            // The backend error showed invoice currency is "GBP", so prefer GBP
+            if (!currency) {
+              const gbpCurrency = currencies.find((c: CurrencyDto) => c.code === "GBP");
+              const ngnCurrency = currencies.find((c: CurrencyDto) => c.code === "NGN");
+              
+              // Prefer GBP (since backend error showed invoice uses GBP), then NGN, then first available
+              currency = gbpCurrency?.code || ngnCurrency?.code || currencies[0]?.code || "GBP";
+            }
+          } else {
+            // Fallback to GBP (since that's what the backend expects based on error)
+            currency = "GBP";
+          }
+        } catch (currencyError) {
+          console.error("Error fetching currencies:", currencyError);
+          // Fallback to GBP as default (based on backend error message)
+          currency = "GBP";
+        }
+      }
+
+      const simulatePayload: PaymentSimulateRequest = {
+        amount: invoice.amount || invoice.totalAmount || 0,
+        currency: currency, // Use fetched/default currency
+        transactionReference: `TXN-${Date.now()}`,
+        paymentMethod: "SIMULATE",
+        notes: `Simulated payment for application ${appId}`,
+        payerName: "", // Can be populated from user profile if available
+        payerEmail: "", // Can be populated from user profile if available
+        payerPhone: "", // Can be populated from user profile if available
+      };
+
+      const response = await simulatePayment(appId, simulatePayload);
+      const ok = response.success ?? (response as any).successful;
+
+      if (ok && response.data) {
+        toast.success(response.data.message || "Payment simulated successfully");
+        setCurrentStep("complete");
+        // Optionally refresh the invoice to show updated payment status
+        await handleGenerateInvoice();
+      } else {
+        // Check if error is about currency mismatch and provide helpful message
+        const errorMessage = response.message || response.error?.message || "Failed to simulate payment";
+        if (errorMessage.includes("currency") && errorMessage.includes("match")) {
+          toast.error(
+            `Currency mismatch: ${errorMessage}. ` +
+            `Please ensure the invoice currency matches the payment currency. ` +
+            `Current payment currency: ${currency}`
+          );
+        } else {
+          toast.error(errorMessage);
+        }
+      }
+    } catch (error: any) {
+      console.error("Error simulating payment:", error);
+      toast.error(error.message || "Failed to simulate payment");
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
   const updateRequirementValue = (requirementId: string, value: string, notes?: string) => {
     setRequirementValues(prev =>
       prev.map(rv =>
@@ -599,7 +760,45 @@ export default function ServiceApplicationPage() {
       case "info":
         return true;
       case "requirements":
-        return true; // Validation happens on submit
+        // Check if all required requirements are completed
+        if (requirements.length === 0) return true;
+        
+        const allRequiredCompleted = requirements
+          .filter((req: any) => {
+            const isRequired = req.requiredValue === "Required" || req.isRequired;
+            return isRequired;
+          })
+          .every((req: any) => {
+            // If already submitted, it's completed
+            if (req.isSubmitted) return true;
+            
+            const reqId = req.applicationRequirementId || req.requirementListId || req.id;
+            const metricType = req.metricDescription || req.metricType || "Text";
+            const isDocument = metricType === "File/Document" && req.documentTypesId != null;
+            const isDate = metricType === "Date";
+            const isYesNo = metricType === "Yes/No";
+            
+            if (isDocument) {
+              // For document requirements, check if document was uploaded
+              return documentUploads.has(reqId);
+            } else if (isDate) {
+              // For date requirements, check if valid date is provided
+              const value = requirementValues.find(rv => rv.requirementId === reqId);
+              if (!value?.value) return false;
+              const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+              return dateRegex.test(value.value);
+            } else if (isYesNo) {
+              // For Yes/No requirements, check if value is provided (Yes or No)
+              const value = requirementValues.find(rv => rv.requirementId === reqId);
+              return value?.value === "Yes" || value?.value === "No";
+            } else {
+              // For text requirements, check if value is provided
+              const value = requirementValues.find(rv => rv.requirementId === reqId);
+              return value?.value && value.value.trim() !== "";
+            }
+          });
+        
+        return allRequiredCompleted;
       case "review":
         return true;
       default:
@@ -779,14 +978,67 @@ export default function ServiceApplicationPage() {
             )}
           </CardHeader>
           <CardContent className="space-y-4">
-            {requirements.length === 0 ? (
+            {!application ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Please create the application first</p>
+              </div>
+            ) : requirements.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
                 <p>No specific requirements for this service</p>
                 <p className="text-sm">You can proceed to the next step</p>
               </div>
             ) : (
-              <div className="space-y-6">
+              <>
+                {/* Requirements Summary */}
+                {(() => {
+                  const totalRequired = requirements.filter((req: any) => 
+                    req.requiredValue === "Required" || req.isRequired
+                  ).length;
+                  const completed = requirements.filter((req: any) => {
+                    const reqId = req.applicationRequirementId || req.requirementListId || req.id;
+                    const metricType = req.metricDescription || req.metricType || "Text";
+                    const isDocument = metricType === "File/Document" && req.documentTypesId != null;
+                    
+                    if (req.isSubmitted) return true;
+                    if (isDocument) {
+                      return documentUploads.has(reqId);
+                    } else {
+                      const value = requirementValues.find(rv => rv.requirementId === reqId);
+                      return value?.value && value.value.trim() !== "";
+                    }
+                  }).length;
+                  
+                  return (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-blue-900">
+                            Requirements Progress
+                          </p>
+                          <p className="text-xs text-blue-700 mt-1">
+                            {completed} of {requirements.length} completed
+                            {totalRequired > 0 && ` (${totalRequired} required)`}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-blue-900">
+                            {requirements.length > 0 ? Math.round((completed / requirements.length) * 100) : 0}%
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-2 w-full bg-blue-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all"
+                          style={{ width: `${requirements.length > 0 ? (completed / requirements.length) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
+                
+                <div className="space-y-6">
                 {requirements.map((req: any) => {
                   const reqId = req.applicationRequirementId || req.requirementListId || req.id || "";
                   
@@ -822,7 +1074,18 @@ export default function ServiceApplicationPage() {
                         <div className="flex items-center gap-2 mb-2 text-sm text-green-600">
                           <CheckCircle2 className="h-4 w-4" />
                           <span>Already submitted</span>
+                          {req.dateSubmitted && (
+                            <span className="text-xs text-muted-foreground">
+                              ({formatDate(req.dateSubmitted)})
+                            </span>
+                          )}
                         </div>
+                      )}
+                      
+                      {req.documentTypeDescription && (
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Document Type: <span className="font-medium">{req.documentTypeDescription}</span>
+                        </p>
                       )}
                       
                       {isDocument ? (
@@ -835,7 +1098,16 @@ export default function ServiceApplicationPage() {
                             </div>
                           )}
                           
-                          {!documentUploads.has(reqId) ? (
+                          {req.isSubmitted ? (
+                            <div className="p-3 bg-green-50 border border-green-200 rounded">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                <span className="text-sm font-medium text-green-900">
+                                  Document already submitted
+                                </span>
+                              </div>
+                            </div>
+                          ) : !documentUploads.has(reqId) ? (
                             <>
                               <Input
                                 type="file"
@@ -846,7 +1118,7 @@ export default function ServiceApplicationPage() {
                                   }
                                 }}
                                 className="cursor-pointer"
-                                disabled={!hasDocumentTypeMatch || !application}
+                                disabled={!hasDocumentTypeMatch || !application || req.isSubmitted}
                                 accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                               />
                               <p className="text-xs text-muted-foreground">
@@ -880,6 +1152,7 @@ export default function ServiceApplicationPage() {
                                   size="sm"
                                   onClick={() => handleRemoveDocument(reqId)}
                                   className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  disabled={req.isSubmitted}
                                 >
                                   <XCircle className="h-4 w-4" />
                                 </Button>
@@ -889,59 +1162,102 @@ export default function ServiceApplicationPage() {
                         </div>
                       ) : isDate ? (
                         <div className="mt-3">
-                          <Input
-                            type="date"
-                            value={requirementValues.find(rv => rv.requirementId === reqId)?.value || ""}
-                            onChange={(e) => {
-                              const dateValue = e.target.value; // Already in YYYY-MM-DD format
-                              updateRequirementValue(reqId, dateValue);
-                            }}
-                            className="w-full"
-                          />
-                          {req.requiredValue && req.requiredValue !== "Required" && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Expected: {req.requiredValue}
-                            </p>
+                          {req.isSubmitted ? (
+                            <div className="p-3 bg-green-50 border border-green-200 rounded">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                <span className="text-sm font-medium text-green-900">
+                                  {req.actualValue ? formatDate(req.actualValue) : "Submitted"}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <Input
+                                type="date"
+                                value={requirementValues.find(rv => rv.requirementId === reqId)?.value || ""}
+                                onChange={(e) => {
+                                  const dateValue = e.target.value; // Already in YYYY-MM-DD format
+                                  updateRequirementValue(reqId, dateValue);
+                                }}
+                                className="w-full"
+                                disabled={req.isSubmitted}
+                              />
+                              {req.requiredValue && req.requiredValue !== "Required" && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Expected: {req.requiredValue}
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
                       ) : isYesNo ? (
                         <div className="mt-3">
-                          <div className="flex items-center space-x-3">
-                            <Switch
-                              checked={requirementValues.find(rv => rv.requirementId === reqId)?.value === "Yes" || false}
-                              onCheckedChange={(checked) => {
-                                updateRequirementValue(reqId, checked ? "Yes" : "No");
-                              }}
-                            />
-                            <Label className="font-normal">
-                              {requirementValues.find(rv => rv.requirementId === reqId)?.value === "Yes" ? "Yes" : "No"}
-                            </Label>
-                          </div>
-                          {req.requiredValue && req.requiredValue !== "Required" && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Expected: {req.requiredValue}
-                            </p>
+                          {req.isSubmitted ? (
+                            <div className="p-3 bg-green-50 border border-green-200 rounded">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                <span className="text-sm font-medium text-green-900">
+                                  {req.actualValue || "Submitted"}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center space-x-3">
+                                <Switch
+                                  checked={requirementValues.find(rv => rv.requirementId === reqId)?.value === "Yes" || false}
+                                  onCheckedChange={(checked) => {
+                                    updateRequirementValue(reqId, checked ? "Yes" : "No");
+                                  }}
+                                  disabled={req.isSubmitted}
+                                />
+                                <Label className="font-normal">
+                                  {requirementValues.find(rv => rv.requirementId === reqId)?.value === "Yes" ? "Yes" : "No"}
+                                </Label>
+                              </div>
+                              {req.requiredValue && req.requiredValue !== "Required" && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Expected: {req.requiredValue}
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
                       ) : (
                         <div className="mt-3">
-                          <Textarea
-                            value={requirementValues.find(rv => rv.requirementId === reqId)?.value || ""}
-                            onChange={(e) => updateRequirementValue(reqId, e.target.value)}
-                            placeholder={`Enter ${req.requirementName}...`}
-                            rows={2}
-                          />
-                          {req.requiredValue && req.requiredValue !== "Required" && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Expected: {req.requiredValue}
-                            </p>
+                          {req.isSubmitted ? (
+                            <div className="p-3 bg-green-50 border border-green-200 rounded">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                <span className="text-sm font-medium text-green-900">
+                                  {req.actualValue || "Submitted"}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <Textarea
+                                value={requirementValues.find(rv => rv.requirementId === reqId)?.value || ""}
+                                onChange={(e) => updateRequirementValue(reqId, e.target.value)}
+                                placeholder={`Enter ${req.requirementName}...`}
+                                rows={2}
+                                disabled={req.isSubmitted}
+                              />
+                              {req.requiredValue && req.requiredValue !== "Required" && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Expected: {req.requiredValue}
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
                       )}
                     </div>
                   );
                 })}
-              </div>
+                </div>
+              </>
             )}
 
             <div className="flex justify-between pt-4">
@@ -950,8 +1266,15 @@ export default function ServiceApplicationPage() {
                 Back
               </Button>
               <Button 
-                onClick={() => setCurrentStep("review")}
-                className="bg-[#3EADC0] hover:bg-[#35a0b3]"
+                onClick={() => {
+                  if (canProceed()) {
+                    setCurrentStep("review");
+                  } else {
+                    toast.error("Please complete all required requirements before proceeding");
+                  }
+                }}
+                disabled={!canProceed()}
+                className="bg-[#3EADC0] hover:bg-[#35a0b3] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continue to Review
                 <ArrowRight className="h-4 w-4 ml-2" />
@@ -1117,7 +1440,12 @@ export default function ServiceApplicationPage() {
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">Invoice Number</p>
                   <p className="font-mono font-bold">
-                    {invoice.invoiceNumber || `INV-${(invoice.id || "").toString().slice(0, 8).toUpperCase()}`}
+                    {invoice.invoiceNumber || 
+                      (invoice.invoiceId 
+                        ? `INV-${invoice.invoiceId.split('-')[0].toUpperCase()}` 
+                        : invoice.id 
+                          ? `INV-${invoice.id.toString().slice(0, 8).toUpperCase()}` 
+                          : "INV-N/A")}
                   </p>
                 </div>
                 <div className="p-4 bg-muted rounded-lg">
@@ -1127,23 +1455,44 @@ export default function ServiceApplicationPage() {
                   </p>
                 </div>
 
-                <Button
-                  onClick={handlePayment}
-                  disabled={isProcessingPayment}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  {isProcessingPayment ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Proceed to Payment
-                    </>
-                  )}
-                </Button>
+                <div className="space-y-2">
+                  <Button
+                    onClick={handlePayment}
+                    disabled={isProcessingPayment}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                  >
+                    {isProcessingPayment ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Proceed to Payment
+                      </>
+                    )}
+                  </Button>
+                  
+                  {/* Simulate Payment Button (for testing/development) */}
+                  <Button
+                    onClick={handleSimulatePayment}
+                    disabled={isProcessingPayment}
+                    variant="outline"
+                    className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                  >
+                    {isProcessingPayment ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        Simulate Payment (Test)
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="text-center py-8">

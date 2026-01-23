@@ -26,6 +26,7 @@ export interface ServiceDto {
   serviceTypeId?: string | null;
   serviceType?: string | null;
   serviceTypeDescription?: string | null;
+  currencyId?: string | null;
   isActive?: boolean;
   requirements?: ServiceRequirementDto[];
 }
