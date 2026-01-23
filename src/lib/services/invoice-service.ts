@@ -64,7 +64,7 @@ export async function getInvoiceById(
   return {
     success: false,
     error: { message: "Endpoint /api/Invoices/{id} does not exist in the API. Use getApplicationInvoice() from application-service.ts instead.", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -84,7 +84,7 @@ export async function getInvoiceForApplication(
   return {
     success: false,
     error: { message: "Endpoint /api/Invoices/applications/{id}/invoice does not exist. Use getApplicationInvoice() from application-service.ts instead.", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -103,7 +103,7 @@ export async function createInvoice(
   return {
     success: false,
     error: { message: "Endpoint /api/Invoices does not exist. Use generateApplicationInvoice() from application-service.ts instead.", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -121,7 +121,7 @@ export async function updateInvoice(
   return {
     success: false,
     error: { message: "Endpoint /api/Invoices/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -138,7 +138,7 @@ export async function deleteInvoice(
   return {
     success: false,
     error: { message: "Endpoint /api/Invoices/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 

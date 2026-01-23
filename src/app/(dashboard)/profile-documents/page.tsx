@@ -563,15 +563,16 @@ export default function ProfileDocumentsPage() {
       
       if (ok && response.data) {
         const contact = response.data;
+        const contactAny = contact as any;
         setContactDetails({
           email: contact.email || contactDetails.email || "",
           phone: contact.phone || contactDetails.phone || "",
-          altPhone: contact.altPhone || contactDetails.altPhone || "",
-          whatsapp: contact.whatsapp || contactDetails.whatsapp || "",
-          city: contact.city || contactDetails.city || "",
-          state: contact.state || contactDetails.state || "",
-          country: contact.country || contactDetails.country || "",
-          postalCode: contact.postalCode || contactDetails.postalCode || "",
+          altPhone: contactAny.altPhone || (contactDetails as any).altPhone || "",
+          whatsapp: contactAny.whatsapp || (contactDetails as any).whatsapp || "",
+          city: contactAny.city || (contactDetails as any).city || "",
+          state: contactAny.state || (contactDetails as any).state || "",
+          country: contactAny.country || (contactDetails as any).country || "",
+          postalCode: contactAny.postalCode || (contactDetails as any).postalCode || "",
           address: contact.address || contactDetails.address || "",
         });
       }
@@ -694,14 +695,10 @@ export default function ProfileDocumentsPage() {
       const response = await createOrUpdateContactDetails({
         email: contactDetails.email || undefined,
         phone: contactDetails.phone || undefined,
-        altPhone: contactDetails.altPhone || undefined,
-        whatsapp: contactDetails.whatsapp || undefined,
-        city: contactDetails.city || undefined,
-        state: contactDetails.state || undefined,
-        country: contactDetails.country || undefined,
-        postalCode: contactDetails.postalCode || undefined,
         address: contactDetails.address || undefined,
-      });
+        // Note: altPhone, whatsapp, city, state, country, postalCode are not part of the API
+        // They are stored in local state but not sent to the backend
+      } as any);
       
       const ok = response.success ?? (response as any).successful;
       if (ok) {

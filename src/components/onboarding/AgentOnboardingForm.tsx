@@ -204,7 +204,8 @@ export function AgentOnboardingForm() {
               : "Onboarding completed successfully!")
         );
 
-        router.push("/dashboard");
+        // Redirect to agent dashboard (not /dashboard which doesn't exist)
+        router.push("/agent/dashboard");
       } else {
         toast.error(response.message || "Failed to complete onboarding");
       }

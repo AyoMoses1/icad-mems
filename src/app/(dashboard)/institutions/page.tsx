@@ -209,6 +209,10 @@ export default function InstitutionsPage() {
         return;
       }
 
+      if (!selectedInstitution.id) {
+        toast.error("Institution ID not found");
+        return;
+      }
       await updateInstitution(selectedInstitution.id, payload);
       toast.success("Institution updated successfully");
       setIsEditOpen(false);
@@ -225,6 +229,11 @@ export default function InstitutionsPage() {
 
     setIsSubmitting(true);
     try {
+      if (!selectedInstitution.id) {
+        toast.error("Institution ID not found");
+        setIsSubmitting(false);
+        return;
+      }
       await deleteInstitution(selectedInstitution.id);
       toast.success("Institution deleted successfully");
       setIsDeleteOpen(false);

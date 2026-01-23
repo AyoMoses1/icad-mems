@@ -72,7 +72,7 @@ export async function createSeafarer(
   return {
     success: false,
     error: { message: "Endpoint /api/Seafarers does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -122,7 +122,7 @@ export async function getMySeafarerOnboardingStatus(): Promise<
   return {
     success: false,
     error: { message: "Endpoint /api/Seafarers/me/onboarding-status does not exist in the API. Use onboarding-service.ts getMyOnboarding() instead.", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -139,7 +139,7 @@ export async function getMySeafarer(): Promise<ApiResponse<SeafarerDto>> {
   return {
     success: false,
     error: { message: "Endpoint /api/Seafarers/me does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -172,7 +172,7 @@ export async function getMySeafarerDocuments(): Promise<ApiResponse<SeafarerHeld
   return {
     success: false,
     error: { message: "Endpoint /api/Seafarers/{seafarerId}/documents does not exist in the API. Use document-service.ts getProfileDocuments(rn) instead.", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 

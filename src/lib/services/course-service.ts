@@ -59,7 +59,7 @@ export async function getCoursesByProgram(
   return {
     success: false,
     error: { message: "Endpoint /seafarer/api/v1/courses does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -78,7 +78,7 @@ export async function getCourseById(
   return {
     success: false,
     error: { message: "Endpoint /seafarer/api/v1/courses does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -95,7 +95,7 @@ export async function createCourse(
   return {
     success: false,
     error: { message: "Endpoint /seafarer/api/v1/courses does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -113,7 +113,7 @@ export async function updateCourse(
   return {
     success: false,
     error: { message: "Endpoint /seafarer/api/v1/courses does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -130,7 +130,7 @@ export async function deleteCourse(
   return {
     success: false,
     error: { message: "Endpoint /seafarer/api/v1/courses does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 

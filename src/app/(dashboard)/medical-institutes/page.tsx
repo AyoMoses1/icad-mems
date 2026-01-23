@@ -380,8 +380,10 @@ export default function MedicalInstitutesPage() {
                       Loading institutions...
                     </SelectItem>
                   ) : (
-                    institutions.map((inst) => (
-                      <SelectItem key={inst.id} value={inst.id}>
+                    institutions
+                      .filter((inst) => inst.id)
+                      .map((inst) => (
+                        <SelectItem key={inst.id!} value={inst.id!}>
                         {inst.name || inst.id}
                         {inst.institutionType
                           ? ` (${inst.institutionType})`

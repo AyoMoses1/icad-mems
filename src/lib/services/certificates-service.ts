@@ -133,7 +133,7 @@ export async function getCertificateById(id: string): Promise<ApiResponse<Certif
   return {
     success: false,
     error: { message: "Endpoint /api/Certificates/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -150,7 +150,7 @@ export async function createCertificate(
   return {
     success: false,
     error: { message: "Endpoint /api/Certificates does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -168,7 +168,7 @@ export async function updateCertificate(
   return {
     success: false,
     error: { message: "Endpoint /api/Certificates/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -183,7 +183,7 @@ export async function deleteCertificate(id: string): Promise<ApiResponse<void>> 
   return {
     success: false,
     error: { message: "Endpoint /api/Certificates/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -204,7 +204,7 @@ export async function getCertificateRequirements(
   return {
     success: false,
     error: { message: "Endpoint /api/Certificates/{certificateId}/requirements does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -222,7 +222,7 @@ export async function createCertificateRequirement(
   return {
     success: false,
     error: { message: "Endpoint /api/Certificates/{certificateId}/requirements does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -239,7 +239,7 @@ export async function getCertificateRequirement(
   return {
     success: false,
     error: { message: "Endpoint /api/Certificates/requirements/{requirementId} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -257,7 +257,7 @@ export async function updateCertificateRequirement(
   return {
     success: false,
     error: { message: "Endpoint /api/Certificates/requirements/{requirementId} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -274,7 +274,7 @@ export async function deleteCertificateRequirement(
   return {
     success: false,
     error: { message: "Endpoint /api/Certificates/requirements/{requirementId} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -295,7 +295,7 @@ export async function getCertificateFees(
   return {
     success: false,
     error: { message: "Endpoint /api/Certificates/{certificateId}/fees does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -313,7 +313,7 @@ export async function createCertificateFee(
   return {
     success: false,
     error: { message: "Endpoint /api/Certificates/{certificateId}/fees does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -332,7 +332,7 @@ export async function updateCertificateFee(
   return {
     success: false,
     error: { message: "Endpoint /api/Certificates/{certificateId}/fees/{feeId} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -350,7 +350,7 @@ export async function deleteCertificateFee(
   return {
     success: false,
     error: { message: "Endpoint /api/Certificates/{certificateId}/fees/{feeId} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 

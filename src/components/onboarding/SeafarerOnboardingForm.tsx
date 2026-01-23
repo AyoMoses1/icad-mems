@@ -401,8 +401,19 @@ export function SeafarerOnboardingForm() {
               : "Onboarding completed successfully!")
         );
 
-        // Redirect to seafarer dashboard
-        router.push("/seafarer/dashboard");
+        // Check user role to determine redirect destination
+        // Owners should go to normal dashboard (/), not seafarer dashboard
+        const userRole = typeof window !== "undefined" 
+          ? localStorage.getItem("userRole")?.toUpperCase() 
+          : null;
+        
+        if (userRole === "OWNER") {
+          // Owner completes seafarer onboarding but should go to normal dashboard
+          router.push("/");
+        } else {
+          // Regular seafarers go to seafarer dashboard
+          router.push("/seafarer/dashboard");
+        }
       } else {
         toast.error(response.message || "Failed to complete onboarding");
       }

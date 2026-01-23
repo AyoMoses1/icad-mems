@@ -93,7 +93,7 @@ export default function MedicalServicesPage() {
         sortDirection: "asc",
       });
       setInstitutions(res.items || []);
-      if (res.items && res.items.length > 0) {
+      if (res.items && res.items.length > 0 && res.items[0].id) {
         setSelectedInstitutionId(res.items[0].id);
       }
     } catch (error) {

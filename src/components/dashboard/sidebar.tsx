@@ -52,6 +52,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuthStore, useUIStore } from "@/store";
 import type { UserType } from "@/store/ui-store";
+import { getMenu, filterMenuByPermissions, type WorkspaceMenuDto, type MenuItemDto } from "@/lib/services/menu-service";
+import { getMyPermissions } from "@/lib/services/permissions-service";
 
 type MenuItem = {
   title: string;
@@ -604,6 +606,143 @@ const getMenuItems = (userType: UserType): MenuItem[] => {
 };
 
 // ============================================================================
+// Icon Mapping for API Menu Items
+// Maps menu item names/URLs to appropriate icons
+// ============================================================================
+
+const getIconForMenuItem = (name: string, url?: string | null): React.ComponentType<{ className?: string }> => {
+  const nameLower = name.toLowerCase();
+  const urlLower = url?.toLowerCase() || "";
+
+  // Dashboard
+  if (nameLower.includes("dashboard") || urlLower.includes("dashboard")) {
+    return LayoutDashboard;
+  }
+
+  // Profile/User
+  if (nameLower.includes("profile") || nameLower.includes("user") || nameLower.includes("account")) {
+    return User;
+  }
+
+  // Services
+  if (nameLower.includes("service")) {
+    return Briefcase;
+  }
+
+  // Applications
+  if (nameLower.includes("application")) {
+    return FileText;
+  }
+
+  // Billing/Payments/Invoices
+  if (nameLower.includes("billing") || nameLower.includes("payment") || nameLower.includes("invoice")) {
+    return CreditCard;
+  }
+
+  // Institution/Agency
+  if (nameLower.includes("institution") || nameLower.includes("agency") || nameLower.includes("organization")) {
+    return Building2;
+  }
+
+  // Accreditation
+  if (nameLower.includes("accreditation")) {
+    return Award;
+  }
+
+  // Inspection
+  if (nameLower.includes("inspection")) {
+    return ClipboardCheck;
+  }
+
+  // Deficiency
+  if (nameLower.includes("deficiency")) {
+    return AlertTriangle;
+  }
+
+  // Audit
+  if (nameLower.includes("audit")) {
+    return ClipboardList;
+  }
+
+  // Onboarding
+  if (nameLower.includes("onboarding")) {
+    return UserPlus;
+  }
+
+  // Seafarer Management
+  if (nameLower.includes("seafarer")) {
+    return User;
+  }
+
+  // Financial/Finance
+  if (nameLower.includes("financial") || nameLower.includes("finance")) {
+    return Receipt;
+  }
+
+  // Statistics/Reports
+  if (nameLower.includes("statistic") || nameLower.includes("report")) {
+    return BarChart3;
+  }
+
+  // Settings/System
+  if (nameLower.includes("setting") || nameLower.includes("system") || nameLower.includes("configuration")) {
+    return Settings;
+  }
+
+  // Documents
+  if (nameLower.includes("document")) {
+    return FileText;
+  }
+
+  // Education/Training
+  if (nameLower.includes("education") || nameLower.includes("training") || nameLower.includes("course")) {
+    return GraduationCap;
+  }
+
+  // Default icon
+  return FileText;
+};
+
+// ============================================================================
+// Convert API Menu Items to Sidebar Menu Format
+// ============================================================================
+
+const convertApiMenuToSidebarMenu = (workspaceMenus: WorkspaceMenuDto[]): MenuItem[] => {
+  const menuItems: MenuItem[] = [];
+
+  // For now, we'll use the first workspace's menu items
+  // In the future, you might want to show workspace switcher or merge menus
+  if (workspaceMenus.length === 0) {
+    return menuItems;
+  }
+
+  // Get all root-level items from all workspaces
+  const allRootItems: MenuItemDto[] = [];
+  workspaceMenus.forEach((workspaceMenu) => {
+    allRootItems.push(...workspaceMenu.resources);
+  });
+
+  // Convert API menu items to sidebar menu items
+  const convertMenuItem = (item: MenuItemDto): MenuItem => {
+    const children = item.children && item.children.length > 0
+      ? item.children.map((child) => ({
+          title: child.name,
+          href: child.url || "#",
+        }))
+      : undefined;
+
+    return {
+      title: item.name,
+      href: item.url || "#",
+      icon: getIconForMenuItem(item.name, item.url),
+      children: children,
+    };
+  };
+
+  return allRootItems.map(convertMenuItem);
+};
+
+// ============================================================================
 // Sidebar Component
 // ============================================================================
 
@@ -614,6 +753,9 @@ export function Sidebar() {
   const { mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
   const [expandedItems, setExpandedItems] = React.useState<string[]>([]);
   const [userRole, setUserRole] = React.useState<string | null>(null);
+  const [apiMenuItems, setApiMenuItems] = React.useState<MenuItem[]>([]);
+  const [useApiMenu, setUseApiMenu] = React.useState(false);
+  const [isLoadingMenu, setIsLoadingMenu] = React.useState(true);
 
   // Get role from localStorage (set by loading page)
   React.useEffect(() => {
@@ -623,10 +765,74 @@ export function Sidebar() {
     }
   }, []);
 
-  // Get menu items based on role
-  const currentMenuItems = userRole 
-    ? getMenuItemsByRole(userRole)
-    : getMenuItems("admin"); // Fallback
+  // Fetch menu from API and permissions
+  React.useEffect(() => {
+    const fetchMenuAndPermissions = async () => {
+      if (!user) {
+        setIsLoadingMenu(false);
+        return;
+      }
+
+      try {
+        setIsLoadingMenu(true);
+        
+        // Try to get workspaceId from user workspaces
+        const workspaceId = user.workspaces?.[0]?.workspaceId || 
+                           (user.workspaces as any)?.[0]?.id ||
+                           undefined;
+
+        // Fetch menu items
+        const menuResponse = await getMenu(workspaceId);
+        
+        if (menuResponse.success && menuResponse.data && menuResponse.data.length > 0) {
+          let filteredMenus = menuResponse.data;
+          
+          // If we have a workspaceId, fetch permissions and filter menu
+          if (workspaceId) {
+            try {
+              const permissionsResponse = await getMyPermissions(workspaceId);
+              if (permissionsResponse.success && permissionsResponse.data) {
+                filteredMenus = filterMenuByPermissions(
+                  menuResponse.data,
+                  permissionsResponse.data
+                );
+              }
+            } catch (permError) {
+              console.warn("Failed to fetch permissions, showing all menu items:", permError);
+            }
+          }
+          
+          // Convert API menu items to sidebar menu format
+          const convertedMenuItems = convertApiMenuToSidebarMenu(filteredMenus);
+          
+          if (convertedMenuItems.length > 0) {
+            setApiMenuItems(convertedMenuItems);
+            setUseApiMenu(true);
+          } else {
+            // Fall back to role-based menu if conversion resulted in empty menu
+            setUseApiMenu(false);
+          }
+        } else {
+          // Fall back to role-based menu if API returns empty or fails
+          setUseApiMenu(false);
+        }
+      } catch (error) {
+        console.warn("Failed to fetch menu from API, falling back to role-based menu:", error);
+        setUseApiMenu(false);
+      } finally {
+        setIsLoadingMenu(false);
+      }
+    };
+
+    fetchMenuAndPermissions();
+  }, [user]);
+
+  // Get menu items - use API menu if available, otherwise fall back to role-based
+  const currentMenuItems = useApiMenu && apiMenuItems.length > 0
+    ? apiMenuItems
+    : (userRole 
+        ? getMenuItemsByRole(userRole)
+        : getMenuItems("admin")); // Fallback
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) =>

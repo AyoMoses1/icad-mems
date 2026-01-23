@@ -646,7 +646,12 @@ export default function RequirementListsPage() {
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open) {
+            setSelectedRequirementList(null);
+          }
+        }}
         title="Delete Requirement List"
         description={
           selectedRequirementList
@@ -656,10 +661,6 @@ export default function RequirementListsPage() {
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={handleDelete}
-        onCancel={() => {
-          setIsDeleteDialogOpen(false);
-          setSelectedRequirementList(null);
-        }}
         variant="destructive"
         isLoading={isSubmitting}
       />

@@ -353,7 +353,7 @@ export async function getApplicationRequirements(
   return {
     success: false,
     error: { message: "Endpoint /seafarer/api/v1/Applications/{id}/requirements does not exist. Use getServiceChecklist() or getApplicationById() instead.", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -374,7 +374,7 @@ export async function fulfillApplicationRequirement(
   return {
     success: false,
     error: { message: "Endpoint /seafarer/api/v1/Applications/{id}/requirements/{requirementId} does not exist. Submit requirement values when calling submitApplication() instead.", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -440,7 +440,7 @@ export async function checkEligibility(
   return {
     success: false,
     error: { message: "Endpoint /api/Applications/check-eligibility does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -457,7 +457,7 @@ export async function checkEligibilityForCurrentUser(
   return {
     success: false,
     error: { message: "Endpoint /api/Applications/me/check-eligibility does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -476,7 +476,7 @@ export async function createDraftApplication(
   return {
     success: false,
     error: { message: "Endpoint /api/Applications/draft does not exist. Use createApplication() instead.", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -496,7 +496,7 @@ export async function attachDocumentsToApplication(
   return {
     success: false,
     error: { message: "Endpoint /api/Applications/{id}/attach does not exist. Use uploadApplicationDocument() from document-service.ts instead.", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -516,7 +516,7 @@ export async function generateApplicationInvoiceWithFee(
   return {
     success: false,
     error: { message: "Endpoint /api/Applications/{id}/generate-invoice does not exist. Use generateApplicationInvoice() instead.", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -538,7 +538,7 @@ export async function approveApplication(
   return {
     success: false,
     error: { message: "Endpoint /seafarer/api/v1/Applications/{id}/approve does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -556,7 +556,7 @@ export async function rejectApplication(
   return {
     success: false,
     error: { message: "Endpoint /seafarer/api/v1/Applications/{id}/reject does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 

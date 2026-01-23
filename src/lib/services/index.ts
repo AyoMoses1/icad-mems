@@ -223,3 +223,21 @@ export * from "./onboarding-requirements-service";
 export {
   getPendingApplications,
 } from "./admin-review-service";
+
+// Permissions service
+export {
+  getMyPermissions,
+  hasPermission,
+  hasAnyPermission,
+  hasAllPermissions,
+} from "./permissions-service";
+
+// Menu service
+export {
+  getMenu,
+  flattenMenuItems,
+  findMenuItemByUrl,
+  filterMenuByPermissions,
+  type MenuItemDto,
+  type WorkspaceMenuDto,
+} from "./menu-service";

@@ -94,7 +94,7 @@ export async function getDocumentMasterById(id: string): Promise<ApiResponse<Doc
   return {
     success: false,
     error: { message: "Endpoint GET /seafarer/api/v1/documents/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -111,7 +111,7 @@ export async function createDocumentMaster(
   return {
     success: false,
     error: { message: "Endpoint POST /seafarer/api/v1/documents does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -129,7 +129,7 @@ export async function updateDocumentMaster(
   return {
     success: false,
     error: { message: "Endpoint PUT /seafarer/api/v1/documents/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -146,7 +146,7 @@ export async function deleteDocumentMaster(id: string): Promise<ApiResponse<void
   return {
     success: false,
     error: { message: "Endpoint DELETE /seafarer/api/v1/documents/{id} does not exist. Use document-service.ts delete functions instead.", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 

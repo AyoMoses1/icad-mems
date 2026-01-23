@@ -153,7 +153,7 @@ export default function MyAccreditationsPage() {
 
   const handleViewDetails = async (accreditation: AccreditedInstitutionDto) => {
     try {
-      const accreditationId = accreditation.accreditedInstitutionsId || accreditation.id;
+      const accreditationId = accreditation.accreditedInstitutionsId;
       if (!accreditationId) {
         toast.error("Accreditation ID not found");
         return;
@@ -263,9 +263,9 @@ export default function MyAccreditationsPage() {
               <FileText className="mr-2 h-4 w-4" />
               View Details
             </DropdownMenuItem>
-            {row.fileUrl && (
+            {(row as any).fileUrl && (
               <DropdownMenuItem
-                onClick={() => window.open(row.fileUrl, "_blank")}
+                onClick={() => window.open((row as any).fileUrl, "_blank")}
               >
                 <FileText className="mr-2 h-4 w-4" />
                 View Document

@@ -19,7 +19,14 @@ import {
 export default function ContactDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState<CreateContactDetailsRequest>({
+  const [formData, setFormData] = useState<CreateContactDetailsRequest & {
+    altPhone?: string;
+    whatsapp?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+  }>({
     email: "",
     phone: "",
     altPhone: "",
@@ -43,15 +50,16 @@ export default function ContactDetailsPage() {
       
       if (ok && response.data) {
         const contact = response.data;
+        const contactAny = contact as any;
         setFormData({
           email: contact.email || "",
           phone: contact.phone || "",
-          altPhone: contact.altPhone || "",
-          whatsapp: contact.whatsapp || "",
-          city: contact.city || "",
-          state: contact.state || "",
-          country: contact.country || "",
-          postalCode: contact.postalCode || "",
+          altPhone: contactAny.altPhone || "",
+          whatsapp: contactAny.whatsapp || "",
+          city: contactAny.city || "",
+          state: contactAny.state || "",
+          country: contactAny.country || "",
+          postalCode: contactAny.postalCode || "",
           address: contact.address || "",
         });
       }
@@ -76,7 +84,14 @@ export default function ContactDetailsPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await createOrUpdateContactDetails(formData);
+      // Only send fields that exist in CreateContactDetailsRequest
+      const requestData: CreateContactDetailsRequest = {
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        address: formData.address || undefined,
+        // Note: altPhone, whatsapp, city, state, country, postalCode are not part of the API
+      };
+      const response = await createOrUpdateContactDetails(requestData);
       const ok = response.success ?? (response as any).successful;
       
       if (ok) {
@@ -125,7 +140,7 @@ export default function ContactDetailsPage() {
                 <Input
                   id="email"
                   type="email"
-                  value={formData.email}
+                  value={formData.email || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
@@ -139,7 +154,7 @@ export default function ContactDetailsPage() {
                 </Label>
                 <Input
                   id="phone"
-                  value={formData.phone}
+                  value={formData.phone || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, phone: e.target.value })
                   }
@@ -150,7 +165,7 @@ export default function ContactDetailsPage() {
                 <Label htmlFor="altPhone">Alternative Phone Number</Label>
                 <Input
                   id="altPhone"
-                  value={formData.altPhone}
+                  value={formData.altPhone || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, altPhone: e.target.value })
                   }
@@ -161,7 +176,7 @@ export default function ContactDetailsPage() {
                 <Label htmlFor="whatsapp">WhatsApp Number</Label>
                 <Input
                   id="whatsapp"
-                  value={formData.whatsapp}
+                  value={formData.whatsapp || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, whatsapp: e.target.value })
                   }
@@ -172,7 +187,7 @@ export default function ContactDetailsPage() {
                 <Label htmlFor="city">City</Label>
                 <Input
                   id="city"
-                  value={formData.city}
+                  value={formData.city || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, city: e.target.value })
                   }
@@ -183,7 +198,7 @@ export default function ContactDetailsPage() {
                 <Label htmlFor="state">State</Label>
                 <Input
                   id="state"
-                  value={formData.state}
+                  value={formData.state || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, state: e.target.value })
                   }
@@ -197,7 +212,7 @@ export default function ContactDetailsPage() {
                 </Label>
                 <Input
                   id="country"
-                  value={formData.country}
+                  value={formData.country || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, country: e.target.value })
                   }
@@ -208,7 +223,7 @@ export default function ContactDetailsPage() {
                 <Label htmlFor="postalCode">Postal Code</Label>
                 <Input
                   id="postalCode"
-                  value={formData.postalCode}
+                  value={formData.postalCode || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, postalCode: e.target.value })
                   }
@@ -223,7 +238,7 @@ export default function ContactDetailsPage() {
               </Label>
               <Textarea
                 id="address"
-                value={formData.address}
+                value={formData.address || ""}
                 onChange={(e) =>
                   setFormData({ ...formData, address: e.target.value })
                 }

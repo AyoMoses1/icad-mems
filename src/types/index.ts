@@ -523,4 +523,12 @@ export * from "./seafarer";
 // ============================================================================
 // Service Management Types (re-exported from service-management.ts)
 // ============================================================================
-export * from "./service-management";
+// Note: ServiceDto is already exported from ./seafarer, so we export specific types to avoid conflicts
+export type {
+  RequirementListDto,
+  CreateRequirementListRequest,
+  UpdateRequirementListRequest,
+  ServiceRequirementDto,
+  CreateServiceRequirementRequest,
+  UpdateServiceRequirementRequest,
+} from "./service-management";

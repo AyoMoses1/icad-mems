@@ -85,7 +85,7 @@ export async function getCohortById(id: string): Promise<ApiResponse<CohortDto>>
   return {
     success: false,
     error: { message: "Endpoint /seafarer/api/v1/cohorts/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -102,7 +102,7 @@ export async function createCohort(
   return {
     success: false,
     error: { message: "Endpoint /seafarer/api/v1/cohorts does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -120,7 +120,7 @@ export async function updateCohort(
   return {
     success: false,
     error: { message: "Endpoint /seafarer/api/v1/cohorts/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -135,7 +135,7 @@ export async function deleteCohort(id: string): Promise<ApiResponse<void>> {
   return {
     success: false,
     error: { message: "Endpoint /seafarer/api/v1/cohorts/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -152,7 +152,7 @@ export async function getCohortEnrollments(
   return {
     success: false,
     error: { message: "Endpoint /seafarer/api/v1/cohorts/{cohortId}/enrollments does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 

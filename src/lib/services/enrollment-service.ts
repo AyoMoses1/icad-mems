@@ -58,7 +58,7 @@ export async function getEnrollmentById(
   return {
     success: false,
     error: { message: "Endpoint /api/Enrollments/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -79,7 +79,7 @@ export async function createEnrollment(
   return {
     success: false,
     error: { message: "Endpoint /api/Enrollments does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -102,7 +102,7 @@ export async function updateEnrollment(
   return {
     success: false,
     error: { message: "Endpoint /api/Enrollments/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 
@@ -119,7 +119,7 @@ export async function deleteEnrollment(
   return {
     success: false,
     error: { message: "Endpoint /api/Enrollments/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: null,
+    data: undefined,
   };
 }
 

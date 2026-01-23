@@ -394,14 +394,24 @@ export default function ApplyApplicationPage() {
       return;
     }
 
+    if (!application?.id) {
+      toast.error("Application not found");
+      return;
+    }
+
     setIsProcessingPayment(true);
     setPaymentStatus("pending");
 
     try {
-      const response = await simulatePayment({
-        invoiceId: invoice.id,
-        paymentReference: `PAY-${Date.now()}`,
-        rrrNumber: null,
+      const response = await simulatePayment(application.id, {
+        amount: invoice.amount || invoice.totalAmount || 0,
+        currency: invoice.currency || "NGN",
+        transactionReference: `TXN-${Date.now()}`,
+        paymentMethod: "SIMULATE",
+        notes: `Simulated payment for application ${application.id}`,
+        payerName: user?.fullName || "",
+        payerEmail: user?.email || "",
+        payerPhone: user?.phoneNumber || "",
       });
 
       const ok = response.success ?? (response as any).successful;

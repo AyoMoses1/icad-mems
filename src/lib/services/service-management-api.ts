@@ -53,7 +53,7 @@ export const serviceManagementApi = {
       throw new Error("Unauthorized: Admin access required");
     }
 
-    const response = await apiPostMain<ApiResponse<ServiceDto>>(
+    const response = await apiPostMain<ServiceDto>(
       `${API_BASE}/services`,
       request
     );
@@ -68,7 +68,7 @@ export const serviceManagementApi = {
         response.error?.message || "Failed to create service"
       );
     }
-    return response.data;
+    return response.data!;
   },
 
   /**
@@ -85,7 +85,7 @@ export const serviceManagementApi = {
       throw new Error("Unauthorized: Admin access required");
     }
 
-    const response = await apiPutMain<ApiResponse<ServiceDto>>(
+    const response = await apiPutMain<ServiceDto>(
       `${API_BASE}/services/${serviceId}`,
       request
     );
@@ -99,7 +99,7 @@ export const serviceManagementApi = {
         response.error?.message || "Failed to update service"
       );
     }
-    return response.data;
+    return response.data!;
   },
 
   /**
@@ -113,7 +113,7 @@ export const serviceManagementApi = {
       throw new Error("Unauthorized: Admin access required");
     }
 
-    const response = await apiDeleteMain<ApiResponse<boolean>>(
+    const response = await apiDeleteMain<boolean>(
       `${API_BASE}/services/${serviceId}`
     );
 
@@ -146,7 +146,7 @@ export const serviceManagementApi = {
     // Ensure serviceId matches route
     const payload = { ...request, serviceId };
 
-    const response = await apiPostMain<ApiResponse<ServiceRequirementDto>>(
+    const response = await apiPostMain<ServiceRequirementDto>(
       `${API_BASE}/services/${serviceId}/requirements`,
       payload
     );
@@ -160,7 +160,7 @@ export const serviceManagementApi = {
         response.error?.message || "Failed to create requirement"
       );
     }
-    return response.data;
+    return response.data!;
   },
 
   /**
@@ -178,7 +178,7 @@ export const serviceManagementApi = {
       throw new Error("Unauthorized: Admin access required");
     }
 
-    const response = await apiPutMain<ApiResponse<ServiceRequirementDto>>(
+    const response = await apiPutMain<ServiceRequirementDto>(
       `${API_BASE}/services/${serviceId}/requirements/${requirementId}`,
       request
     );
@@ -192,7 +192,7 @@ export const serviceManagementApi = {
         response.error?.message || "Failed to update requirement"
       );
     }
-    return response.data;
+    return response.data!;
   },
 
   /**
@@ -209,7 +209,7 @@ export const serviceManagementApi = {
       throw new Error("Unauthorized: Admin access required");
     }
 
-    const response = await apiDeleteMain<ApiResponse<boolean>>(
+    const response = await apiDeleteMain<boolean>(
       `${API_BASE}/services/${serviceId}/requirements/${requirementId}`
     );
 
@@ -235,7 +235,7 @@ export const servicesApi = {
    * Get all services (from ApplicationsController)
    */
   getServices: async (): Promise<ServiceDto[]> => {
-    const response = await apiGetMain<ApiResponse<ServiceDto[]>>(
+    const response = await apiGetMain<ServiceDto[]>(
       `${API_BASE}/applications/services`
     );
     if (!response.success || !response.data) {
@@ -243,14 +243,14 @@ export const servicesApi = {
         response.error?.message || "Failed to fetch services"
       );
     }
-    return response.data;
+    return response.data!;
   },
 
   /**
    * Get service by ID (from ApplicationsController)
    */
   getServiceById: async (serviceId: string): Promise<ServiceDto> => {
-    const response = await apiGetMain<ApiResponse<ServiceDto>>(
+    const response = await apiGetMain<ServiceDto>(
       `${API_BASE}/applications/services/${serviceId}`
     );
     if (!response.success || !response.data) {
@@ -258,7 +258,7 @@ export const servicesApi = {
         response.error?.message || "Failed to fetch service"
       );
     }
-    return response.data;
+    return response.data!;
   },
 };
 
@@ -271,7 +271,7 @@ export const requirementListsApi = {
    * GET /seafarer/api/v1/services/requirement-lists
    */
   getRequirementLists: async (): Promise<RequirementListDto[]> => {
-    const response = await apiGetMain<ApiResponse<RequirementListDto[]>>(
+    const response = await apiGetMain<RequirementListDto[]>(
       `${API_BASE}/services/requirement-lists`
     );
     if (!response.success || !response.data) {
@@ -279,7 +279,7 @@ export const requirementListsApi = {
         response.error?.message || "Failed to fetch requirement lists"
       );
     }
-    return response.data;
+    return response.data!;
   },
 
   /**
@@ -289,7 +289,7 @@ export const requirementListsApi = {
   getRequirementListById: async (
     requirementListId: string
   ): Promise<RequirementListDto> => {
-    const response = await apiGetMain<ApiResponse<RequirementListDto>>(
+    const response = await apiGetMain<RequirementListDto>(
       `${API_BASE}/services/requirement-lists/${requirementListId}`
     );
     if (!response.success || !response.data) {
@@ -297,7 +297,7 @@ export const requirementListsApi = {
         response.error?.message || "Failed to fetch requirement list"
       );
     }
-    return response.data;
+    return response.data!;
   },
 
   /**
@@ -313,7 +313,7 @@ export const requirementListsApi = {
       throw new Error("Unauthorized: Admin access required");
     }
 
-    const response = await apiPostMain<ApiResponse<RequirementListDto>>(
+    const response = await apiPostMain<RequirementListDto>(
       `${API_BASE}/services/requirement-lists`,
       request
     );
@@ -322,7 +322,7 @@ export const requirementListsApi = {
         response.error?.message || "Failed to create requirement list"
       );
     }
-    return response.data;
+    return response.data!;
   },
 
   /**
@@ -339,7 +339,7 @@ export const requirementListsApi = {
       throw new Error("Unauthorized: Admin access required");
     }
 
-    const response = await apiPutMain<ApiResponse<RequirementListDto>>(
+    const response = await apiPutMain<RequirementListDto>(
       `${API_BASE}/services/requirement-lists/${requirementListId}`,
       request
     );
@@ -348,7 +348,7 @@ export const requirementListsApi = {
         response.error?.message || "Failed to update requirement list"
       );
     }
-    return response.data;
+    return response.data!;
   },
 
   /**
@@ -364,7 +364,7 @@ export const requirementListsApi = {
       throw new Error("Unauthorized: Admin access required");
     }
 
-    const response = await apiDeleteMain<ApiResponse<boolean>>(
+    const response = await apiDeleteMain<boolean>(
       `${API_BASE}/services/requirement-lists/${requirementListId}`
     );
     if (!response.success) {
