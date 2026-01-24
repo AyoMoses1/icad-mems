@@ -7,9 +7,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 import { useAuthStore } from "@/store";
 import { apiGetAuth } from "@/lib/api-client";
+import { getMyOnboarding } from "@/lib/services/onboarding-service";
+import type { UserSeafarerOnboardingDto } from "@/lib/services/onboarding-service";
 import { SeafarerOnboardingForm } from "@/components/onboarding/SeafarerOnboardingForm";
 import { TrainingInstitutionOnboardingForm } from "@/components/onboarding/TrainingInstitutionOnboardingForm";
 import { AgentOnboardingForm } from "@/components/onboarding/AgentOnboardingForm";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 type UserRole = "SEAFARER" | "TRAINING_INSTITUTION" | "AGENT" | null;
 
@@ -69,6 +73,8 @@ export default function OnboardingPage() {
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [myOnboarding, setMyOnboarding] = useState<UserSeafarerOnboardingDto | null>(null);
+  const [onboardingCheckDone, setOnboardingCheckDone] = useState(false);
 
   useEffect(() => {
     const detectUserRole = async () => {
@@ -199,16 +205,28 @@ export default function OnboardingPage() {
           }
         }
 
+        const finishOnboardingRole = async (role: UserRole) => {
+          setUserRole(role);
+          try {
+            const res = await getMyOnboarding();
+            setMyOnboarding(res.data ?? null);
+          } catch {
+            setMyOnboarding(null);
+          } finally {
+            setOnboardingCheckDone(true);
+          }
+        };
+
         // Map role to onboarding type
         if (specificRole === "SEAFARER") {
           console.log("✓ Routing to SEAFARER onboarding");
-          setUserRole("SEAFARER");
+          await finishOnboardingRole("SEAFARER");
         } else if (specificRole === "TRAINING_INSTITUTION") {
           console.log("✓ Routing to TRAINING_INSTITUTION onboarding");
-          setUserRole("TRAINING_INSTITUTION");
+          await finishOnboardingRole("TRAINING_INSTITUTION");
         } else if (specificRole === "AGENT") {
           console.log("✓ Routing to AGENT onboarding");
-          setUserRole("AGENT");
+          await finishOnboardingRole("AGENT");
         } else {
           // Fallback: Check if any role contains the keywords
           const rolesStr = roles.join(" ").toUpperCase();
@@ -217,7 +235,7 @@ export default function OnboardingPage() {
             console.log(
               "✓ Routing to SEAFARER onboarding (fallback detection)"
             );
-            setUserRole("SEAFARER");
+            await finishOnboardingRole("SEAFARER");
           } else if (
             rolesStr.includes("TRAINING") ||
             rolesStr.includes("INSTITUTION")
@@ -225,10 +243,10 @@ export default function OnboardingPage() {
             console.log(
               "✓ Routing to TRAINING_INSTITUTION onboarding (fallback detection)"
             );
-            setUserRole("TRAINING_INSTITUTION");
+            await finishOnboardingRole("TRAINING_INSTITUTION");
           } else if (rolesStr.includes("AGENT")) {
             console.log("✓ Routing to AGENT onboarding (fallback detection)");
-            setUserRole("AGENT");
+            await finishOnboardingRole("AGENT");
           } else {
             // No recognized onboarding role found
             console.error(
@@ -282,6 +300,53 @@ export default function OnboardingPage() {
                     Error Loading Onboarding
                   </h3>
                   <p className="text-sm text-muted-foreground">{error}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const blocked =
+    myOnboarding != null && myOnboarding.canCreateNewOnboarding === false;
+
+  if (blocked) {
+    return (
+      <div className="container max-w-2xl mx-auto py-8">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="bg-destructive/10 p-6 rounded-lg border border-destructive/20">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-6 w-6 text-destructive mt-0.5 shrink-0" />
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-destructive">
+                    Cannot Create New Onboarding
+                  </h3>
+                  {myOnboarding?.blockingReason && (
+                    <p className="text-sm text-muted-foreground">
+                      {myOnboarding.blockingReason}
+                    </p>
+                  )}
+                  {myOnboarding?.hasActiveOnboarding &&
+                    myOnboarding?.userSeafarerOnboardingId && (
+                      <div className="rounded border bg-muted/50 p-3 text-sm">
+                        <p className="text-muted-foreground">
+                          Active onboarding:{" "}
+                          {[myOnboarding.activeOnboardingRole, myOnboarding.activeOnboardingStatus]
+                            .filter(Boolean)
+                            .join(" – ") || "—"}
+                        </p>
+                        <Button variant="outline" size="sm" className="mt-2" asChild>
+                          <Link
+                            href={`/admin/onboarding/${myOnboarding.userSeafarerOnboardingId}`}
+                          >
+                            View active onboarding
+                          </Link>
+                        </Button>
+                      </div>
+                    )}
                 </div>
               </div>
             </div>
