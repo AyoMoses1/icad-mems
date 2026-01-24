@@ -26,8 +26,12 @@ export interface ServiceRequirementDto {
   requiredValue: string;
   metricId: string;
   metricDescription: string;
+  // Legacy – single document type
   documentTypesId?: string | null;
   documentTypeDescription?: string | null;
+  // New – multiple document types
+  documentTypeIds?: string[] | null;
+  documentTypes?: DocumentTypeDto[] | null;
 }
 
 // ============================================================================
@@ -61,27 +65,39 @@ export interface UpdateServiceRequirementRequest {
   requiredValue: string;
 }
 
+/** Document type (for requirement lists). Reusable; matches API DocumentTypeDto. */
+export interface DocumentTypeDto {
+  documentTypesId: string;
+  description: string;
+  code?: string | null;
+  isActive?: boolean;
+}
+
 export interface RequirementListDto {
   requirementListId: string; // UUID
   description: string;
   metricId: string; // UUID
   metricDescription: string; // e.g., "File/Document", "Text", "Date", "Yes/No"
-  documentTypesId?: string | null; // UUID, only set when metricDescription = "File/Document"
+  documentTypesId?: string | null; // backward compatibility (single)
   documentTypeDescription?: string | null;
+  documentTypeIds?: string[] | null;
+  documentTypes?: DocumentTypeDto[] | null;
   isActive: boolean;
 }
 
 export interface CreateRequirementListRequest {
   description: string;
   metricId: string; // UUID - the metric type
-  documentTypesId?: string | null; // UUID - REQUIRED when metricId corresponds to "File/Document"
+  documentTypesId?: string | null; // backward compatibility
+  documentTypeIds?: string[] | null; // preferred for multiple document types
   isActive?: boolean; // Defaults to true
 }
 
 export interface UpdateRequirementListRequest {
   description: string;
   metricId: string; // UUID
-  documentTypesId?: string | null; // UUID - REQUIRED when metricId corresponds to "File/Document"
+  documentTypesId?: string | null; // backward compatibility
+  documentTypeIds?: string[] | null; // preferred for multiple document types
   isActive: boolean;
 }
 

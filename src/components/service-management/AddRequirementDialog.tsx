@@ -28,6 +28,7 @@ import { serviceManagementApi, requirementListsApi } from "@/lib/services/servic
 import { getRanks } from "@/lib/services/lookup-service";
 import type { RankDto } from "@/lib/services/lookup-service";
 import type { CreateServiceRequirementRequest, RequirementListDto } from "@/types/service-management";
+import { getAllowedDocumentTypes } from "@/lib/utils/requirement-helpers";
 
 const formSchema = z.object({
   requirementListId: z.string().min(1, "Requirement is required"),
@@ -160,6 +161,17 @@ export function AddRequirementDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {(() => {
+                const listId = watch("requirementListId");
+                const list = requirementLists.find((r) => r.requirementListId === listId);
+                const allowed = list ? getAllowedDocumentTypes(list) : [];
+                if (allowed.length === 0) return null;
+                return (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Document type{allowed.length > 1 ? "s" : ""}: {allowed.map((t) => t.description).join(", ")}
+                  </p>
+                );
+              })()}
               {errors.requirementListId && (
                 <p className="text-sm text-destructive">
                   {errors.requirementListId.message}

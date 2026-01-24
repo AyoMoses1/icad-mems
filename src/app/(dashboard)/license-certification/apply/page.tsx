@@ -12,6 +12,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuthStore } from "@/store";
 import {
   getServices,
@@ -19,7 +26,7 @@ import {
 } from "@/lib/services/service-service";
 import {
   createApplication,
-  getApplicationRequirements,
+  getApplicationById,
   fulfillApplicationRequirement,
   submitApplication,
 } from "@/lib/services/application-service";
@@ -34,6 +41,10 @@ import type {
 } from "@/types/seafarer";
 import type { ApplicationDto } from "@/types/payment";
 import type { DocumentDto } from "@/lib/services/document-service";
+import {
+  getAllowedDocumentTypes,
+  getAllowedDocumentTypeIds,
+} from "@/lib/utils/requirement-helpers";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -71,7 +82,17 @@ export default function ApplyCertificateLicensePage() {
     ApplicationRequirementDto[]
   >([]);
   const [documentUploads, setDocumentUploads] = useState<
-    Map<number, { file: File | null; documentId: string | number | null }>
+    Map<
+      number,
+      {
+        file: File | null;
+        documentId: string | number | null;
+        documentTypesId?: string;
+      }
+    >
+  >(new Map());
+  const [selectedDocTypeByReq, setSelectedDocTypeByReq] = useState<
+    Map<number, string>
   >(new Map());
   const [uploadedDocuments, setUploadedDocuments] = useState<DocumentDto[]>([]);
 
@@ -139,28 +160,31 @@ export default function ApplyCertificateLicensePage() {
     }
 
     try {
-      const response = await getApplicationRequirements(String(createdApplication.id));
-      if (response.success && response.data) {
-        // Map the response data to the expected type
-        const mappedRequirements = response.data.map(req => ({
-          id: req.applicationRequirementId ? Number(req.applicationRequirementId) : undefined,
+      const response = await getApplicationById(String(createdApplication.id));
+      const ok = response.success ?? (response as { successful?: boolean }).successful;
+      const data = response.data ?? (response as { data?: unknown }).data;
+      if (ok && data && typeof data === "object" && "requirements" in data) {
+        const raw = (data as { requirements?: unknown }).requirements;
+        const reqs = Array.isArray(raw) ? raw : [];
+        const mappedRequirements = reqs.map((req) => ({
+          id: req.applicationRequirementId
+            ? Number(req.applicationRequirementId)
+            : undefined,
           applicationId: Number(createdApplication.id),
           requirementName: req.requirementName,
-          status: req.isSubmitted ? 'submitted' : 'pending',
-        })) as any[];
+          status: req.isSubmitted ? "submitted" : "pending",
+          documentTypesId: (req as { documentTypesId?: string }).documentTypesId,
+          documentTypeDescription: (req as { documentTypeDescription?: string }).documentTypeDescription,
+          documentTypeIds: (req as { documentTypeIds?: string[] }).documentTypeIds,
+          documentTypes: (req as { documentTypes?: { documentTypesId: string; description: string }[] }).documentTypes,
+          metricDescription: (req as { metricDescription?: string }).metricDescription,
+        })) as ApplicationRequirementDto[];
         setApplicationRequirements(mappedRequirements);
       } else {
-        console.error("Failed to load requirements:", response.message);
-        // Don't show error toast if requirements are just empty
-        if (response.message && !response.message.includes("not found")) {
-          toast.error(
-            response.message || "Failed to load application requirements"
-          );
-        }
+        setApplicationRequirements([]);
       }
     } catch (error) {
       console.error("Error loading requirements:", error);
-      // Don't show error toast on first load
     }
   };
 
@@ -272,22 +296,17 @@ export default function ApplyCertificateLicensePage() {
   const handleDocumentUpload = async (
     requirementId: number,
     file: File,
-    documentTypeId?: number
+    documentTypeId: string
   ) => {
     if (!createdApplication) {
       toast.error("Application not found. Please try again.");
       return;
     }
 
-    // Try to find document type ID from requirement name or use default
-    // In production, you'd have a proper mapping from requirement types to document types
-    const docTypeId = documentTypeId || 1; // Default document type ID
-
     try {
-      // Upload document
       const uploadResponse = await uploadUserDocument({
         file,
-        documentTypesId: String(docTypeId),
+        documentTypesId: documentTypeId,
       });
 
       if (!uploadResponse.success || !uploadResponse.data) {
@@ -309,9 +328,12 @@ export default function ApplyCertificateLicensePage() {
       );
 
       if (fulfillResponse.success && fulfillResponse.data) {
-        // Update document uploads state
         const newUploads = new Map(documentUploads);
-        newUploads.set(requirementId, { file, documentId });
+        newUploads.set(requirementId, {
+          file,
+          documentId,
+          documentTypesId: documentTypeId,
+        });
         setDocumentUploads(newUploads);
 
         // Reload requirements to update status
@@ -579,9 +601,21 @@ export default function ApplyCertificateLicensePage() {
         ) : (
           <div className="grid gap-4">
             {applicationRequirements.map((req) => {
-              const upload = documentUploads.get(req.id || 0);
+              const reqId = req.id || 0;
+              const upload = documentUploads.get(reqId);
               const isFulfilled =
                 req.status === "Fulfilled" || req.status === "Approved";
+              const allowedTypes = getAllowedDocumentTypes(req);
+              const allowedIds = getAllowedDocumentTypeIds(req);
+              const hasMultiple = allowedTypes.length > 1;
+              const singleTypeId = allowedIds.length === 1 ? allowedIds[0] : null;
+              const selectedType = selectedDocTypeByReq.get(reqId);
+              const resolvedTypeId = singleTypeId ?? selectedType ?? null;
+              const uploadDisabled =
+                !createdApplication ||
+                isFulfilled ||
+                !resolvedTypeId ||
+                (hasMultiple && !selectedType);
 
               return (
                 <Card key={req.id}>
@@ -599,6 +633,12 @@ export default function ApplyCertificateLicensePage() {
                             </Badge>
                           )}
                         </div>
+                        {allowedTypes.length > 0 && (
+                          <p className="text-sm text-muted-foreground mb-1">
+                            Document type{allowedTypes.length > 1 ? "s" : ""}:{" "}
+                            {allowedTypes.map((t) => t.description).join(", ")}
+                          </p>
+                        )}
                         <p className="text-sm text-muted-foreground">
                           {req.requirementName?.includes("Passport")
                             ? "Clear copy of data page"
@@ -611,32 +651,79 @@ export default function ApplyCertificateLicensePage() {
                                   : "Please upload a clear copy"}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {!isFulfilled ? (
-                          <label>
-                            <input
-                              type="file"
-                              className="hidden"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file && createdApplication) {
-                                  // For now, use a default document type ID
-                                  // In production, you'd map requirement types to document type IDs
-                                  handleDocumentUpload(req.id || 0, file, 1);
-                                }
-                              }}
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="cursor-pointer"
-                            >
-                              <Upload className="mr-2 h-4 w-4" />
-                              Upload
-                            </Button>
-                          </label>
-                        ) : (
+                      <div className="flex flex-col items-end gap-2">
+                        {!isFulfilled && (
+                          <>
+                            {hasMultiple && (
+                              <Select
+                                value={selectedType ?? ""}
+                                onValueChange={(v) => {
+                                  const m = new Map(selectedDocTypeByReq);
+                                  m.set(reqId, v);
+                                  setSelectedDocTypeByReq(m);
+                                }}
+                              >
+                                <SelectTrigger className="w-[200px]">
+                                  <SelectValue placeholder="Select document type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {allowedTypes.map((t) => (
+                                    <SelectItem
+                                      key={t.documentTypesId}
+                                      value={t.documentTypesId}
+                                    >
+                                      {t.description}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                            {uploadDisabled ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                disabled
+                                className="cursor-not-allowed"
+                              >
+                                <Upload className="mr-2 h-4 w-4" />
+                                Upload
+                              </Button>
+                            ) : (
+                              <label className="cursor-pointer">
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept=".pdf,.jpg,.jpeg,.png"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (
+                                      file &&
+                                      createdApplication &&
+                                      resolvedTypeId
+                                    ) {
+                                      handleDocumentUpload(
+                                        reqId,
+                                        file,
+                                        resolvedTypeId
+                                      );
+                                    }
+                                    e.target.value = "";
+                                  }}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="cursor-pointer pointer-events-none"
+                                  tabIndex={-1}
+                                >
+                                  <Upload className="mr-2 h-4 w-4" />
+                                  Upload
+                                </Button>
+                              </label>
+                            )}
+                          </>
+                        )}
+                        {isFulfilled && (
                           <Badge variant="default">
                             <CheckCircle2 className="mr-1 h-3 w-3" />
                             Complete

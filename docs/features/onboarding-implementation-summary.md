@@ -10,7 +10,7 @@ This document summarizes the comprehensive onboarding implementation for the MEM
 
 ## 🎯 Implementation Approach
 
-The implementation strictly adheres to the backend API specification as documented in `FRONTEND_INTEGRATION_GUIDE (1).md` and `swagger.json`.
+The implementation strictly adheres to the backend API specification as documented in [Frontend Integration Guide](../api/frontend-integration-guide.md) and `swagger.json`.
 
 ### Key Features
 

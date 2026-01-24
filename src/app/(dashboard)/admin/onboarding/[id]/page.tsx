@@ -17,11 +17,13 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  Award,
+  Ship,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -159,9 +161,12 @@ export default function OnboardingDetailsPage() {
     setIsReviewDialogOpen(true);
   };
 
-  const handleDownloadDocument = (filePath: string) => {
+  const handleDownloadDocument = (filePathOrUrl: string | null | undefined) => {
+    if (!filePathOrUrl?.trim()) return;
     const baseUrl = getApiBaseUrl();
-    const fullUrl = `${baseUrl}${filePath}`;
+    const fullUrl = filePathOrUrl.startsWith("http")
+      ? filePathOrUrl
+      : `${baseUrl}${filePathOrUrl.startsWith("/") ? "" : "/"}${filePathOrUrl}`;
     window.open(fullUrl, "_blank");
   };
 
@@ -315,10 +320,19 @@ export default function OnboardingDetailsPage() {
 
       {/* Tabs Content */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="flex w-full flex-wrap gap-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="contact">Contact</TabsTrigger>
           <TabsTrigger value="education">Education</TabsTrigger>
+          {onboarding.hasSeafarerTrainings && (
+            <TabsTrigger value="training">Training</TabsTrigger>
+          )}
+          {onboarding.hasVoyageActivities && (
+            <TabsTrigger value="voyages">Voyages</TabsTrigger>
+          )}
+          {onboarding.hasProfileDocuments && (
+            <TabsTrigger value="profile">Profile docs</TabsTrigger>
+          )}
           <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
@@ -571,6 +585,7 @@ export default function OnboardingDetailsPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
+                                disabled={!doc.filePathOrUrl?.trim()}
                                 onClick={() => handleDownloadDocument(doc.filePathOrUrl)}
                               >
                                 <Download className="h-4 w-4 mr-1" />
@@ -594,6 +609,259 @@ export default function OnboardingDetailsPage() {
             </Card>
           )}
         </TabsContent>
+
+        {/* Training Records Tab */}
+        {onboarding.hasSeafarerTrainings && (
+          <TabsContent value="training" className="space-y-4">
+            {onboarding.seafarerTrainings && onboarding.seafarerTrainings.length > 0 ? (
+              onboarding.seafarerTrainings.map((training: any, index: number) => (
+                <Card key={training.recordId || training.trainingId || index}>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Award className="h-5 w-5" />
+                      {training.certificateName || `Training ${index + 1}`}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      {training.institutionSTCWAccreditationName && (
+                        <div>
+                          <Label className="text-muted-foreground">Institution</Label>
+                          <p className="font-medium mt-1">{training.institutionSTCWAccreditationName}</p>
+                        </div>
+                      )}
+                      {training.trainingStatusDescription && (
+                        <div>
+                          <Label className="text-muted-foreground">Status</Label>
+                          <p className="mt-1">{training.trainingStatusDescription}</p>
+                        </div>
+                      )}
+                      {training.startDate && (
+                        <div>
+                          <Label className="text-muted-foreground">Start Date</Label>
+                          <p className="mt-1">{format(new Date(training.startDate), "PPP")}</p>
+                        </div>
+                      )}
+                      {training.endDate && (
+                        <div>
+                          <Label className="text-muted-foreground">End Date</Label>
+                          <p className="mt-1">{format(new Date(training.endDate), "PPP")}</p>
+                        </div>
+                      )}
+                    </div>
+                    {training.documents && training.documents.length > 0 && (
+                      <>
+                        <Separator />
+                        <div>
+                          <Label className="text-muted-foreground mb-2 block">Documents ({training.documents.length})</Label>
+                          <div className="space-y-2">
+                            {training.documents.map((doc: any) => (
+                              <div
+                                key={doc.documentId}
+                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <FileText className="h-5 w-5 text-blue-500" />
+                                  <div>
+                                    <p className="font-medium text-sm">
+                                      {doc.documentTypeDescription || "Document"}
+                                    </p>
+                                    {doc.issueDate && (
+                                      <p className="text-xs text-muted-foreground">
+                                        Issued: {format(new Date(doc.issueDate), "PP")}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={!doc.filePathOrUrl?.trim()}
+                                  onClick={() => handleDownloadDocument(doc.filePathOrUrl)}
+                                >
+                                  <Download className="h-4 w-4 mr-1" />
+                                  View
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <Award className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No training records</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        )}
+
+        {/* Voyage Activities Tab */}
+        {onboarding.hasVoyageActivities && (
+          <TabsContent value="voyages" className="space-y-4">
+            {onboarding.voyageActivities && onboarding.voyageActivities.length > 0 ? (
+              onboarding.voyageActivities.map((voyage: any, index: number) => (
+                <Card key={voyage.voyageActivityId || voyage.logId || index}>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Ship className="h-5 w-5" />
+                      {voyage.vesselName || `Voyage ${index + 1}`}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      {voyage.imoNumber && (
+                        <div>
+                          <Label className="text-muted-foreground">IMO</Label>
+                          <p className="font-medium mt-1">{voyage.imoNumber}</p>
+                        </div>
+                      )}
+                      {voyage.flagState && (
+                        <div>
+                          <Label className="text-muted-foreground">Flag</Label>
+                          <p className="mt-1">{voyage.flagState}</p>
+                        </div>
+                      )}
+                      {voyage.dateJoined && (
+                        <div>
+                          <Label className="text-muted-foreground">Date Joined</Label>
+                          <p className="mt-1">{format(new Date(voyage.dateJoined), "PPP")}</p>
+                        </div>
+                      )}
+                      {voyage.dateLeft && (
+                        <div>
+                          <Label className="text-muted-foreground">Date Left</Label>
+                          <p className="mt-1">{format(new Date(voyage.dateLeft), "PPP")}</p>
+                        </div>
+                      )}
+                      {voyage.totalSeaTimeDays != null && (
+                        <div>
+                          <Label className="text-muted-foreground">Sea Time</Label>
+                          <p className="mt-1">{voyage.totalSeaTimeDays} days</p>
+                        </div>
+                      )}
+                    </div>
+                    {voyage.documents && voyage.documents.length > 0 && (
+                      <>
+                        <Separator />
+                        <div>
+                          <Label className="text-muted-foreground mb-2 block">Documents ({voyage.documents.length})</Label>
+                          <div className="space-y-2">
+                            {voyage.documents.map((doc: any) => (
+                              <div
+                                key={doc.documentId}
+                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <FileText className="h-5 w-5 text-blue-500" />
+                                  <div>
+                                    <p className="font-medium text-sm">
+                                      {doc.documentTypeDescription || "Document"}
+                                    </p>
+                                    {doc.issueDate && (
+                                      <p className="text-xs text-muted-foreground">
+                                        Issued: {format(new Date(doc.issueDate), "PP")}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={!doc.filePathOrUrl?.trim()}
+                                  onClick={() => handleDownloadDocument(doc.filePathOrUrl)}
+                                >
+                                  <Download className="h-4 w-4 mr-1" />
+                                  View
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <Ship className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No voyage activities</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        )}
+
+        {/* Profile Documents Tab */}
+        {onboarding.hasProfileDocuments && (
+          <TabsContent value="profile" className="space-y-4">
+            {onboarding.profileDocuments && onboarding.profileDocuments.length > 0 ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Profile Documents</CardTitle>
+                  <CardDescription>
+                    {onboarding.profileDocumentCount ?? onboarding.profileDocuments.length} document(s)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {onboarding.profileDocuments.map((doc: any) => (
+                      <div
+                        key={doc.documentId}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <FileText className="h-5 w-5 text-blue-500" />
+                          <div>
+                            <p className="font-medium text-sm">
+                              {doc.documentTypeDescription || "Document"}
+                            </p>
+                            {doc.documentNumber && (
+                              <p className="text-xs text-muted-foreground">
+                                No. {doc.documentNumber}
+                              </p>
+                            )}
+                            {(doc.issueDate || doc.expiryDate) && (
+                              <p className="text-xs text-muted-foreground">
+                                {doc.issueDate && `Issued: ${format(new Date(doc.issueDate), "PP")}`}
+                                {doc.issueDate && doc.expiryDate && " · "}
+                                {doc.expiryDate && `Expires: ${format(new Date(doc.expiryDate), "PP")}`}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!doc.filePathOrUrl?.trim()}
+                          onClick={() => handleDownloadDocument(doc.filePathOrUrl)}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No profile documents</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        )}
 
         {/* Documents Tab */}
         <TabsContent value="documents" className="space-y-4">
@@ -673,6 +941,7 @@ export default function OnboardingDetailsPage() {
                           <Button
                             size="sm"
                             variant="outline"
+                            disabled={!doc.filePathOrUrl?.trim()}
                             onClick={() => handleDownloadDocument(doc.filePathOrUrl)}
                           >
                             <Download className="h-4 w-4 mr-1" />

@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   PageHeader,
   DataTable,
@@ -34,12 +35,14 @@ import {
 } from "@/components/shared";
 import { useCanManageServices } from "@/utils/permissions";
 import { requirementListsApi } from "@/lib/services/service-management-api";
+import { handleApiError } from "@/lib/error-handler";
 import type {
   RequirementListDto,
   CreateRequirementListRequest,
   UpdateRequirementListRequest,
 } from "@/types/service-management";
 import { getDocumentTypes, type DocumentTypeDto } from "@/lib/services/lookup-service";
+import { getAllowedDocumentTypes } from "@/lib/utils/requirement-helpers";
 
 interface MetricOption {
   metricId: string;
@@ -59,10 +62,13 @@ export default function RequirementListsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedRequirementList, setSelectedRequirementList] =
     useState<RequirementListDto | null>(null);
-  const [formData, setFormData] = useState<CreateRequirementListRequest>({
+  const [formData, setFormData] = useState<
+    CreateRequirementListRequest & { documentTypeIds: string[] }
+  >({
     description: "",
     metricId: "",
     documentTypesId: null,
+    documentTypeIds: [],
     isActive: true,
   });
 
@@ -121,28 +127,44 @@ export default function RequirementListsPage() {
       return;
     }
 
-    // Validate document type is required for File/Document metric
+    // Validate at least one document type for File/Document metric
     const selectedMetric = metrics.find((m) => m.metricId === formData.metricId);
-    if (selectedMetric?.description === "File/Document" && !formData.documentTypesId) {
-      toast.error("Document type is required for File/Document metric");
+    const docIds = formData.documentTypeIds ?? [];
+    if (
+      selectedMetric?.description === "File/Document" &&
+      docIds.length === 0 &&
+      !formData.documentTypesId
+    ) {
+      toast.error("Please select at least one document type");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await requirementListsApi.createRequirementList(formData);
+      const payload: CreateRequirementListRequest = {
+        description: formData.description,
+        metricId: formData.metricId,
+        isActive: formData.isActive ?? true,
+      };
+      if (docIds.length > 0) {
+        payload.documentTypeIds = docIds;
+      } else if (formData.documentTypesId) {
+        payload.documentTypesId = formData.documentTypesId;
+      }
+      await requirementListsApi.createRequirementList(payload);
       toast.success("Requirement list created successfully");
       setIsCreateModalOpen(false);
       setFormData({
         description: "",
         metricId: "",
         documentTypesId: null,
+        documentTypeIds: [],
         isActive: true,
       });
       await loadRequirementLists();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating requirement list:", error);
-      toast.error(error?.message || "Failed to create requirement list");
+      toast.error(handleApiError(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -159,10 +181,14 @@ export default function RequirementListsPage() {
       return;
     }
 
-    // Validate document type is required for File/Document metric
     const selectedMetric = metrics.find((m) => m.metricId === formData.metricId);
-    if (selectedMetric?.description === "File/Document" && !formData.documentTypesId) {
-      toast.error("Document type is required for File/Document metric");
+    const docIds = formData.documentTypeIds ?? [];
+    if (
+      selectedMetric?.description === "File/Document" &&
+      docIds.length === 0 &&
+      !formData.documentTypesId
+    ) {
+      toast.error("Please select at least one document type");
       return;
     }
 
@@ -171,9 +197,13 @@ export default function RequirementListsPage() {
       const updateRequest: UpdateRequirementListRequest = {
         description: formData.description,
         metricId: formData.metricId,
-        documentTypesId: formData.documentTypesId,
         isActive: formData.isActive ?? true,
       };
+      if (docIds.length > 0) {
+        updateRequest.documentTypeIds = docIds;
+      } else if (formData.documentTypesId) {
+        updateRequest.documentTypesId = formData.documentTypesId;
+      }
       await requirementListsApi.updateRequirementList(
         selectedRequirementList.requirementListId,
         updateRequest
@@ -182,9 +212,9 @@ export default function RequirementListsPage() {
       setIsEditModalOpen(false);
       setSelectedRequirementList(null);
       await loadRequirementLists();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error updating requirement list:", error);
-      toast.error(error?.message || "Failed to update requirement list");
+      toast.error(handleApiError(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -202,9 +232,9 @@ export default function RequirementListsPage() {
       setIsDeleteDialogOpen(false);
       setSelectedRequirementList(null);
       await loadRequirementLists();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting requirement list:", error);
-      toast.error(error?.message || "Failed to delete requirement list");
+      toast.error(handleApiError(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -212,10 +242,17 @@ export default function RequirementListsPage() {
 
   const handleEdit = (requirementList: RequirementListDto) => {
     setSelectedRequirementList(requirementList);
+    const docIds =
+      requirementList.documentTypeIds && requirementList.documentTypeIds.length > 0
+        ? requirementList.documentTypeIds
+        : requirementList.documentTypesId
+          ? [requirementList.documentTypesId]
+          : [];
     setFormData({
       description: requirementList.description,
       metricId: requirementList.metricId,
       documentTypesId: requirementList.documentTypesId || null,
+      documentTypeIds: docIds,
       isActive: requirementList.isActive,
     });
     setIsEditModalOpen(true);
@@ -235,6 +272,14 @@ export default function RequirementListsPage() {
     if (!documentTypesId) return "N/A";
     const docType = documentTypes.find((d) => d.documentTypesId === documentTypesId);
     return docType?.description || documentTypesId;
+  };
+
+  const toggleDocumentType = (documentTypesId: string) => {
+    const curr = formData.documentTypeIds ?? [];
+    const next = curr.includes(documentTypesId)
+      ? curr.filter((id) => id !== documentTypesId)
+      : [...curr, documentTypesId];
+    setFormData({ ...formData, documentTypeIds: next });
   };
 
   const getMetricDescription = (metricId: string) => {
@@ -264,11 +309,16 @@ export default function RequirementListsPage() {
     {
       id: "documentType",
       header: "Document Type",
-      cell: ({ row }) => (
-        <div className="text-sm text-muted-foreground">
-          {row.documentTypeDescription || "N/A"}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const allowed = getAllowedDocumentTypes(row);
+        const text =
+          allowed.length > 0
+            ? allowed.map((t) => t.description).join(", ")
+            : "N/A";
+        return (
+          <div className="text-sm text-muted-foreground">{text}</div>
+        );
+      },
     },
     {
       id: "status",
@@ -383,18 +433,17 @@ export default function RequirementListsPage() {
               <Label htmlFor="metricId">Metric Type *</Label>
               <Select
                 value={formData.metricId}
-                onValueChange={(value) =>
+                onValueChange={(value) => {
+                  const isFileDoc =
+                    metrics.find((m) => m.metricId === value)?.description ===
+                    "File/Document";
                   setFormData({
                     ...formData,
                     metricId: value,
-                    // Clear document type if metric changes away from File/Document
-                    documentTypesId:
-                      metrics.find((m) => m.metricId === value)?.description ===
-                      "File/Document"
-                        ? formData.documentTypesId
-                        : null,
-                  })
-                }
+                    documentTypesId: isFileDoc ? formData.documentTypesId : null,
+                    documentTypeIds: isFileDoc ? formData.documentTypeIds ?? [] : [],
+                  });
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select metric type" />
@@ -423,27 +472,37 @@ export default function RequirementListsPage() {
             </div>
             {selectedMetricDescription === "File/Document" && (
               <div>
-                <Label htmlFor="documentTypesId">Document Type *</Label>
-                <Select
-                  value={formData.documentTypesId || ""}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, documentTypesId: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select document type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {documentTypes.map((docType) => (
-                      <SelectItem
-                        key={docType.documentTypesId}
-                        value={docType.documentTypesId}
-                      >
+                <Label>Document Types * (select at least one)</Label>
+                <div className="mt-2 space-y-2 max-h-48 overflow-y-auto rounded-md border p-3">
+                  {documentTypes.map((docType) => (
+                    <label
+                      key={docType.documentTypesId}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={(formData.documentTypeIds ?? []).includes(
+                          docType.documentTypesId
+                        )}
+                        onCheckedChange={() =>
+                          toggleDocumentType(docType.documentTypesId)
+                        }
+                      />
+                      <span className="text-sm">
                         {docType.description}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                        {docType.code && (
+                          <span className="text-muted-foreground ml-1">
+                            ({docType.code})
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {(formData.documentTypeIds?.length ?? 0) === 0 && (
+                  <p className="text-sm text-destructive mt-1">
+                    Please select at least one document type
+                  </p>
+                )}
               </div>
             )}
             <div className="flex items-center space-x-2">
@@ -466,6 +525,7 @@ export default function RequirementListsPage() {
                   description: "",
                   metricId: "",
                   documentTypesId: null,
+                  documentTypeIds: [],
                   isActive: true,
                 });
               }}
@@ -473,7 +533,15 @@ export default function RequirementListsPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={isSubmitting}>
+            <Button
+              onClick={handleCreate}
+              disabled={
+                isSubmitting ||
+                (selectedMetricDescription === "File/Document" &&
+                  (formData.documentTypeIds?.length ?? 0) === 0 &&
+                  !formData.documentTypesId)
+              }
+            >
               {isSubmitting ? "Creating..." : "Create"}
             </Button>
           </DialogFooter>
@@ -505,18 +573,17 @@ export default function RequirementListsPage() {
               <Label htmlFor="edit-metricId">Metric Type *</Label>
               <Select
                 value={formData.metricId}
-                onValueChange={(value) =>
+                onValueChange={(value) => {
+                  const isFileDoc =
+                    metrics.find((m) => m.metricId === value)?.description ===
+                    "File/Document";
                   setFormData({
                     ...formData,
                     metricId: value,
-                    // Clear document type if metric changes away from File/Document
-                    documentTypesId:
-                      metrics.find((m) => m.metricId === value)?.description ===
-                      "File/Document"
-                        ? formData.documentTypesId
-                        : null,
-                  })
-                }
+                    documentTypesId: isFileDoc ? formData.documentTypesId : null,
+                    documentTypeIds: isFileDoc ? formData.documentTypeIds ?? [] : [],
+                  });
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select metric type" />
@@ -532,27 +599,37 @@ export default function RequirementListsPage() {
             </div>
             {selectedMetricDescription === "File/Document" && (
               <div>
-                <Label htmlFor="edit-documentTypesId">Document Type *</Label>
-                <Select
-                  value={formData.documentTypesId || ""}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, documentTypesId: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select document type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {documentTypes.map((docType) => (
-                      <SelectItem
-                        key={docType.documentTypesId}
-                        value={docType.documentTypesId}
-                      >
+                <Label>Document Types * (select at least one)</Label>
+                <div className="mt-2 space-y-2 max-h-48 overflow-y-auto rounded-md border p-3">
+                  {documentTypes.map((docType) => (
+                    <label
+                      key={docType.documentTypesId}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={(formData.documentTypeIds ?? []).includes(
+                          docType.documentTypesId
+                        )}
+                        onCheckedChange={() =>
+                          toggleDocumentType(docType.documentTypesId)
+                        }
+                      />
+                      <span className="text-sm">
                         {docType.description}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                        {docType.code && (
+                          <span className="text-muted-foreground ml-1">
+                            ({docType.code})
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {(formData.documentTypeIds?.length ?? 0) === 0 && (
+                  <p className="text-sm text-destructive mt-1">
+                    Please select at least one document type
+                  </p>
+                )}
               </div>
             )}
             <div className="flex items-center space-x-2">
@@ -577,7 +654,15 @@ export default function RequirementListsPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleUpdate} disabled={isSubmitting}>
+            <Button
+              onClick={handleUpdate}
+              disabled={
+                isSubmitting ||
+                (selectedMetricDescription === "File/Document" &&
+                  (formData.documentTypeIds?.length ?? 0) === 0 &&
+                  !formData.documentTypesId)
+              }
+            >
               {isSubmitting ? "Updating..." : "Update"}
             </Button>
           </DialogFooter>
@@ -610,10 +695,27 @@ export default function RequirementListsPage() {
                 </p>
               </div>
               <div>
-                <Label>Document Type</Label>
-                <p className="text-sm text-muted-foreground">
-                  {selectedRequirementList.documentTypeDescription || "N/A"}
-                </p>
+                <Label>Document Type(s)</Label>
+                {selectedRequirementList.documentTypes &&
+                selectedRequirementList.documentTypes.length > 0 ? (
+                  <ul className="text-sm text-muted-foreground list-disc list-inside mt-1 space-y-0.5">
+                    {selectedRequirementList.documentTypes.map((dt) => (
+                      <li key={dt.documentTypesId}>
+                        {dt.description}
+                        {dt.code && (
+                          <span className="text-muted-foreground/80">
+                            {" "}
+                            ({dt.code})
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {selectedRequirementList.documentTypeDescription || "N/A"}
+                  </p>
+                )}
               </div>
               <div>
                 <Label>Status</Label>

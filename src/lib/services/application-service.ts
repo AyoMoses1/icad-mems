@@ -31,6 +31,11 @@ export interface ServiceDto {
   requirements?: ServiceRequirementDto[];
 }
 
+export interface DocumentTypeDto {
+  documentTypesId: string;
+  description: string;
+}
+
 export interface ServiceRequirementDto {
   serviceRequirementId?: string;
   requirementListId?: string;
@@ -40,6 +45,12 @@ export interface ServiceRequirementDto {
   requiredValue?: string | null;
   metricId?: string | null;
   metricDescription?: string | null;
+  // Legacy – single document type
+  documentTypesId?: string | null;
+  documentTypeDescription?: string | null;
+  // New – multiple document types
+  documentTypeIds?: string[] | null;
+  documentTypes?: DocumentTypeDto[] | null;
 }
 
 export interface ApplicationRequirementDto {
@@ -56,8 +67,12 @@ export interface ApplicationRequirementDto {
   isRequired?: boolean;
   isSubmitted?: boolean;
   dateSubmitted?: string | null;
-  documentTypesId?: string | null; // Direct FK to document type (V2)
-  documentTypeDescription?: string | null; // Document type name (V2)
+  // Legacy – single document type
+  documentTypesId?: string | null;
+  documentTypeDescription?: string | null;
+  // New – multiple document types
+  documentTypeIds?: string[] | null;
+  documentTypes?: DocumentTypeDto[] | null;
 }
 
 export interface RequirementValueDto {
@@ -146,6 +161,9 @@ export interface ApplicationDashboardDto {
   totalInvoices: number;
   paidInvoices: number;
   pendingInvoices: number;
+  totalSeaTimeDays?: number | null;
+  totalSeaTimeMonths?: number | null;
+  totalSeaTimeYears?: number | null;
 }
 
 export interface ApplicationHistoryDto {

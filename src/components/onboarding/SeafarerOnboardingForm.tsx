@@ -44,6 +44,7 @@ import {
   type SeafarerTrainingRequest,
   type VoyageActivityRequest,
 } from "@/lib/services/comprehensive-onboarding-service";
+import { handleApiError } from "@/lib/error-handler";
 import {
   getDocumentTypes,
   getSTCWAccreditations,
@@ -419,11 +420,7 @@ export function SeafarerOnboardingForm() {
       }
     } catch (error) {
       console.error("Error submitting onboarding:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "An error occurred while submitting your onboarding"
-      );
+      toast.error(handleApiError(error));
     } finally {
       setIsSubmitting(false);
       setIsDraft(false);
