@@ -1078,8 +1078,8 @@ const services = await apiClient.get('/applications/services'); // Correct
 
 ## Additional Resources
 
-- [Document Upload Flow Guide](./document-upload-flow.md) - Understanding document requirements
-- [API Response Format](./api-response-format.md) - Standard API response structure
+- [Document Upload Flow Guide](./document-upload-flow-v3.md) - Understanding document requirements
+- [API Response Format](../api/complete-api-integration-guide.md) - Standard API response structure
 - Backend API Documentation (Swagger) - Available at `/swagger` endpoint
 
 ---
