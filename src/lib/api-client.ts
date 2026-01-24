@@ -83,9 +83,23 @@ function getBaseUrlForEndpoint(endpoint: string): string {
   return getApiBaseUrl();
 }
 
-export interface ApiError {
+/** Shape of error in API response JSON */
+export interface ApiErrorPayload {
   message: string;
   code: string;
+}
+
+/** Throwable API error with code and optional statusCode for handleApiError */
+export class ApiError extends Error {
+  constructor(
+    public code: string,
+    message: string,
+    public statusCode?: number
+  ) {
+    super(message);
+    this.name = "ApiError";
+    Object.setPrototypeOf(this, ApiError.prototype);
+  }
 }
 
 export interface ApiResponse<T> {
@@ -95,7 +109,7 @@ export interface ApiResponse<T> {
   message?: string;
   requestId?: string;
   data?: T;
-  error?: ApiError;
+  error?: ApiErrorPayload;
 }
 
 /**
@@ -433,13 +447,14 @@ export async function apiClientMain<T>(
       } as ApiResponse<T>;
     }
 
-    // Handle non-2xx responses
+    // Handle non-2xx responses — throw ApiError so handleApiError can map codes
     if (!response.ok) {
-      throw new Error(
+      const code = data.error?.code ?? "UNKNOWN_ERROR";
+      const message =
         data.error?.message ||
-          data.message ||
-          `Request failed with status ${response.status}`
-      );
+        data.message ||
+        `Request failed with status ${response.status}`;
+      throw new ApiError(code, message, response.status);
     }
 
     return data;
@@ -449,7 +464,10 @@ export async function apiClientMain<T>(
       throw new Error("Network error. Please check your connection.");
     }
 
-    // Re-throw if it's already an Error
+    // Re-throw ApiError as-is for handleApiError
+    if (error instanceof ApiError) {
+      throw error;
+    }
     if (error instanceof Error) {
       throw error;
     }
