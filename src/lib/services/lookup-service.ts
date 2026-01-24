@@ -14,6 +14,8 @@ const API_BASE = "/api/seafarer/MasterData";
 export interface DocumentTypeDto {
   documentTypesId: string;
   description: string;
+  code?: string | null;
+  isActive?: boolean;
 }
 
 export interface GenderDto {

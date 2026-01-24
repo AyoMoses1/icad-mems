@@ -37,6 +37,22 @@ function getCurrentUser() {
 }
 
 /**
+ * Build requirement list create/update payload.
+ * Prefer documentTypeIds when provided; omit documentTypesId to avoid conflict.
+ */
+function buildRequirementListPayload(
+  request: CreateRequirementListRequest | UpdateRequirementListRequest
+): Record<string, unknown> {
+  const hasMultiple = Array.isArray(request.documentTypeIds) && request.documentTypeIds.length > 0;
+  const out: Record<string, unknown> = { ...request };
+  if (hasMultiple) {
+    (out as Record<string, unknown>).documentTypeIds = request.documentTypeIds;
+    delete (out as Record<string, unknown>).documentTypesId;
+  }
+  return out;
+}
+
+/**
  * Service Management API - Admin-only mutations
  */
 export const serviceManagementApi = {
@@ -304,6 +320,7 @@ export const requirementListsApi = {
    * Create a new requirement list
    * POST /seafarer/api/v1/services/requirement-lists
    * Admin only
+   * Prefers documentTypeIds when provided; omits documentTypesId to avoid conflict.
    */
   createRequirementList: async (
     request: CreateRequirementListRequest
@@ -313,9 +330,10 @@ export const requirementListsApi = {
       throw new Error("Unauthorized: Admin access required");
     }
 
+    const payload = buildRequirementListPayload(request);
     const response = await apiPostMain<RequirementListDto>(
       `${API_BASE}/services/requirement-lists`,
-      request
+      payload
     );
     if (!response.success || !response.data) {
       throw new Error(
@@ -329,6 +347,7 @@ export const requirementListsApi = {
    * Update a requirement list
    * PUT /seafarer/api/v1/services/requirement-lists/{requirementListId}
    * Admin only
+   * Prefers documentTypeIds when provided; omits documentTypesId to avoid conflict.
    */
   updateRequirementList: async (
     requirementListId: string,
@@ -339,9 +358,10 @@ export const requirementListsApi = {
       throw new Error("Unauthorized: Admin access required");
     }
 
+    const payload = buildRequirementListPayload(request);
     const response = await apiPutMain<RequirementListDto>(
       `${API_BASE}/services/requirement-lists/${requirementListId}`,
-      request
+      payload
     );
     if (!response.success || !response.data) {
       throw new Error(

@@ -17,7 +17,7 @@ import {
   type ApiResponse,
 } from "@/lib/api-client";
 
-const API_BASE = "/seafarer/api/v1/onboarding";
+const API_BASE = "/seafarer/api/v1/Onboarding";
 
 /**
  * Onboarding Status Enum
@@ -98,6 +98,102 @@ export interface EducationDocumentDto {
 }
 
 /**
+ * Profile Document DTO (nested in onboarding)
+ */
+export interface ProfileDocumentDto {
+  documentId: string;
+  rn?: string | null;
+  documentTypesId: string;
+  documentTypeDescription?: string | null;
+  documentNumber?: string | null;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  issuingAuthority?: string | null;
+  filePathOrUrl?: string | null;
+  dateCreated?: string | null;
+  dateModified?: string | null;
+}
+
+/**
+ * Voyage Document DTO (nested in VoyageActivityDto)
+ */
+export interface VoyageDocumentDto {
+  documentId: string;
+  voyageActivityId?: string | null;
+  documentTypesId: string;
+  documentTypeDescription?: string | null;
+  documentNumber?: string | null;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  issuingAuthority?: string | null;
+  filePathOrUrl?: string | null;
+  dateCreated?: string | null;
+}
+
+/**
+ * Training Document DTO (nested in SeafarerTrainingDto)
+ */
+export interface TrainingDocumentDto {
+  documentId: string;
+  trainingId?: string | null;
+  documentTypesId: string;
+  documentTypeDescription?: string | null;
+  documentNumber?: string | null;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  issuingAuthority?: string | null;
+  filePathOrUrl?: string | null;
+  dateCreated?: string | null;
+}
+
+/**
+ * Seafarer Training DTO (nested in onboarding)
+ */
+export interface SeafarerTrainingDto {
+  recordId?: string | null;
+  trainingId?: string | null;
+  rn?: string | null;
+  institutionSTCWAccreditationId: string;
+  institutionSTCWAccreditationName?: string | null;
+  institutionName?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  trainingStatusId: string;
+  trainingStatusDescription?: string | null;
+  result?: string | null;
+  certificateName?: string | null;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  documents?: TrainingDocumentDto[] | null;
+  dateCreated?: string | null;
+  dateModified?: string | null;
+}
+
+/**
+ * Voyage Activity DTO (nested in onboarding)
+ */
+export interface VoyageActivityDto {
+  voyageActivityId?: string | null;
+  logId?: string | null;
+  rn?: string | null;
+  seamanBookNo?: string | null;
+  vesselName?: string | null;
+  imoNumber?: string | null;
+  flagState?: string | null;
+  operatorCompany?: string | null;
+  portOfEngagement?: string | null;
+  portOfDischarge?: string | null;
+  dateJoined?: string | null;
+  dateLeft?: string | null;
+  totalSeaTimeDays?: number | null;
+  remarks?: string | null;
+  documents?: VoyageDocumentDto[] | null;
+  dateCreated?: string | null;
+  dateModified?: string | null;
+  createdOn?: string | null;
+}
+
+/**
  * Contact Details DTO (nested in onboarding)
  */
 export interface ContactDetailsDto {
@@ -153,6 +249,23 @@ export interface UserSeafarerOnboardingDto {
   hasInstitutionDocuments?: boolean;
   educationDocumentCount?: number;
   institutionDocumentCount?: number;
+  seafarerTrainings?: SeafarerTrainingDto[] | null;
+  voyageActivities?: VoyageActivityDto[] | null;
+  profileDocuments?: ProfileDocumentDto[] | null;
+  trainingDocuments?: TrainingDocumentDto[] | null;
+  voyageDocuments?: VoyageDocumentDto[] | null;
+  hasSeafarerTrainings?: boolean;
+  hasVoyageActivities?: boolean;
+  hasProfileDocuments?: boolean;
+  seafarerTrainingCount?: number;
+  voyageActivityCount?: number;
+  profileDocumentCount?: number;
+  isOnboardingComplete?: boolean;
+  hasActiveOnboarding?: boolean;
+  canCreateNewOnboarding?: boolean;
+  blockingReason?: string | null;
+  activeOnboardingRole?: string | null;
+  activeOnboardingStatus?: string | null;
 }
 
 /**
