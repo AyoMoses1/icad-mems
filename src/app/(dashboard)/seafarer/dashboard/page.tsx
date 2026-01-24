@@ -91,6 +91,27 @@ export default function SeafarerDashboard() {
     }
   };
 
+  const formatSeaTime = () => {
+    const d = dashboardData;
+    if (d?.totalSeaTimeDays == null || d.totalSeaTimeDays === 0) {
+      return "No sea time recorded";
+    }
+    const years = d.totalSeaTimeYears ?? 0;
+    const months = d.totalSeaTimeMonths ?? 0;
+    const days = d.totalSeaTimeDays ?? 0;
+    const parts: string[] = [];
+    if (years > 0)
+      parts.push(
+        `${years.toFixed(1)} year${years !== 1 ? "s" : ""}`
+      );
+    if (months > 0)
+      parts.push(
+        `${months.toFixed(1)} month${months !== 1 ? "s" : ""}`
+      );
+    if (days > 0) parts.push(`${days} day${days !== 1 ? "s" : ""}`);
+    return parts.length > 0 ? parts.join(", ") : "No sea time recorded";
+  };
+
   const getStatusBadge = (status?: string | null) => {
     const normalizedStatus = status?.toUpperCase();
     switch (normalizedStatus) {
@@ -190,6 +211,48 @@ export default function SeafarerDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Total Sea Time */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Ship className="h-5 w-5 text-sky-600" />
+            Total Sea Time
+          </CardTitle>
+          <CardDescription>
+            Calculated from your voyage activities
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-lg border bg-muted/50 p-4">
+              <p className="text-sm text-muted-foreground">Days</p>
+              <p className="text-2xl font-bold">
+                {isLoading ? "-" : (dashboardData?.totalSeaTimeDays ?? 0)}
+              </p>
+            </div>
+            <div className="rounded-lg border bg-muted/50 p-4">
+              <p className="text-sm text-muted-foreground">Months</p>
+              <p className="text-2xl font-bold">
+                {isLoading
+                  ? "-"
+                  : (dashboardData?.totalSeaTimeMonths?.toFixed(1) ?? "0.0")}
+              </p>
+            </div>
+            <div className="rounded-lg border bg-muted/50 p-4">
+              <p className="text-sm text-muted-foreground">Years</p>
+              <p className="text-2xl font-bold">
+                {isLoading
+                  ? "-"
+                  : (dashboardData?.totalSeaTimeYears?.toFixed(1) ?? "0.0")}
+              </p>
+            </div>
+          </div>
+          <p className="mt-4 text-sm text-muted-foreground">
+            {formatSeaTime()}
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Show onboarding card only if not complete */}

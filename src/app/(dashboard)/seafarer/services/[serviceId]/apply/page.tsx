@@ -23,6 +23,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { LoadingSpinner } from "@/components/shared";
 import {
@@ -54,6 +61,13 @@ import {
 } from "@/lib/services/payment-service";
 import { getCurrencies, type CurrencyDto } from "@/lib/services/lookup-service";
 import { formatDate } from "@/lib/utils";
+import {
+  getAllowedDocumentTypes,
+  getAllowedDocumentTypeIds,
+  isDocumentRequirement,
+  hasAllDocumentUploads,
+} from "@/lib/utils/requirement-helpers";
+import { ApplicationRequirementErrorCodes } from "@/types/errors";
 
 type Step = "info" | "requirements" | "review" | "invoice" | "complete";
 
@@ -101,6 +115,7 @@ export default function ServiceApplicationPage() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedRequirementId, setSelectedRequirementId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedDocumentTypeId, setSelectedDocumentTypeId] = useState<string | null>(null);
   const [documentMetadata, setDocumentMetadata] = useState({
     documentNumber: "",
     issueDate: "",
@@ -285,7 +300,7 @@ export default function ServiceApplicationPage() {
       return;
     }
 
-    // V2: Find requirement directly and use documentTypesId from response
+    // Find requirement directly
     const requirement = requirements.find(
       req => {
         const reqId = req.applicationRequirementId || req.requirementListId || req.id || "";
@@ -299,17 +314,16 @@ export default function ServiceApplicationPage() {
     }
 
     // Check if this is a document requirement
-    const isDocument = requirement.metricDescription === "File/Document" && requirement.documentTypesId != null;
-    
-    if (!isDocument) {
+    if (!isDocumentRequirement(requirement)) {
       toast.error("This requirement does not require a document upload");
       return;
     }
 
-    // V2: Get document type ID directly from requirement
-    const documentTypeId = requirement.documentTypesId;
+    // Get allowed document types
+    const allowedTypes = getAllowedDocumentTypes(requirement);
+    const allowedTypeIds = getAllowedDocumentTypeIds(requirement);
 
-    if (!documentTypeId) {
+    if (allowedTypes.length === 0 && allowedTypeIds.length === 0) {
       toast.error(
         `Document type not found for "${requirement.requirementName}". ` +
         `Please contact support.`
@@ -334,9 +348,13 @@ export default function ServiceApplicationPage() {
       return;
     }
 
-    // Open dialog for metadata (optional fields)
+    // If single type, set it automatically; if multiple, user will select
+    const defaultTypeId = allowedTypeIds.length === 1 ? allowedTypeIds[0] : null;
+
+    // Open dialog for metadata (and type selection if multiple types)
     setSelectedRequirementId(requirementId);
     setSelectedFile(file);
+    setSelectedDocumentTypeId(defaultTypeId);
     setDocumentMetadata({
       documentNumber: "",
       issueDate: "",
@@ -359,7 +377,7 @@ export default function ServiceApplicationPage() {
       return;
     }
 
-    // V2: Find requirement directly and use documentTypesId from response
+    // Find requirement directly
     const requirement = requirements.find(
       req => {
         const reqId = req.applicationRequirementId || req.requirementListId || req.id || "";
@@ -373,14 +391,37 @@ export default function ServiceApplicationPage() {
     }
 
     // Check if this is a document requirement
-    const isDocument = requirement.metricDescription === "File/Document" && requirement.documentTypesId != null;
-    
-    if (!isDocument || !requirement.documentTypesId) {
-      toast.error("Document type not found for this requirement");
+    if (!isDocumentRequirement(requirement)) {
+      toast.error("This requirement does not require a document upload");
       return;
     }
 
-    const documentTypeId = requirement.documentTypesId;
+    // Get allowed document type IDs
+    const allowedTypeIds = getAllowedDocumentTypeIds(requirement);
+    
+    // Determine document type ID to use
+    let documentTypeId: string | null = null;
+    
+    if (allowedTypeIds.length === 1) {
+      // Single type - use it
+      documentTypeId = allowedTypeIds[0];
+    } else if (selectedDocumentTypeId) {
+      // Multiple types - use selected one
+      if (allowedTypeIds.includes(selectedDocumentTypeId)) {
+        documentTypeId = selectedDocumentTypeId;
+      } else {
+        toast.error("Selected document type is not allowed for this requirement");
+        return;
+      }
+    } else {
+      toast.error("Please select a document type");
+      return;
+    }
+
+    if (!documentTypeId) {
+      toast.error("Document type not found for this requirement");
+      return;
+    }
 
     setIsUploading(true);
     try {
@@ -446,6 +487,7 @@ export default function ServiceApplicationPage() {
         setUploadDialogOpen(false);
         setSelectedRequirementId(null);
         setSelectedFile(null);
+        setSelectedDocumentTypeId(null);
         setDocumentMetadata({
           documentNumber: "",
           issueDate: "",
@@ -494,26 +536,52 @@ export default function ServiceApplicationPage() {
     }
 
     // Validate all required requirements are filled
-    // V2: Document requirements: check if uploaded (metricDescription === "File/Document" && documentTypesId != null)
+    // Document requirements: check if uploaded with valid document type
     // Non-document requirements: check if value provided based on metric type
     // Skip validation for already submitted requirements
-    const missingRequired = requirements
-      .filter((req: any) => {
-        // Only check required items that haven't been submitted yet
-        const isRequired = req.requiredValue === "Required" || req.isRequired;
-        return isRequired && !req.isSubmitted;
+    const requiredReqs = requirements.filter((req: any) => {
+      const isRequired = req.requiredValue === "Required" || req.isRequired;
+      return isRequired && !req.isSubmitted;
+    });
+
+    // Check document requirements: each must have an upload and type must be in allowed set
+    const docReqs = requiredReqs.filter((req: any) => isDocumentRequirement(req));
+    const missingUploadReqs = docReqs.filter((req: any) => {
+      const reqId = req.applicationRequirementId || req.requirementListId || req.id;
+      return !documentUploads.has(reqId);
+    });
+    if (missingUploadReqs.length > 0) {
+      toast.error(
+        `Please upload documents for: ${missingUploadReqs.map((r: any) => r.requirementName).join(", ")}`
+      );
+      return;
+    }
+
+    const uploadedDocTypeIds = docReqs
+      .map((r: any) => {
+        const reqId = r.applicationRequirementId || r.requirementListId || r.id;
+        return documentUploads.get(reqId)?.documentTypesId;
       })
+      .filter((id): id is string => !!id);
+
+    if (!hasAllDocumentUploads(requiredReqs, uploadedDocTypeIds)) {
+      toast.error(
+        "One or more document requirements have an invalid document type. " +
+          "Please ensure each upload matches an allowed type for that requirement."
+      );
+      return;
+    }
+
+    // Check non-document requirements
+    const missingRequired = requiredReqs
+      .filter((req: any) => !isDocumentRequirement(req))
       .filter((req: any) => {
         const reqId = req.applicationRequirementId || req.requirementListId || req.id;
         const metricType = req.metricDescription || req.metricType || "Text";
-        const isDocument = metricType === "File/Document" && req.documentTypesId != null;
         const isDate = metricType === "Date";
         const isYesNo = metricType === "Yes/No";
         
-        if (isDocument) {
-          // For document requirements, check if document was uploaded
-          return !documentUploads.has(reqId);
-        } else if (isDate) {
+        if (isDate) {
           // For date requirements, check if valid date is provided
           const value = requirementValues.find(rv => rv.requirementId === reqId);
           if (!value?.value) return true;
@@ -543,11 +611,8 @@ export default function ServiceApplicationPage() {
       const submitRequirementValues = requirements
         .map((req: any) => {
           const reqId = req.applicationRequirementId || req.requirementListId || req.id;
-          // V2: Check if document requirement using metricDescription and documentTypesId
-          const isDocument = req.metricDescription === "File/Document" && req.documentTypesId != null;
-          
           // Skip document requirements - they're handled via ApplicationDocument
-          if (isDocument) {
+          if (isDocumentRequirement(req)) {
             return null;
           }
           
@@ -577,11 +642,28 @@ export default function ServiceApplicationPage() {
       if (ok) {
         toast.success("Application submitted successfully");
         setCurrentStep("invoice");
-        
-        // Generate invoice
         await handleGenerateInvoice();
       } else {
-        toast.error(response.message || "Failed to submit application");
+        // Handle specific error codes
+        const errorCode = response.error?.code;
+        const errorMessage = response.error?.message || response.message;
+        
+        if (errorCode === ApplicationRequirementErrorCodes.MISSING_DOCUMENT) {
+          toast.error(
+            "One or more document requirements are missing valid uploads. " +
+            "Please ensure all document requirements have at least one uploaded document of an allowed type."
+          );
+        } else if (errorCode === ApplicationRequirementErrorCodes.DOCUMENT_TYPE_REQUIRED) {
+          toast.error(
+            "A requirement is missing document type configuration. Please contact support."
+          );
+        } else if (errorCode === ApplicationRequirementErrorCodes.REQUIREMENT_CREATION_FAILED) {
+          toast.error(
+            "Failed to process requirements. Please check that all document types are properly configured."
+          );
+        } else {
+          toast.error(errorMessage || "Failed to submit application");
+        }
       }
     } catch (error: any) {
       console.error("Error submitting application:", error);
@@ -774,7 +856,7 @@ export default function ServiceApplicationPage() {
             
             const reqId = req.applicationRequirementId || req.requirementListId || req.id;
             const metricType = req.metricDescription || req.metricType || "Text";
-            const isDocument = metricType === "File/Document" && req.documentTypesId != null;
+            const isDocument = isDocumentRequirement(req);
             const isDate = metricType === "Date";
             const isYesNo = metricType === "Yes/No";
             
@@ -998,8 +1080,7 @@ export default function ServiceApplicationPage() {
                   ).length;
                   const completed = requirements.filter((req: any) => {
                     const reqId = req.applicationRequirementId || req.requirementListId || req.id;
-                    const metricType = req.metricDescription || req.metricType || "Text";
-                    const isDocument = metricType === "File/Document" && req.documentTypesId != null;
+                    const isDocument = isDocumentRequirement(req);
                     
                     if (req.isSubmitted) return true;
                     if (isDocument) {
@@ -1044,12 +1125,13 @@ export default function ServiceApplicationPage() {
                   
                   // Determine metric type
                   const metricType = req.metricDescription || req.metricType || "Text";
-                  const isDocument = metricType === "File/Document" && req.documentTypesId != null;
+                  const isDocument = isDocumentRequirement(req);
                   const isDate = metricType === "Date";
                   const isYesNo = metricType === "Yes/No";
                   const isText = metricType === "Text" || (!isDocument && !isDate && !isYesNo);
                   const isRequired = req.requiredValue === "Required" || req.isRequired;
-                  const hasDocumentTypeMatch = req.documentTypesId != null;
+                  const allowedTypeIds = getAllowedDocumentTypeIds(req);
+                  const hasDocumentTypeMatch = allowedTypeIds.length > 0;
                   
                   return (
                     <div key={reqId} className="p-4 border rounded-lg">
@@ -1082,11 +1164,26 @@ export default function ServiceApplicationPage() {
                         </div>
                       )}
                       
-                      {req.documentTypeDescription && (
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Document Type: <span className="font-medium">{req.documentTypeDescription}</span>
-                        </p>
-                      )}
+                      {(() => {
+                        const allowedTypes = getAllowedDocumentTypes(req);
+                        if (allowedTypes.length > 0) {
+                          return (
+                            <p className="text-sm text-muted-foreground mb-2">
+                              Document Type{allowedTypes.length > 1 ? "s" : ""}:{" "}
+                              <span className="font-medium">
+                                {allowedTypes.map(t => t.description).join(", ")}
+                              </span>
+                            </p>
+                          );
+                        } else if (req.documentTypeDescription) {
+                          return (
+                            <p className="text-sm text-muted-foreground mb-2">
+                              Document Type: <span className="font-medium">{req.documentTypeDescription}</span>
+                            </p>
+                          );
+                        }
+                        return null;
+                      })()}
                       
                       {isDocument ? (
                         <div className="mt-3 space-y-2">
@@ -1316,8 +1413,8 @@ export default function ServiceApplicationPage() {
                     const value = requirementValues.find(rv => rv.requirementId === reqId);
                     const hasUpload = documentUploads.has(reqId);
                     const metricType = req.metricDescription || req.metricType || "Text";
-                    // V2: Check if document requirement using metricDescription and documentTypesId
-                    const isDocument = metricType === "File/Document" && req.documentTypesId != null;
+                    // Check if document requirement
+                    const isDocument = isDocumentRequirement(req);
                     const isDate = metricType === "Date";
                     const isYesNo = metricType === "Yes/No";
                     const hasValue = isDocument ? (hasUpload || req.isSubmitted) : (value?.value || req.isSubmitted);
@@ -1572,17 +1669,51 @@ export default function ServiceApplicationPage() {
             </DialogDescription>
           </DialogHeader>
           
-          {selectedFile && (
-            <div className="space-y-4">
-              <div className="p-3 bg-muted rounded-lg">
-                <p className="text-sm font-medium">Selected File</p>
-                <p className="text-xs text-muted-foreground">{selectedFile.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-              </div>
-
+          {selectedFile && selectedRequirementId && (() => {
+            const requirement = requirements.find(
+              req => {
+                const reqId = req.applicationRequirementId || req.requirementListId || req.id || "";
+                return reqId === selectedRequirementId;
+              }
+            );
+            const allowedTypes = requirement ? getAllowedDocumentTypes(requirement) : [];
+            const hasMultipleTypes = allowedTypes.length > 1;
+            
+            return (
               <div className="space-y-4">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-sm font-medium">Selected File</p>
+                  <p className="text-xs text-muted-foreground">{selectedFile.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+
+                {hasMultipleTypes && (
+                  <div className="space-y-2">
+                    <Label htmlFor="documentType">Document Type *</Label>
+                    <Select
+                      value={selectedDocumentTypeId || ""}
+                      onValueChange={(value) => setSelectedDocumentTypeId(value || null)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select document type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allowedTypes.map((type) => (
+                          <SelectItem key={type.documentTypesId} value={type.documentTypesId}>
+                            {type.description}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Please select the type of document you are uploading
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="documentNumber">Document Number (Optional)</Label>
                   <Input
@@ -1632,7 +1763,8 @@ export default function ServiceApplicationPage() {
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           <DialogFooter>
             <Button
@@ -1648,7 +1780,19 @@ export default function ServiceApplicationPage() {
             </Button>
             <Button
               onClick={handleUploadDocument}
-              disabled={isUploading || !selectedFile}
+              disabled={isUploading || !selectedFile || (() => {
+                if (!selectedRequirementId) return true;
+                const requirement = requirements.find(
+                  req => {
+                    const reqId = req.applicationRequirementId || req.requirementListId || req.id || "";
+                    return reqId === selectedRequirementId;
+                  }
+                );
+                if (!requirement) return true;
+                const allowedTypes = getAllowedDocumentTypes(requirement);
+                // If multiple types, require selection; if single, allow upload
+                return allowedTypes.length > 1 && !selectedDocumentTypeId;
+              })()}
               className="bg-[#3EADC0] hover:bg-[#35a0b3]"
             >
               {isUploading ? (
