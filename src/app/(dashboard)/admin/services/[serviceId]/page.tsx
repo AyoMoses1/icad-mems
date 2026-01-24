@@ -42,6 +42,7 @@ import type {
 } from "@/types/service-management";
 import { AddRequirementDialog } from "@/components/service-management/AddRequirementDialog";
 import { EditRequirementDialog } from "@/components/service-management/EditRequirementDialog";
+import { getAllowedDocumentTypes } from "@/lib/utils/requirement-helpers";
 
 export default function ServiceDetailPage() {
   const params = useParams();
@@ -236,7 +237,15 @@ export default function ServiceDetailPage() {
                     <TableCell>{requirement.rankDescription}</TableCell>
                     <TableCell>{requirement.requiredValue}</TableCell>
                     <TableCell>
-                      {requirement.documentTypeDescription || "N/A"}
+                      {(() => {
+                        const allowedTypes = getAllowedDocumentTypes(requirement);
+                        if (allowedTypes.length > 0) {
+                          return allowedTypes.map(t => t.description).join(", ");
+                        } else if (requirement.documentTypeDescription) {
+                          return requirement.documentTypeDescription;
+                        }
+                        return "N/A";
+                      })()}
                     </TableCell>
                     {canManage && (
                       <TableCell className="text-right">
