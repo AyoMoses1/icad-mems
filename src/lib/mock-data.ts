@@ -404,7 +404,7 @@ export const workspaceResources: WorkspaceResource[] = [
 // Workspace Roles Seed Data
 // ============================================================================
 
-export const workspaceRoles: WorkspaceRole[] = [
+export const workspaceRoles: any[] = [
   {
     workspaceRoleId: "role-001",
     userWorkspaceId: "uws-001",

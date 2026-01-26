@@ -139,7 +139,7 @@ function DashboardLayoutContent({
     const hasStoredRole = typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
     
     // Only skip if we have everything - otherwise fetch to get latest data
-    if (hasCompleteUserData && hasStoredRole && user.roles.length > 0) {
+    if (hasCompleteUserData && hasStoredRole && user.roles && user.roles.length > 0) {
       // Verify the roles have the workspace structure we need
       const hasWorkspaceRoles = user.roles.some((r: any) => 
         typeof r === "object" && r.workspaceId && r.workspaceName
@@ -315,8 +315,8 @@ function DashboardLayoutContent({
       const workspaceRoles = userInfo.roles?.map((role) => ({
         workspaceId: role.workspaceId,
         workspaceName: role.workspaceName,
-        is_onboarding_complete: (role as any).is_onboarding_complete,
-        onboarding_completed_date: (role as any).onboarding_completed_date,
+        is_onboarding_complete: (role as any).is_onboarding_complete as boolean | undefined,
+        onboarding_completed_date: (role as any).onboarding_completed_date as string | null | undefined,
         tenants: role.tenants,
       })) || [];
 
@@ -338,7 +338,7 @@ function DashboardLayoutContent({
         twoFactorEnabled: user?.twoFactorEnabled || false,
         createdAt: userInfo.createdAt || user?.createdAt || new Date().toISOString(),
         updatedAt: userInfo.updatedAt || user?.updatedAt || new Date().toISOString(),
-        roles: workspaceRoles.length > 0 ? workspaceRoles : user?.roles || [],
+        roles: (workspaceRoles.length > 0 ? workspaceRoles : user?.roles || []) as any,
       };
 
       // Step 9: Set up full session

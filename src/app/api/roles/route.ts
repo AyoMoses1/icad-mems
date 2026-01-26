@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newRole: WorkspaceRole = {
+    const newRole: any = {
       workspaceRoleId: generateId("role"),
       userWorkspaceId: "uws-001",
       workspaceId,
