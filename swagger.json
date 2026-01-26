@@ -7237,6 +7237,21 @@
             "type": "string",
             "nullable": true
           },
+          "documentTypeIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "documentTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.DocumentTypeDto"
+            },
+            "nullable": true
+          },
           "requiredValue": {
             "type": "string",
             "nullable": true
@@ -8630,6 +8645,21 @@
           },
           "documentTypeDescription": {
             "type": "string",
+            "nullable": true
+          },
+          "documentTypeIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "documentTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.DocumentTypeDto"
+            },
             "nullable": true
           }
         },

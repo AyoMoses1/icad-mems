@@ -74,7 +74,6 @@ export default function SeafarerRegistryPage() {
   const [stats, setStats] = useState({
     totalRegistered: 0,
     activeSeafarers: 0,
-    pendingVerification: 0,
     expiredLicenses: 0,
   });
 
@@ -94,7 +93,7 @@ export default function SeafarerRegistryPage() {
       });
 
       const ok = response.success ?? (response as any).successful;
-      if (ok && response.data) {
+      if (ok && response.data && response.data.items && response.data.items.length > 0) {
         setSeafarers(response.data.items);
         const total = response.data.totalNumber ?? response.data.items.length;
         setTotalPages(
@@ -114,11 +113,28 @@ export default function SeafarerRegistryPage() {
           activeSeafarers: activeCount,
         }));
       } else {
-        toast.error(response.message || "Failed to load seafarers");
+        // If endpoint doesn't exist or returns empty, set empty state
+        // Don't show error toast as this is expected if endpoint is not available
+        setSeafarers([]);
+        setTotalCount(0);
+        setTotalPages(1);
+        setStats({
+          totalRegistered: 0,
+          activeSeafarers: 0,
+          expiredLicenses: 0,
+        });
       }
     } catch (error) {
       console.error("Error loading seafarers:", error);
-      toast.error("Failed to load seafarers");
+      // Don't show error toast - endpoint may not be available
+      setSeafarers([]);
+      setTotalCount(0);
+      setTotalPages(1);
+      setStats({
+        totalRegistered: 0,
+        activeSeafarers: 0,
+        expiredLicenses: 0,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -285,20 +301,6 @@ export default function SeafarerRegistryPage() {
           <CardContent>
             <div className="text-2xl font-bold">
               {stats.activeSeafarers.toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Pending Verification
-            </CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats.pendingVerification}
             </div>
           </CardContent>
         </Card>

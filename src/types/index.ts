@@ -37,6 +37,19 @@ export enum PermissionAction {
 // User & Profile Types
 // ============================================================================
 
+export interface WorkspaceRole {
+  workspaceId: string;
+  workspaceName: string;
+  is_onboarding_complete?: boolean;
+  onboarding_completed_date?: string | null;
+  tenants?: Array<{
+    tenantId: string;
+    roles?: Array<{
+      role: string;
+    }>;
+  }>;
+}
+
 export interface User {
   id: string;
   username: string;
@@ -54,9 +67,9 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   avatarUrl?: string;
-  is_onboarding_complete?: boolean;
+  is_onboarding_complete?: boolean; // Legacy: top-level onboarding status
   workspaces?: any[];
-  roles?: string[];
+  roles?: string[] | WorkspaceRole[]; // Can be string array (legacy) or WorkspaceRole array (from IMS)
 }
 
 export interface UserWithFullName extends User {

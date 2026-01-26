@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuthStore, useUIStore } from "@/store";
+import { isSeaFarerOnboardingComplete, getSeaFarerWorkspace } from "@/lib/utils/workspace-helpers";
 
 const getPageTitle = (pathname: string): string => {
   const routes: Record<string, string> = {
@@ -38,7 +39,7 @@ const getPageTitle = (pathname: string): string => {
     "/seafarer/applications/review": "Review Application",
     "/seafarer/registry": "Seafarer Registry",
     "/seafarer/profile": "Seafarer Profile",
-    "/seafarer/add": "Add Seafarer",
+    "/seafarer/add": "Onboard Seafarer",
     "/seafarer/miis": "Accredited MTIs",
     // Medical
     "/medical/services": "Medical Services",
@@ -85,6 +86,26 @@ export function Header() {
       setUserRole(role);
     }
   }, []);
+  
+  // Check if onboarding is complete - if not, don't render header
+  // BUT EXCLUDE ADMINS - admins should always see the header
+  const userRoleFromStorage = typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
+  const isAdmin = userRoleFromStorage?.toUpperCase() === "ADMIN" || userRoleFromStorage?.toUpperCase() === "SUPERADMIN";
+  
+  // Skip onboarding check for admins
+  if (!isAdmin) {
+    const seaFarerWorkspace = getSeaFarerWorkspace(user);
+    const hasSeaFarerWorkspace = seaFarerWorkspace !== null;
+    const isOnboardingComplete = isSeaFarerOnboardingComplete(user) ?? user?.is_onboarding_complete ?? false;
+    const isOnboardingPage = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+    const isRootPage = pathname === "/" || pathname === "";
+    
+    // Don't render header if user has Sea Farer workspace but onboarding is not complete
+    // Allow root page for role selection, but hide header on onboarding pages
+    if (hasSeaFarerWorkspace && !isOnboardingComplete && (isOnboardingPage || isRootPage)) {
+      return null;
+    }
+  }
 
   const pageTitle = getPageTitle(pathname);
   const roleLabel = userRole ? roleLabels[userRole] || userRole : "";

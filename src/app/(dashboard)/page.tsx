@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { getDashboardRouteFromRoles } from "@/lib/role-routing";
 import { useAuthStore } from "@/store";
 import { LoadingSpinner, RoleSelectionScreen } from "@/components/shared";
+import {
+  isSeaFarerOnboardingComplete,
+  getSeaFarerPrimaryRole,
+} from "@/lib/utils/workspace-helpers";
 
 export default function DashboardRedirectPage() {
   const router = useRouter();
@@ -26,8 +30,34 @@ export default function DashboardRedirectPage() {
         return;
       }
       
-      // If user is OWNER, show role selection screen at index route
+      // If user is OWNER, check if Sea Farer workspace onboarding is complete
       if (roleUpper === "OWNER") {
+        const seaFarerOnboardingComplete = isSeaFarerOnboardingComplete(user);
+        
+        // If Sea Farer onboarding is complete, redirect to appropriate dashboard
+        if (seaFarerOnboardingComplete) {
+          const primaryRole = getSeaFarerPrimaryRole(user);
+          
+          // Redirect based on primary role in Sea Farer workspace
+          // If role is Owner, default to Seafarer dashboard
+          // (Owners typically complete Seafarer onboarding first)
+          if (primaryRole === "Seafarer" || primaryRole === "Owner") {
+            router.replace("/seafarer/dashboard");
+            return;
+          } else if (primaryRole === "Agent") {
+            router.replace("/agent/dashboard");
+            return;
+          } else if (primaryRole === "Training Institution") {
+            router.replace("/training-institution/dashboard");
+            return;
+          }
+          
+          // Fallback: if onboarding complete but role unknown, go to seafarer dashboard
+          router.replace("/seafarer/dashboard");
+          return;
+        }
+        
+        // Show role selection screen only if onboarding is NOT complete
         setShowRoleSelection(true);
         setIsChecking(false);
         return;

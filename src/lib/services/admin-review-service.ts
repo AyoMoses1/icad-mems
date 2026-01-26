@@ -10,27 +10,37 @@ const API_BASE_ACCREDS = "/seafarer/api/v1/Accreditation/institutions";
 const API_BASE_ADMIN_ACCREDS = "/seafarer/api/v1/Accreditation";
 
 export interface ApplicationDto {
-  id: string;
-  applicantId?: string;
-  targetDocumentMasterId?: string;
-  applicationStatus?: string | null;
+  // Primary identifier from onboarding endpoint
+  userSeafarerOnboardingId?: string;
+  userId?: string;
+  rn?: string; // Reference number (e.g., "SEA-2026-0003", "AGT-2026-0003")
+  role?: string; // "SEAFARER", "AGENT", "TRAINING_INSTITUTION"
+  roleDescription?: string;
+  status?: string; // "PENDING", "APPROVED", "REJECTED"
+  statusDescription?: string;
+  dateCreated?: string;
+  dateModified?: string;
+  
+  // Legacy/backward compatibility fields
+  id?: string; // Maps to userSeafarerOnboardingId
+  applicantId?: string; // Maps to rn
+  targetDocumentMasterId?: string; // Maps to role/roleDescription
+  applicationStatus?: string | null; // Maps to status
   invoiceId?: string | null;
   paymentReference?: string | null;
   isPaid?: boolean | null;
-  submissionDate?: string | null;
+  submissionDate?: string | null; // Maps to dateCreated
   approvalDate?: string | null;
   remarks?: string | null;
-  // Legacy fields for backward compatibility
   seafarerId?: string;
   seafarerName?: string;
   certificateId?: string;
   certificateName?: string;
   documentId?: string;
   documentName?: string;
-  status?: string;
-  submittedAt?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  submittedAt?: string; // Maps to dateCreated
+  createdAt?: string; // Maps to dateCreated
+  updatedAt?: string; // Maps to dateModified
 }
 
 export interface PagedResult<T> {
@@ -114,6 +124,7 @@ export interface AdminStatsDto {
  * GET /seafarer/api/v1/Onboarding/pending - pending onboarding applications
  * Note: /seafarer/api/v1/Applications only supports POST, not GET
  * Response: { data: ApplicationDto[], ... }
+ * The response contains UserSeafarerOnboardingDto objects which we map to ApplicationDto
  */
 export async function getPendingApplications(params?: {
   pageNumber?: number;
@@ -133,50 +144,87 @@ export async function getPendingApplications(params?: {
     queryParams.append("sortDirection", params.sortDirection);
   }
 
-  return apiGetMain<ApplicationDto[]>(
+  const response = await apiGetMain<any[]>(
     `/seafarer/api/v1/Onboarding/pending${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
   );
+
+  // Map the onboarding DTOs to ApplicationDto format
+  if (response.success && response.data) {
+    const mappedData: ApplicationDto[] = response.data.map((item: any) => ({
+      ...item,
+      // Map to legacy fields for backward compatibility
+      id: item.userSeafarerOnboardingId || item.id,
+      applicantId: item.rn || item.applicantId,
+      targetDocumentMasterId: item.roleDescription || item.role || item.targetDocumentMasterId,
+      applicationStatus: item.status || item.statusDescription || item.applicationStatus,
+      submissionDate: item.dateCreated || item.submissionDate,
+      submittedAt: item.dateCreated || item.submittedAt,
+      createdAt: item.dateCreated || item.createdAt,
+      updatedAt: item.dateModified || item.updatedAt,
+    }));
+
+    return {
+      ...response,
+      data: mappedData,
+    };
+  }
+
+  return response as ApiResponse<ApplicationDto[]>;
 }
 
 /**
- * Approve a certificate application
- * PATCH /seafarer/api/v1/Applications/{id}/approve (if exists) or use status update
+ * Approve an onboarding application
+ * PATCH /seafarer/api/v1/Onboarding/{id}/status
+ * Based on swagger: uses userSeafarerOnboardingId
  */
 export async function approveApplication(
   applicationId: string,
   data: ApproveApplicationRequest,
 ): Promise<ApiResponse<boolean>> {
-  // Check swagger - might need to use Applications/{id}/status endpoint
   return apiPatchMain<boolean>(
-    `${API_BASE_APPS}/${applicationId}/approve`,
-    data,
+    `/seafarer/api/v1/Onboarding/${applicationId}/status`,
+    {
+      status: "APPROVED",
+      remarks: data.remarks || null,
+    },
   );
 }
 
 /**
- * Reject a certificate application
- * PATCH /api/admin/AdminApplications/{id}/reject
+ * Reject an onboarding application
+ * PATCH /seafarer/api/v1/Onboarding/{id}/status
+ * Based on swagger: uses userSeafarerOnboardingId
  */
 export async function rejectApplication(
   applicationId: string,
   data: RejectApplicationRequest,
 ): Promise<ApiResponse<boolean>> {
   return apiPatchMain<boolean>(
-    `${API_BASE_APPS}/${applicationId}/reject`,
-    data,
+    `/seafarer/api/v1/Onboarding/${applicationId}/status`,
+    {
+      status: "REJECTED",
+      remarks: data.remarks || null,
+    },
   );
 }
 
 /**
  * Get application attachments
- * GET /api/admin/AdminApplications/{id}/attachments
+ * Note: The onboarding endpoint doesn't have a separate attachments endpoint.
+ * Documents are included in the onboarding response itself.
+ * This function is kept for backward compatibility but should use the documents
+ * from the onboarding record directly.
  */
 export async function getApplicationAttachments(
   applicationId: string,
 ): Promise<ApiResponse<ApplicationAttachmentDto[]>> {
-  return apiGetMain<ApplicationAttachmentDto[]>(
-    `${API_BASE_APPS}/${applicationId}/attachments`,
-  );
+  // Since there's no attachments endpoint for onboarding, return empty array
+  // The actual documents should be extracted from the onboarding record
+  return Promise.resolve({
+    success: true,
+    data: [],
+    message: "Attachments are included in the onboarding record",
+  });
 }
 
 export interface ApplicationAttachmentDto {

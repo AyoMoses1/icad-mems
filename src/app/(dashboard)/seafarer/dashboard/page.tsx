@@ -36,6 +36,10 @@ import {
   type ApplicationDto,
 } from "@/lib/services/application-service";
 import { formatDate } from "@/lib/utils";
+import {
+  isSeaFarerOnboardingComplete,
+  getSeaFarerPrimaryRole,
+} from "@/lib/utils/workspace-helpers";
 
 interface ExpiringDocument {
   documentType: string;
@@ -55,8 +59,12 @@ export default function SeafarerDashboard() {
   const [dashboardData, setDashboardData] = useState<ApplicationDashboardDto | null>(null);
   const [recentApplications, setRecentApplications] = useState<ApplicationDto[]>([]);
   
-  // Check if onboarding is complete
-  const isOnboardingComplete = user?.is_onboarding_complete ?? false;
+  // Check if onboarding is complete for Sea Farer workspace
+  // Use workspace-specific onboarding status if available, otherwise fall back to top-level
+  const isOnboardingComplete = isSeaFarerOnboardingComplete(user) ?? user?.is_onboarding_complete ?? false;
+  
+  // Get the user's primary role in Sea Farer workspace
+  const seaFarerRole = getSeaFarerPrimaryRole(user);
 
   useEffect(() => {
     loadDashboardData();
@@ -224,7 +232,15 @@ export default function SeafarerDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border bg-muted/50 p-4">
+              <p className="text-sm text-muted-foreground">Hours</p>
+              <p className="text-2xl font-bold">
+                {isLoading
+                  ? "-"
+                  : ((dashboardData?.totalSeaTimeDays ?? 0) * 24).toLocaleString()}
+              </p>
+            </div>
             <div className="rounded-lg border bg-muted/50 p-4">
               <p className="text-sm text-muted-foreground">Days</p>
               <p className="text-2xl font-bold">

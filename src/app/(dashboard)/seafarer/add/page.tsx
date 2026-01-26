@@ -193,7 +193,7 @@ export default function AddSeafarerPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Add Seafarer User" />
+      <PageHeader title="Onboard Seafarer" />
 
       <Card>
         <CardHeader>

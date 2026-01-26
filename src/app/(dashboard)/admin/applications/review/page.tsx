@@ -17,7 +17,6 @@ import {
   getPendingApplications,
   approveApplication,
   rejectApplication,
-  getApplicationAttachments,
   type ApplicationDto,
   type ApplicationAttachmentDto,
 } from "@/lib/services/admin-review-service";
@@ -78,30 +77,102 @@ export default function AdminApplicationsReviewPage() {
     loadApplications();
   }, []);
 
-  const loadAttachments = async (applicationId: string) => {
-    try {
-      const res = await getApplicationAttachments(applicationId);
-      const ok = res.success ?? (res as any).successful;
-      if (ok && res.data) {
-        setAttachments(Array.isArray(res.data) ? res.data : []);
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err?.message || "Failed to load attachments");
-    }
-  };
+  // Note: loadAttachments is no longer used since documents are extracted
+  // directly from the onboarding record in handleViewAttachments
 
   const handleViewAttachments = async (application: ApplicationDto) => {
     setSelectedApplication(application);
     setIsAttachmentsDialogOpen(true);
-    await loadAttachments(application.id);
+    
+    // Extract documents from the onboarding record directly
+    // The onboarding response includes all documents in various arrays
+    const onboardingData = application as any;
+    const allDocuments: ApplicationAttachmentDto[] = [];
+    
+    // Extract institution documents
+    if (onboardingData.institutionDocuments && Array.isArray(onboardingData.institutionDocuments)) {
+      onboardingData.institutionDocuments.forEach((doc: any) => {
+        allDocuments.push({
+          id: doc.documentId,
+          applicationId: onboardingData.userSeafarerOnboardingId || onboardingData.id,
+          documentName: doc.documentTypeDescription || "Institution Document",
+          documentNumber: doc.documentNumber,
+          issueDate: doc.issueDate,
+          expiryDate: doc.expiryDate,
+          fileUrl: doc.filePathOrUrl,
+        });
+      });
+    }
+    
+    // Extract profile documents
+    if (onboardingData.profileDocuments && Array.isArray(onboardingData.profileDocuments)) {
+      onboardingData.profileDocuments.forEach((doc: any) => {
+        allDocuments.push({
+          id: doc.documentId,
+          applicationId: onboardingData.userSeafarerOnboardingId || onboardingData.id,
+          documentName: doc.documentTypeDescription || "Profile Document",
+          documentNumber: doc.documentNumber,
+          issueDate: doc.issueDate,
+          expiryDate: doc.expiryDate,
+          fileUrl: doc.filePathOrUrl,
+        });
+      });
+    }
+    
+    // Extract education documents
+    if (onboardingData.educationDetails && Array.isArray(onboardingData.educationDetails)) {
+      onboardingData.educationDetails.forEach((edu: any) => {
+        if (edu.documents && Array.isArray(edu.documents)) {
+          edu.documents.forEach((doc: any) => {
+            allDocuments.push({
+              id: doc.documentId,
+              applicationId: onboardingData.userSeafarerOnboardingId || onboardingData.id,
+              documentName: doc.documentTypeDescription || "Education Document",
+              documentNumber: doc.documentNumber,
+              issueDate: doc.issueDate,
+              expiryDate: doc.expiryDate,
+              fileUrl: doc.filePathOrUrl,
+            });
+          });
+        }
+      });
+    }
+    
+    // Extract voyage documents
+    if (onboardingData.voyageActivities && Array.isArray(onboardingData.voyageActivities)) {
+      onboardingData.voyageActivities.forEach((voyage: any) => {
+        if (voyage.documents && Array.isArray(voyage.documents)) {
+          voyage.documents.forEach((doc: any) => {
+            allDocuments.push({
+              id: doc.documentId,
+              applicationId: onboardingData.userSeafarerOnboardingId || onboardingData.id,
+              documentName: doc.documentTypeDescription || "Voyage Document",
+              documentNumber: doc.documentNumber,
+              issueDate: doc.issueDate,
+              expiryDate: doc.expiryDate,
+              fileUrl: doc.filePathOrUrl,
+            });
+          });
+        }
+      });
+    }
+    
+    setAttachments(allDocuments);
   };
 
   const handleApprove = async () => {
     if (!selectedApplication) return;
     setIsSubmitting(true);
     try {
-      const res = await approveApplication(selectedApplication.id, {
+      // Use userSeafarerOnboardingId if available, otherwise fall back to id
+      const applicationId = (selectedApplication as any).userSeafarerOnboardingId || selectedApplication.id;
+      if (!applicationId) {
+        toast.error("Application ID not found");
+        setIsSubmitting(false);
+        return;
+      }
+      
+      const res = await approveApplication(applicationId, {
         remarks: remarks || null,
       });
       const ok = res.success ?? (res as any).successful;
@@ -125,7 +196,15 @@ export default function AdminApplicationsReviewPage() {
     if (!selectedApplication) return;
     setIsSubmitting(true);
     try {
-      const res = await rejectApplication(selectedApplication.id, {
+      // Use userSeafarerOnboardingId if available, otherwise fall back to id
+      const applicationId = (selectedApplication as any).userSeafarerOnboardingId || selectedApplication.id;
+      if (!applicationId) {
+        toast.error("Application ID not found");
+        setIsSubmitting(false);
+        return;
+      }
+      
+      const res = await rejectApplication(applicationId, {
         remarks: remarks || null,
       });
       const ok = res.success ?? (res as any).successful;
@@ -272,31 +351,43 @@ export default function AdminApplicationsReviewPage() {
     {
       id: "applicantId",
       header: "Applicant ID",
-      cell: ({ row }: { row: ApplicationDto }) => (
-        <div className="font-medium font-mono text-sm">
-          {row.applicantId || row.seafarerId || row.seafarerName || "N/A"}
-        </div>
-      ),
+      cell: ({ row }: { row: ApplicationDto }) => {
+        // Use rn (reference number) as Applicant ID, fallback to other fields
+        const applicantId = (row as any).rn || row.applicantId || row.seafarerId || row.seafarerName;
+        return (
+          <div className="font-medium font-mono text-sm">
+            {applicantId || "N/A"}
+          </div>
+        );
+      },
     },
     {
       id: "targetDocument",
       header: "Target Document",
-      cell: ({ row }: { row: ApplicationDto }) => (
-        <div className="font-mono text-sm">
-          {row.targetDocumentMasterId ||
-            row.certificateId ||
-            row.documentId ||
-            row.certificateName ||
-            row.documentName ||
-            "N/A"}
-        </div>
-      ),
+      cell: ({ row }: { row: ApplicationDto }) => {
+        // Use roleDescription or role as Target Document
+        const targetDoc = (row as any).roleDescription || (row as any).role || 
+                         row.targetDocumentMasterId ||
+                         row.certificateId ||
+                         row.documentId ||
+                         row.certificateName ||
+                         row.documentName;
+        return (
+          <div className="font-mono text-sm">
+            {targetDoc || "N/A"}
+          </div>
+        );
+      },
     },
     {
       id: "status",
       header: "Status",
       cell: ({ row }: { row: ApplicationDto }) => {
-        const status = row.applicationStatus || row.status || "Pending";
+        // Use status or statusDescription from onboarding, fallback to applicationStatus
+        const status = (row as any).status || 
+                      (row as any).statusDescription || 
+                      row.applicationStatus || 
+                      "Pending";
         const statusVariant = status.toLowerCase().includes("approved")
           ? "default"
           : status.toLowerCase().includes("rejected")
@@ -304,7 +395,7 @@ export default function AdminApplicationsReviewPage() {
             : status.toLowerCase().includes("pending")
               ? "secondary"
               : "outline";
-        return <Badge variant={statusVariant}>{status}</Badge>;
+        return <Badge variant={statusVariant}>{status.toUpperCase()}</Badge>;
       },
     },
     {
@@ -319,17 +410,20 @@ export default function AdminApplicationsReviewPage() {
     {
       id: "submittedAt",
       header: "Submitted",
-      cell: ({ row }: { row: ApplicationDto }) => (
-        <div className="text-sm text-muted-foreground">
-          {row.submissionDate
-            ? new Date(row.submissionDate).toLocaleDateString()
-            : row.submittedAt
-              ? new Date(row.submittedAt).toLocaleDateString()
-              : row.createdAt
-                ? new Date(row.createdAt).toLocaleDateString()
-                : "N/A"}
-        </div>
-      ),
+      cell: ({ row }: { row: ApplicationDto }) => {
+        // Use dateCreated from onboarding, fallback to other date fields
+        const submittedDate = (row as any).dateCreated || 
+                             row.submissionDate ||
+                             row.submittedAt ||
+                             row.createdAt;
+        return (
+          <div className="text-sm text-muted-foreground">
+            {submittedDate
+              ? new Date(submittedDate).toLocaleDateString()
+              : "N/A"}
+          </div>
+        );
+      },
     },
     {
       id: "actions",

@@ -2,14 +2,21 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuthStore } from "@/store";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  User, 
-  Building2, 
-  GraduationCap, 
+import {
+  User,
+  Building2,
+  GraduationCap,
   ArrowRight,
-  Shield
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +33,8 @@ const roleOptions: RoleOption[] = [
   {
     id: "seafarer",
     title: "Seafarer Onboarding",
-    description: "Complete your profile as a seafarer to access seafarer services and applications",
+    description:
+      "Complete your profile as a seafarer to access seafarer services and applications",
     icon: <User className="h-8 w-8" />,
     route: "/onboarding/seafarer",
     color: "bg-blue-500",
@@ -34,7 +42,8 @@ const roleOptions: RoleOption[] = [
   {
     id: "agent",
     title: "Agent Onboarding",
-    description: "Register as an agent to manage seafarer applications and services",
+    description:
+      "Register as an agent to manage seafarer applications and services",
     icon: <Building2 className="h-8 w-8" />,
     route: "/onboarding/institution?type=agent",
     color: "bg-green-500",
@@ -42,7 +51,8 @@ const roleOptions: RoleOption[] = [
   {
     id: "training-institution",
     title: "Training Institution Onboarding",
-    description: "Register your training institution to offer courses and certifications",
+    description:
+      "Register your training institution to offer courses and certifications",
     icon: <GraduationCap className="h-8 w-8" />,
     route: "/onboarding/institution?type=training",
     color: "bg-purple-500",
@@ -51,7 +61,10 @@ const roleOptions: RoleOption[] = [
 
 export function RoleSelectionScreen() {
   const router = useRouter();
-  const [selectedRole, setSelectedRole] = useState<RoleOption["id"] | null>(null);
+  const { user } = useAuthStore();
+  const [selectedRole, setSelectedRole] = useState<RoleOption["id"] | null>(
+    null,
+  );
 
   const handleSelectRole = (option: RoleOption) => {
     setSelectedRole(option.id);
@@ -68,7 +81,7 @@ export function RoleSelectionScreen() {
               <Shield className="h-8 w-8 text-primary" />
             </div>
             <h1 className="text-4xl font-bold tracking-tight">
-              Welcome, Owner
+              Welcome{user?.firstName ? `, ${user.firstName}` : ""}
             </h1>
           </div>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -84,17 +97,14 @@ export function RoleSelectionScreen() {
               key={option.id}
               className={cn(
                 "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105",
-                selectedRole === option.id && "ring-2 ring-primary"
+                selectedRole === option.id && "ring-2 ring-primary",
               )}
               onClick={() => handleSelectRole(option)}
             >
               <CardHeader>
                 <div className="flex items-center gap-4 mb-2">
                   <div
-                    className={cn(
-                      "rounded-lg p-3 text-white",
-                      option.color
-                    )}
+                    className={cn("rounded-lg p-3 text-white", option.color)}
                   >
                     {option.icon}
                   </div>
@@ -144,4 +154,3 @@ export function RoleSelectionScreen() {
     </div>
   );
 }
-

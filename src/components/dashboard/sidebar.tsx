@@ -54,6 +54,7 @@ import { useAuthStore, useUIStore } from "@/store";
 import type { UserType } from "@/store/ui-store";
 import { getMenu, filterMenuByPermissions, type WorkspaceMenuDto, type MenuItemDto } from "@/lib/services/menu-service";
 import { getMyPermissions } from "@/lib/services/permissions-service";
+import { isSeaFarerOnboardingComplete, getSeaFarerWorkspace } from "@/lib/utils/workspace-helpers";
 
 type MenuItem = {
   title: string;
@@ -90,6 +91,8 @@ const seafarerMenuItems: MenuItem[] = [
       { title: "Profile & Documents", href: "/profile-documents" },
       { title: "Education Details", href: "/seafarer/profile/education" },
       { title: "Contact Details", href: "/seafarer/profile/contact" },
+      { title: "Voyage Activities", href: "/seafarer/profile/voyages" },
+      { title: "Training Records", href: "/seafarer/profile/trainings" },
     ],
   },
   {
@@ -357,6 +360,8 @@ const ownerMenuItems: MenuItem[] = [
       { title: "Profile & Documents", href: "/profile-documents" },
       { title: "Education Details", href: "/seafarer/profile/education" },
       { title: "Contact Details", href: "/seafarer/profile/contact" },
+      { title: "Voyage Activities", href: "/seafarer/profile/voyages" },
+      { title: "Training Records", href: "/seafarer/profile/trainings" },
     ],
   },
   {
@@ -442,12 +447,11 @@ const ownerMenuItems: MenuItem[] = [
 const adminMenuItems: MenuItem[] = [
   { title: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   {
-    title: "Onboarding",
+    title: "Seafarer",
     href: "#",
     icon: UserPlus,
     children: [
-      { title: "Pending Requests", href: "/admin/onboarding" },
-      { title: "All Onboardings", href: "/admin/onboarding?status=all" },
+      { title: "All Onboarding", href: "/admin/onboarding" },
     ],
   },
   {
@@ -455,7 +459,7 @@ const adminMenuItems: MenuItem[] = [
     href: "#",
     icon: User,
     children: [
-      { title: "Add Seafarer", href: "/seafarer/add" },
+      { title: "Onboard Seafarer", href: "/seafarer/add" },
       { title: "Seafarer Registry", href: "/seafarer/registry" },
       { title: "Seafarer Applications", href: "/seafarer/applications" },
     ],
@@ -756,6 +760,26 @@ export function Sidebar() {
   const [apiMenuItems, setApiMenuItems] = React.useState<MenuItem[]>([]);
   const [useApiMenu, setUseApiMenu] = React.useState(false);
   const [isLoadingMenu, setIsLoadingMenu] = React.useState(true);
+  
+  // Check if onboarding is complete - if not, don't render sidebar
+  // BUT EXCLUDE ADMINS - admins should always see the sidebar
+  const userRoleFromStorage = typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
+  const isAdmin = userRoleFromStorage?.toUpperCase() === "ADMIN" || userRoleFromStorage?.toUpperCase() === "SUPERADMIN";
+  
+  // Skip onboarding check for admins
+  if (!isAdmin) {
+    const seaFarerWorkspace = getSeaFarerWorkspace(user);
+    const hasSeaFarerWorkspace = seaFarerWorkspace !== null;
+    const isOnboardingComplete = isSeaFarerOnboardingComplete(user) ?? user?.is_onboarding_complete ?? false;
+    const isOnboardingPage = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+    const isRootPage = pathname === "/" || pathname === "";
+    
+    // Don't render sidebar if user has Sea Farer workspace but onboarding is not complete
+    // Allow root page for role selection, but hide sidebar on onboarding pages
+    if (hasSeaFarerWorkspace && !isOnboardingComplete && (isOnboardingPage || isRootPage)) {
+      return null;
+    }
+  }
 
   // Get role from localStorage (set by loading page)
   React.useEffect(() => {

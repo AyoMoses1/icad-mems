@@ -14,6 +14,10 @@ import { TrainingInstitutionOnboardingForm } from "@/components/onboarding/Train
 import { AgentOnboardingForm } from "@/components/onboarding/AgentOnboardingForm";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import {
+  isSeaFarerOnboardingComplete,
+  getSeaFarerPrimaryRole,
+} from "@/lib/utils/workspace-helpers";
 
 type UserRole = "SEAFARER" | "TRAINING_INSTITUTION" | "AGENT" | null;
 
@@ -216,6 +220,29 @@ export default function OnboardingPage() {
             setOnboardingCheckDone(true);
           }
         };
+
+        // Check if Sea Farer workspace onboarding is already complete
+        // If complete, redirect to appropriate dashboard based on role
+        const seaFarerOnboardingComplete = isSeaFarerOnboardingComplete(user);
+        if (seaFarerOnboardingComplete) {
+          console.log("✓ Sea Farer workspace onboarding already complete - redirecting to dashboard");
+          const primaryRole = getSeaFarerPrimaryRole(user);
+          
+          // Redirect based on role
+          if (primaryRole === "Owner") {
+            router.replace("/");
+          } else if (primaryRole === "Seafarer") {
+            router.replace("/seafarer/dashboard");
+          } else if (primaryRole === "Agent") {
+            router.replace("/agent/dashboard");
+          } else if (primaryRole === "Training Institution") {
+            router.replace("/training-institution/dashboard");
+          } else {
+            // Fallback to seafarer dashboard
+            router.replace("/seafarer/dashboard");
+          }
+          return;
+        }
 
         // Map role to onboarding type
         if (specificRole === "SEAFARER") {

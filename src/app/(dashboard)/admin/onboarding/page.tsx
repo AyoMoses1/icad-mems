@@ -89,7 +89,7 @@ export default function OnboardingAdminPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [onboardings, setOnboardings] = useState<OnboardingDto[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("PENDING");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   
   // Review dialog state
@@ -107,12 +107,8 @@ export default function OnboardingAdminPage() {
   const loadOnboardings = async () => {
     try {
       setIsLoading(true);
-      let response;
-      if (statusFilter === "PENDING") {
-        response = await getPendingOnboardings();
-      } else {
-        response = await getAllOnboardings();
-      }
+      // Always get all onboardings, then filter by status
+      const response = await getAllOnboardings();
       
       if (response.success) {
         let data = (response.data || []).map((o: UserSeafarerOnboardingDto) => ({
@@ -120,8 +116,8 @@ export default function OnboardingAdminPage() {
           id: o.userSeafarerOnboardingId || o.id || "",
           createdAt: o.dateCreated || o.createdAt,
         })) as OnboardingDto[];
-        // Filter by status if not pending
-        if (statusFilter && statusFilter !== "PENDING") {
+        // Filter by status if not "all"
+        if (statusFilter && statusFilter !== "all") {
           data = data.filter((o) => o.status === statusFilter);
         }
         setOnboardings(data);
@@ -205,8 +201,8 @@ export default function OnboardingAdminPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Onboarding Management"
-        description="Review and manage user onboarding requests"
+        title="Seafarer Onboarding"
+        description="Review and manage seafarer onboarding requests"
       />
 
       {/* Stats Cards */}
@@ -263,6 +259,7 @@ export default function OnboardingAdminPage() {
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="PENDING">Pending</SelectItem>
             <SelectItem value="APPROVED">Approved</SelectItem>
             <SelectItem value="REJECTED">Rejected</SelectItem>

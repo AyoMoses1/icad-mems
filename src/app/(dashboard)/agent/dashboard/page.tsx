@@ -20,12 +20,14 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store";
+import { isSeaFarerOnboardingComplete } from "@/lib/utils/workspace-helpers";
 
 export default function AgentDashboardPage() {
   const { user } = useAuthStore();
 
-  // Check if onboarding is complete
-  const isOnboardingComplete = user?.is_onboarding_complete ?? false;
+  // Check if onboarding is complete for Sea Farer workspace
+  // Use workspace-specific onboarding status if available, otherwise fall back to top-level
+  const isOnboardingComplete = isSeaFarerOnboardingComplete(user) ?? user?.is_onboarding_complete ?? false;
 
   return (
     <div className="space-y-6">
@@ -155,7 +157,7 @@ export default function AgentDashboardPage() {
               >
                 <UserPlus className="mr-3 h-5 w-5 text-blue-600" />
                 <div className="text-left">
-                  <p className="font-medium">Add Seafarer</p>
+                  <p className="font-medium">Onboard Seafarer</p>
                   <p className="text-xs text-muted-foreground">
                     Register new seafarer
                   </p>

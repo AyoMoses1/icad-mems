@@ -263,9 +263,7 @@ export async function initiateApplicationPayment(
     `${SEAFARER_API_BASE}/Payment/applications/${applicationId}/payment/initiate`,
     {}
   );
-}
-
-/**
+}/**
  * Get payment status for an application
  * GET /seafarer/api/v1/Payment/applications/{id}/payment-status
  */
