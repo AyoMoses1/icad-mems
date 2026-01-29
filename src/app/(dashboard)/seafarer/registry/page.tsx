@@ -70,6 +70,15 @@ export default function SeafarerRegistryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const pageSize = 20;
 
+  // Check user role for permission-based UI
+  // Agents and Training Institutions can VIEW but NOT modify/approve seafarers
+  const userRole =
+    typeof window !== "undefined"
+      ? localStorage.getItem("userRole")?.toUpperCase()
+      : null;
+  const isAdminRole = userRole === "ADMIN" || userRole === "SUPERADMIN";
+  const canModifySeafarers = isAdminRole; // Only admins can edit/suspend seafarers
+
   // Stats (would ideally come from a summary endpoint)
   const [stats, setStats] = useState({
     totalRegistered: 0,
@@ -93,7 +102,12 @@ export default function SeafarerRegistryPage() {
       });
 
       const ok = response.success ?? (response as any).successful;
-      if (ok && response.data && response.data.items && response.data.items.length > 0) {
+      if (
+        ok &&
+        response.data &&
+        response.data.items &&
+        response.data.items.length > 0
+      ) {
         setSeafarers(response.data.items);
         const total = response.data.totalNumber ?? response.data.items.length;
         setTotalPages(
@@ -251,17 +265,22 @@ export default function SeafarerRegistryPage() {
             <DropdownMenuItem asChild>
               <Link href={`/seafarer/profile/${row.id}`}>View Profile</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>Edit Details</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => {
-                setSelectedSeafarer(row);
-                setIsSuspendDialogOpen(true);
-              }}
-            >
-              Suspend Account
-            </DropdownMenuItem>
+            {/* Admin-only actions: Edit and Suspend */}
+            {canModifySeafarers && (
+              <>
+                <DropdownMenuItem>Edit Details</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => {
+                    setSelectedSeafarer(row);
+                    setIsSuspendDialogOpen(true);
+                  }}
+                >
+                  Suspend Account
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),

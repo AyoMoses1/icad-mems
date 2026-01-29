@@ -202,11 +202,18 @@ export function AgentOnboardingForm() {
           summary.message ||
             (saveAsDraft
               ? "Draft saved successfully!"
-              : "Onboarding completed successfully!")
+              : "Onboarding submitted successfully! Your application is now pending review."),
         );
 
-        // Redirect to agent dashboard (not /dashboard which doesn't exist)
-        router.push("/agent/dashboard");
+        // After successful submission, the onboarding status is PENDING
+        // Redirect to the pending status page to show the user their application is under review
+        if (saveAsDraft) {
+          // For drafts, stay on the page or redirect to a draft view
+          toast.info("You can continue your onboarding later.");
+        } else {
+          // For full submissions, redirect to pending status page
+          router.push("/onboarding/status/pending");
+        }
       } else {
         toast.error(response.message || "Failed to complete onboarding");
       }
@@ -319,7 +326,8 @@ export function AgentOnboardingForm() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="agent">
-                  Shipping Agent Company <span className="text-destructive">*</span>
+                  Shipping Agent Company{" "}
+                  <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={agentData.accreditedInstitutionId}
@@ -335,7 +343,9 @@ export function AgentOnboardingForm() {
                   </SelectTrigger>
                   <SelectContent>
                     {agents.flatMap((agent) => {
-                      const id = agent.accreditedInstitutionsId?.toString().trim();
+                      const id = agent.accreditedInstitutionsId
+                        ?.toString()
+                        .trim();
                       if (!id || id === "") return [];
                       return (
                         <SelectItem key={id} value={id}>
@@ -798,7 +808,7 @@ export function AgentOnboardingForm() {
                         {agents.find(
                           (a) =>
                             a.accreditedInstitutionsId ===
-                            agentData.accreditedInstitutionId
+                            agentData.accreditedInstitutionId,
                         )?.accreditedInstitutionName || "Not selected"}
                       </span>
                     </div>
@@ -809,7 +819,9 @@ export function AgentOnboardingForm() {
                       <span>{agentData.roleSpecificIdentifier}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Department: </span>
+                      <span className="text-muted-foreground">
+                        Department:{" "}
+                      </span>
                       <span>{agentData.department}</span>
                     </div>
                     <div>
@@ -879,9 +891,7 @@ export function AgentOnboardingForm() {
                     onClick={() => handleSubmit(true)}
                     disabled={isSubmitting}
                   >
-                    {isSubmitting ? (
-                      <LoadingSpinner className="mr-2" />
-                    ) : null}
+                    {isSubmitting ? <LoadingSpinner className="mr-2" /> : null}
                     Save as Draft
                   </Button>
                   <Button
@@ -910,4 +920,3 @@ export function AgentOnboardingForm() {
     </div>
   );
 }
-

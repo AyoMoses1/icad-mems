@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Sidebar, Header } from "@/components/dashboard";
@@ -9,9 +9,28 @@ import { LoadingPage, UnauthorizedScreen } from "@/components/shared";
 import { usePathname } from "next/navigation";
 import { apiGetAuth } from "@/lib/api-client";
 import { toast } from "sonner";
-import { getDashboardRouteFromRoles } from "@/lib/role-routing";
-import { isSeaFarerOnboardingComplete, getSeaFarerWorkspace } from "@/lib/utils/workspace-helpers";
+import {
+  getDashboardRouteFromRoles,
+  getDashboardRoute,
+} from "@/lib/role-routing";
+import {
+  isSeaFarerOnboardingComplete,
+  getSeaFarerWorkspace,
+} from "@/lib/utils/workspace-helpers";
 import { Button } from "@/components/ui/button";
+import {
+  getMyOnboarding,
+  isOnboardingApproved,
+  isOnboardingPendingReview,
+  isOnboardingRejected,
+  type UserSeafarerOnboardingDto,
+} from "@/lib/services/onboarding-service";
+
+/**
+ * Roles that require onboarding status check via the my-onboarding endpoint
+ * Admin roles are excluded as they don't need this check
+ */
+const ONBOARDING_CHECK_ROLES = ["SEAFARER", "AGENT", "TRAINING_INSTITUTION"];
 
 /**
  * UserInfo from IMS /connect/userinfo endpoint
@@ -89,11 +108,7 @@ interface UserInfo {
   };
 }
 
-function DashboardLayoutContent({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -106,11 +121,21 @@ function DashboardLayoutContent({
     user,
   } = useAuthStore();
   const [isInitializing, setIsInitializing] = useState(true);
-  const [initializationError, setInitializationError] = useState<string | null>(null);
+  const [initializationError, setInitializationError] = useState<string | null>(
+    null,
+  );
   const [isUnauthorized, setIsUnauthorized] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [hasRedirectedToOnboarding, setHasRedirectedToOnboarding] = useState(false);
+  const [hasRedirectedToOnboarding, setHasRedirectedToOnboarding] =
+    useState(false);
   const [isInitializingUser, setIsInitializingUser] = useState(false);
+
+  // Onboarding status check state
+  const [isCheckingOnboardingStatus, setIsCheckingOnboardingStatus] =
+    useState(false);
+  const [onboardingStatusChecked, setOnboardingStatusChecked] = useState(false);
+  const [onboardingData, setOnboardingData] =
+    useState<UserSeafarerOnboardingDto | null>(null);
 
   // Initialize user on mount - check for token from IMS and fetch user info
   useEffect(() => {
@@ -118,12 +143,12 @@ function DashboardLayoutContent({
     if (isInitializingUser) {
       return;
     }
-    
+
     // Wait a bit for searchParams to be available, then initialize
     const timer = setTimeout(() => {
       initializeUser();
     }, 100);
-    
+
     return () => clearTimeout(timer);
   }, []); // Only run once on mount
 
@@ -132,26 +157,37 @@ function DashboardLayoutContent({
     if (isInitializingUser) {
       return;
     }
-    
+
     // Check if user is already fully loaded - if so, just mark as done
     // But only skip if we have BOTH complete user data AND stored role
-    const hasCompleteUserData = user && user.id && user.roles && Array.isArray(user.roles) && user.roles.length > 0;
-    const hasStoredRole = typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
-    
+    const hasCompleteUserData =
+      user &&
+      user.id &&
+      user.roles &&
+      Array.isArray(user.roles) &&
+      user.roles.length > 0;
+    const hasStoredRole =
+      typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
+
     // Only skip if we have everything - otherwise fetch to get latest data
-    if (hasCompleteUserData && hasStoredRole && user.roles && user.roles.length > 0) {
+    if (
+      hasCompleteUserData &&
+      hasStoredRole &&
+      user.roles &&
+      user.roles.length > 0
+    ) {
       // Verify the roles have the workspace structure we need
-      const hasWorkspaceRoles = user.roles.some((r: any) => 
-        typeof r === "object" && r.workspaceId && r.workspaceName
+      const hasWorkspaceRoles = user.roles.some(
+        (r: any) => typeof r === "object" && r.workspaceId && r.workspaceName,
       );
-      
+
       if (hasWorkspaceRoles) {
         setIsInitializing(false);
         setIsInitializingUser(false);
         return;
       }
     }
-    
+
     try {
       setIsInitializingUser(true);
       setIsInitializing(true);
@@ -159,7 +195,7 @@ function DashboardLayoutContent({
 
       // Step 1: Check for token in URL (from IMS redirect)
       const tokenFromUrl = searchParams.get("token");
-      
+
       // Step 2: Also check localStorage directly as a fallback
       let storedToken = token;
       if (!storedToken && typeof window !== "undefined") {
@@ -173,10 +209,10 @@ function DashboardLayoutContent({
           // Ignore parse errors
         }
       }
-      
+
       // Step 3: Get current token (from URL, store, or localStorage)
       const currentToken = tokenFromUrl || storedToken;
-      
+
       if (!currentToken) {
         setInitializationError("No authentication token found");
         setIsInitializing(false);
@@ -212,10 +248,10 @@ function DashboardLayoutContent({
           refreshToken: "",
           expiresAt: expiresAt,
         };
-        
+
         // Set in zustand store
         setSession(tempSession);
-        
+
         // Also immediately persist to localStorage to ensure it survives refresh
         const storageData = {
           state: {
@@ -228,9 +264,9 @@ function DashboardLayoutContent({
           version: 0,
         };
         localStorage.setItem("auth-storage", JSON.stringify(storageData));
-        
+
         // Wait a bit for store to update
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       // Step 5: Fetch user info from IMS
@@ -241,7 +277,7 @@ function DashboardLayoutContent({
       // The API returns roles in this structure:
       // roles: [{ workspaceId, workspaceName, tenants: [{ tenantId, roles: [{ role }] }] }]
       const extractedRoles: string[] = [];
-      
+
       // Extract roles from nested structure
       if (userInfo.roles && Array.isArray(userInfo.roles)) {
         userInfo.roles.forEach((workspaceRole) => {
@@ -258,33 +294,48 @@ function DashboardLayoutContent({
           }
         });
       }
-      
+
       // Also check for direct role field
       if (userInfo.role && typeof userInfo.role === "string") {
         extractedRoles.push(userInfo.role.toUpperCase());
       }
-      
+
       // Remove duplicates
       const uniqueRoles = Array.from(new Set(extractedRoles));
-      
+
       // IMPORTANT: Check if user is ADMIN first (highest priority)
       // If user is an admin (isAdmin: true), prioritize ADMIN role and route to admin dashboard
-      const isAdmin = userInfo.isAdmin === true || 
-                     userInfo.adminDetails?.isSystemAdmin === true ||
-                     userInfo.adminDetails?.isWorkspaceAdmin === true ||
-                     uniqueRoles.includes("ADMIN") ||
-                     uniqueRoles.includes("SUPERADMIN");
-      
+      const isAdmin =
+        userInfo.isAdmin === true ||
+        userInfo.adminDetails?.isSystemAdmin === true ||
+        userInfo.adminDetails?.isWorkspaceAdmin === true ||
+        uniqueRoles.includes("ADMIN") ||
+        uniqueRoles.includes("SUPERADMIN");
+
       // IMPORTANT: Check if user is OWNER (second priority)
       // If user is an owner (isOwner: true), prioritize OWNER role
-      const isOwner = userInfo.isOwner === true || 
-                     userInfo.ownerDetails?.isOwner === true ||
-                     uniqueRoles.includes("OWNER");
-      
+      const isOwner =
+        userInfo.isOwner === true ||
+        userInfo.ownerDetails?.isOwner === true ||
+        uniqueRoles.includes("OWNER");
+
       // Step 7: Check if user has required role (ADMIN, OWNER, SEAFARER, AGENT, TRAINING_INSTITUTION, or staff roles)
-      const allowedRoles = ["ADMIN", "SUPERADMIN", "OWNER", "SEAFARER", "AGENT", "TRAINING_INSTITUTION", "ACCREDITATION_OFFICER", "INSPECTOR", "FINANCE"];
-      const hasAccess = isAdmin || isOwner || uniqueRoles.some(role => allowedRoles.includes(role));
-      
+      const allowedRoles = [
+        "ADMIN",
+        "SUPERADMIN",
+        "OWNER",
+        "SEAFARER",
+        "AGENT",
+        "TRAINING_INSTITUTION",
+        "ACCREDITATION_OFFICER",
+        "INSPECTOR",
+        "FINANCE",
+      ];
+      const hasAccess =
+        isAdmin ||
+        isOwner ||
+        uniqueRoles.some((role) => allowedRoles.includes(role));
+
       // Get the primary role for display/storage
       // IMPORTANT: Prioritize ADMIN over OWNER over SEAFARER
       // Admins go to admin dashboard, owners see role selection, others see their specific dashboard
@@ -294,13 +345,15 @@ function DashboardLayoutContent({
       } else if (isOwner) {
         role = "OWNER";
       } else {
-        role = uniqueRoles.find(r => r === "SEAFARER") || 
-               uniqueRoles.find(r => r === "AGENT") || 
-               uniqueRoles.find(r => r === "TRAINING_INSTITUTION") ||
-               uniqueRoles.find(r => r === "OWNER") || 
-               uniqueRoles[0] || "";
+        role =
+          uniqueRoles.find((r) => r === "SEAFARER") ||
+          uniqueRoles.find((r) => r === "AGENT") ||
+          uniqueRoles.find((r) => r === "TRAINING_INSTITUTION") ||
+          uniqueRoles.find((r) => r === "OWNER") ||
+          uniqueRoles[0] ||
+          "";
       }
-      
+
       // If user doesn't have required role, show unauthorized screen
       if (!hasAccess) {
         setIsUnauthorized(true);
@@ -312,33 +365,53 @@ function DashboardLayoutContent({
 
       // Step 8: Update user data
       // Map workspace roles structure from IMS to our WorkspaceRole format
-      const workspaceRoles = userInfo.roles?.map((role) => ({
-        workspaceId: role.workspaceId,
-        workspaceName: role.workspaceName,
-        is_onboarding_complete: (role as any).is_onboarding_complete as boolean | undefined,
-        onboarding_completed_date: (role as any).onboarding_completed_date as string | null | undefined,
-        tenants: role.tenants,
-      })) || [];
+      const workspaceRoles =
+        userInfo.roles?.map((role) => ({
+          workspaceId: role.workspaceId,
+          workspaceName: role.workspaceName,
+          is_onboarding_complete: (role as any).is_onboarding_complete as
+            | boolean
+            | undefined,
+          onboarding_completed_date: (role as any).onboarding_completed_date as
+            | string
+            | null
+            | undefined,
+          tenants: role.tenants,
+        })) || [];
 
       const userData = {
         id: userInfo.id || userInfo.sub || user?.id || "",
-        username: userInfo.username || userInfo.email?.split("@")[0] || user?.username || "",
+        username:
+          userInfo.username ||
+          userInfo.email?.split("@")[0] ||
+          user?.username ||
+          "",
         email: userInfo.email || user?.email || "",
         phoneNumber: userInfo.phone_number || user?.phoneNumber || "",
-        firstName: userInfo.firstName || userInfo.given_name || user?.firstName || "",
+        firstName:
+          userInfo.firstName || userInfo.given_name || user?.firstName || "",
         middleName: userInfo.middleName || user?.middleName,
-        lastName: userInfo.lastName || userInfo.family_name || user?.lastName || "",
-        fullName: userInfo.fullName || userInfo.name || 
-                 `${userInfo.firstName || userInfo.given_name || ""} ${userInfo.lastName || userInfo.family_name || ""}`.trim() ||
-                 userInfo.email || user?.fullName || "",
+        lastName:
+          userInfo.lastName || userInfo.family_name || user?.lastName || "",
+        fullName:
+          userInfo.fullName ||
+          userInfo.name ||
+          `${userInfo.firstName || userInfo.given_name || ""} ${userInfo.lastName || userInfo.family_name || ""}`.trim() ||
+          userInfo.email ||
+          user?.fullName ||
+          "",
         country: userInfo.country || user?.country || "",
         status: (userInfo.status as any) || user?.status || "ACTIVE",
         emailVerified: userInfo.email_verified || user?.emailVerified || false,
         phoneVerified: userInfo.phone_verified || user?.phoneVerified || false,
         twoFactorEnabled: user?.twoFactorEnabled || false,
-        createdAt: userInfo.createdAt || user?.createdAt || new Date().toISOString(),
-        updatedAt: userInfo.updatedAt || user?.updatedAt || new Date().toISOString(),
-        roles: (workspaceRoles.length > 0 ? workspaceRoles : user?.roles || []) as any,
+        createdAt:
+          userInfo.createdAt || user?.createdAt || new Date().toISOString(),
+        updatedAt:
+          userInfo.updatedAt || user?.updatedAt || new Date().toISOString(),
+        roles: (workspaceRoles.length > 0
+          ? workspaceRoles
+          : user?.roles || []) as any,
       };
 
       // Step 9: Set up full session
@@ -349,10 +422,10 @@ function DashboardLayoutContent({
         refreshToken: "", // Will be set if available
         expiresAt: expiresAt,
       };
-      
+
       // Set in zustand store
       setSession(finalSession);
-      
+
       // Also persist to localStorage to ensure it survives refresh
       const storageData = {
         state: {
@@ -380,27 +453,27 @@ function DashboardLayoutContent({
       // IMPORTANT: Always set these flags to false when initialization completes
       setIsInitializing(false);
       setIsInitializingUser(false);
-      
+
       // Step 12: Redirect to role-specific dashboard if on root path
       // But only if we're not already on a specific page
       if (pathname === "/" || pathname === "") {
         const userRole = localStorage.getItem("userRole");
-        
+
         if (userRole) {
           const roleUpper = userRole.toUpperCase();
-          
+
           // ADMIN goes to admin dashboard
           if (roleUpper === "ADMIN" || roleUpper === "SUPERADMIN") {
             router.replace("/admin/dashboard");
             return;
           }
-          
+
           // OWNER stays on root path to see role selection screen
           if (roleUpper === "OWNER") {
             // Don't redirect - let the root page show role selection
             return;
           }
-          
+
           // For other roles, redirect to their specific dashboard
           const dashboardRoute = getDashboardRouteFromRoles([userRole]);
           router.replace(dashboardRoute);
@@ -411,17 +484,19 @@ function DashboardLayoutContent({
       }
     } catch (error) {
       console.error("Failed to initialize user:", error);
-      
+
       // IMPORTANT: Always set these flags to false even on error
       setIsInitializing(false);
       setIsInitializingUser(false);
-      
+
       // Check if it's an authentication error (401/403) vs other errors
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const isAuthError = errorMessage.includes("401") || 
-                         errorMessage.includes("403") || 
-                         errorMessage.includes("Authentication required");
-      
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const isAuthError =
+        errorMessage.includes("401") ||
+        errorMessage.includes("403") ||
+        errorMessage.includes("Authentication required");
+
       if (isAuthError) {
         // For auth errors, redirect to login
         setInitializationError("Authentication failed");
@@ -431,11 +506,161 @@ function DashboardLayoutContent({
         }, 2000);
       } else {
         // For other errors (like network issues), show error but don't redirect
-        setInitializationError("Failed to load user information. Please refresh the page.");
+        setInitializationError(
+          "Failed to load user information. Please refresh the page.",
+        );
         toast.error("Failed to load user information. Please try again.");
       }
     }
   };
+
+  /**
+   * Check onboarding status for roles that require it (SEAFARER, AGENT, TRAINING_INSTITUTION)
+   * Also handles OWNER users who might have completed onboarding for a specific role
+   * This calls the /seafarer/api/v1/Onboarding/my-onboarding endpoint
+   */
+  const checkOnboardingStatus = useCallback(
+    async (role: string) => {
+      const roleUpper = role.toUpperCase();
+
+      // Only check for roles that require onboarding status verification
+      // Include OWNER because they can complete onboarding for specific roles
+      const shouldCheck =
+        ONBOARDING_CHECK_ROLES.includes(roleUpper) || roleUpper === "OWNER";
+      if (!shouldCheck) {
+        setOnboardingStatusChecked(true);
+        return;
+      }
+
+      // Skip if already on onboarding status pages
+      if (pathname.startsWith("/onboarding/status/")) {
+        setOnboardingStatusChecked(true);
+        return;
+      }
+
+      setIsCheckingOnboardingStatus(true);
+
+      try {
+        const response = await getMyOnboarding();
+
+        if (response.success && response.data) {
+          setOnboardingData(response.data);
+          const status = response.data.status?.toUpperCase();
+          const onboardingRole = response.data.role?.toUpperCase();
+
+          // Handle different statuses
+          if (isOnboardingApproved(status)) {
+            // User is approved - redirect to the correct dashboard based on their ONBOARDING role
+            // This is important for OWNER users who completed onboarding for a specific role
+            setOnboardingStatusChecked(true);
+
+            // Determine the correct dashboard based on onboarding role
+            const correctDashboard = getDashboardRoute(
+              onboardingRole || "SEAFARER",
+            );
+            const isOnRootPage = pathname === "/" || pathname === "";
+            const isOnOnboardingPage = pathname.startsWith("/onboarding");
+
+            // If user is on root page or onboarding page, redirect to correct dashboard
+            // Also redirect if they're on the WRONG dashboard (e.g., seafarer dashboard when they're an agent)
+            if (isOnRootPage || isOnOnboardingPage) {
+              router.replace(correctDashboard);
+            } else {
+              // Check if user is on wrong dashboard and redirect if needed
+              const isOnWrongDashboard =
+                (onboardingRole === "AGENT" &&
+                  pathname.startsWith("/seafarer")) ||
+                (onboardingRole === "AGENT" &&
+                  pathname.startsWith("/institution")) ||
+                (onboardingRole === "SEAFARER" &&
+                  pathname.startsWith("/agent")) ||
+                (onboardingRole === "SEAFARER" &&
+                  pathname.startsWith("/institution")) ||
+                (onboardingRole === "TRAINING_INSTITUTION" &&
+                  pathname.startsWith("/seafarer")) ||
+                (onboardingRole === "TRAINING_INSTITUTION" &&
+                  pathname.startsWith("/agent"));
+
+              if (isOnWrongDashboard) {
+                router.replace(correctDashboard);
+              }
+            }
+          } else if (isOnboardingRejected(status)) {
+            // User is rejected - redirect to rejected page
+            if (!pathname.startsWith("/onboarding/status/rejected")) {
+              router.replace("/onboarding/status/rejected");
+            }
+            setOnboardingStatusChecked(true);
+          } else if (isOnboardingPendingReview(status)) {
+            // User is pending - redirect to pending page
+            if (!pathname.startsWith("/onboarding/status/pending")) {
+              router.replace("/onboarding/status/pending");
+            }
+            setOnboardingStatusChecked(true);
+          } else {
+            // Unknown status - treat as needing onboarding
+            setOnboardingStatusChecked(true);
+          }
+        } else {
+          // No onboarding data - user needs to complete onboarding form
+          // Let the existing onboarding redirect logic handle this
+          setOnboardingStatusChecked(true);
+        }
+      } catch (error) {
+        console.error("Error checking onboarding status:", error);
+        // On error, allow user to proceed (fail open)
+        // The error might be 404 (no onboarding record) which is expected for new users
+        setOnboardingStatusChecked(true);
+      } finally {
+        setIsCheckingOnboardingStatus(false);
+      }
+    },
+    [pathname, router],
+  );
+
+  // Check onboarding status after user initialization completes
+  useEffect(() => {
+    // Only run after initialization is complete and we have a role
+    if (isInitializing || !userRole || onboardingStatusChecked) {
+      return;
+    }
+
+    // Skip for admin roles (they don't need onboarding)
+    const roleUpper = userRole.toUpperCase();
+    if (roleUpper === "ADMIN" || roleUpper === "SUPERADMIN") {
+      setOnboardingStatusChecked(true);
+      return;
+    }
+
+    // For OWNER users:
+    // - If on root page (/), skip check and let them see role selection
+    // - Otherwise, check if they have an active onboarding with pending/rejected status
+    if (roleUpper === "OWNER") {
+      const isRootPath = pathname === "/" || pathname === "";
+      if (isRootPath) {
+        // Don't check on root page - let OWNER see role selection
+        setOnboardingStatusChecked(true);
+        return;
+      }
+      // For other pages, check onboarding status
+      // This handles the case where an OWNER completed onboarding and has PENDING status
+      checkOnboardingStatus(roleUpper);
+      return;
+    }
+
+    // Check onboarding status for other roles
+    if (ONBOARDING_CHECK_ROLES.includes(roleUpper)) {
+      checkOnboardingStatus(roleUpper);
+    } else {
+      setOnboardingStatusChecked(true);
+    }
+  }, [
+    isInitializing,
+    userRole,
+    onboardingStatusChecked,
+    checkOnboardingStatus,
+    pathname,
+  ]);
 
   // Reset redirect flag when pathname changes to onboarding
   useEffect(() => {
@@ -443,47 +668,70 @@ function DashboardLayoutContent({
       setHasRedirectedToOnboarding(false);
     }
   }, [pathname]);
-  
+
   // Redirect to onboarding if user has Sea Farer workspace but onboarding is not complete
   // Only run this after initialization is complete
   // BUT EXCLUDE ADMINS - admins should have full access regardless
+  // IMPORTANT: Skip this check if we already checked via my-onboarding API and user is approved
   useEffect(() => {
     // Don't run during initialization or if user data isn't loaded yet
     if (isInitializing || !user || !user.roles || !Array.isArray(user.roles)) {
       return;
     }
-    
+
+    // IMPORTANT: If we've already checked onboarding status via my-onboarding API
+    // and the user has approved/completed onboarding, skip this legacy check
+    // The my-onboarding API is the source of truth for onboarding status
+    if (onboardingStatusChecked && onboardingData?.isOnboardingComplete) {
+      return;
+    }
+    if (
+      onboardingStatusChecked &&
+      isOnboardingApproved(onboardingData?.status)
+    ) {
+      return;
+    }
+
     // Check if user is admin - if so, skip onboarding check
-    const userRoleFromStorage = typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
-    const isAdmin = userRoleFromStorage?.toUpperCase() === "ADMIN" || userRoleFromStorage?.toUpperCase() === "SUPERADMIN" ||
-                    user?.roles?.some((r: any) => {
-                      if (typeof r === "string") return false;
-                      return r.tenants?.some((t: any) => 
-                        t.roles?.some((roleObj: any) => 
-                          roleObj.role?.toUpperCase() === "ADMIN" || roleObj.role?.toUpperCase() === "SUPERADMIN"
-                        )
-                      );
-                    });
-    
+    const userRoleFromStorage =
+      typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
+    const isAdmin =
+      userRoleFromStorage?.toUpperCase() === "ADMIN" ||
+      userRoleFromStorage?.toUpperCase() === "SUPERADMIN" ||
+      user?.roles?.some((r: any) => {
+        if (typeof r === "string") return false;
+        return r.tenants?.some((t: any) =>
+          t.roles?.some(
+            (roleObj: any) =>
+              roleObj.role?.toUpperCase() === "ADMIN" ||
+              roleObj.role?.toUpperCase() === "SUPERADMIN",
+          ),
+        );
+      });
+
     // Skip onboarding check for admins
     if (isAdmin) {
       return;
     }
-    
+
     if (!hasRedirectedToOnboarding) {
       const seaFarerWorkspace = getSeaFarerWorkspace(user);
       const hasSeaFarerWorkspace = seaFarerWorkspace !== null;
-      const isOnboardingComplete = isSeaFarerOnboardingComplete(user) ?? user?.is_onboarding_complete ?? false;
-      const isOnboardingPage = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+      const isOnboardingComplete =
+        isSeaFarerOnboardingComplete(user) ??
+        user?.is_onboarding_complete ??
+        false;
+      const isOnboardingPage =
+        pathname === "/onboarding" || pathname.startsWith("/onboarding/");
       const isRootPage = pathname === "/" || pathname === "";
-      
+
       // If user has Sea Farer workspace but onboarding is not complete
       if (hasSeaFarerWorkspace && !isOnboardingComplete) {
         // Allow root page for role selection
         if (isRootPage) {
           return;
         }
-        
+
         // Redirect to onboarding if not already on onboarding page
         if (!isOnboardingPage) {
           setHasRedirectedToOnboarding(true);
@@ -491,7 +739,15 @@ function DashboardLayoutContent({
         }
       }
     }
-  }, [isInitializing, user, pathname, router, hasRedirectedToOnboarding]);
+  }, [
+    isInitializing,
+    user,
+    pathname,
+    router,
+    hasRedirectedToOnboarding,
+    onboardingStatusChecked,
+    onboardingData,
+  ]);
 
   // Check authentication on mount
   useEffect(() => {
@@ -515,44 +771,55 @@ function DashboardLayoutContent({
         console.error("Initialization timeout - forcing stop");
         setIsInitializing(false);
         setIsInitializingUser(false);
-        setInitializationError("Initialization timed out. Please refresh the page.");
+        setInitializationError(
+          "Initialization timed out. Please refresh the page.",
+        );
       }
     }, 10000); // 10 second timeout
-    
+
     return () => clearTimeout(timeout);
   }, [isInitializing, isInitializingUser]);
 
   // Show loading state while initializing or hydrating
   // But don't wait forever - if we've been loading for more than 5 seconds, show error
   const [loadingTimeout, setLoadingTimeout] = useState(false);
-  
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (isInitializing && !user) {
         setLoadingTimeout(true);
         setIsInitializing(false);
         setIsInitializingUser(false);
-        setInitializationError("Loading is taking longer than expected. Please refresh the page.");
+        setInitializationError(
+          "Loading is taking longer than expected. Please refresh the page.",
+        );
       }
     }, 5000);
-    
+
     return () => clearTimeout(timer);
   }, [isInitializing, user]);
-  
+
   if ((authLoading || isInitializing) && !loadingTimeout) {
     return (
-      <LoadingPage 
-        message={initializationError || "Loading user information..."} 
+      <LoadingPage
+        message={initializationError || "Loading user information..."}
       />
     );
   }
-  
+
+  // Show loading while checking onboarding status
+  if (isCheckingOnboardingStatus) {
+    return <LoadingPage message="Checking onboarding status..." />;
+  }
+
   if (loadingTimeout) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <p className="text-lg font-semibold mb-2">Loading Timeout</p>
-          <p className="text-muted-foreground mb-4">{initializationError || "Please refresh the page."}</p>
+          <p className="text-muted-foreground mb-4">
+            {initializationError || "Please refresh the page."}
+          </p>
           <Button onClick={() => window.location.reload()}>Refresh Page</Button>
         </div>
       </div>
@@ -567,35 +834,61 @@ function DashboardLayoutContent({
   // Check if user has completed onboarding for Sea Farer workspace
   // This applies to ANY user with a role in Sea Farer workspace (Owner, Seafarer, Agent, etc.)
   // BUT EXCLUDE ADMINS - admins should have full access regardless of onboarding status
-  const userRoleFromStorage = typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
-  const isAdmin = userRoleFromStorage?.toUpperCase() === "ADMIN" || userRoleFromStorage?.toUpperCase() === "SUPERADMIN" ||
-                  user?.roles?.some((r: any) => {
-                    if (typeof r === "string") return false;
-                    return r.tenants?.some((t: any) => 
-                      t.roles?.some((roleObj: any) => 
-                        roleObj.role?.toUpperCase() === "ADMIN" || roleObj.role?.toUpperCase() === "SUPERADMIN"
-                      )
-                    );
-                  });
-  
+  const userRoleFromStorage =
+    typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
+  const isAdmin =
+    userRoleFromStorage?.toUpperCase() === "ADMIN" ||
+    userRoleFromStorage?.toUpperCase() === "SUPERADMIN" ||
+    user?.roles?.some((r: any) => {
+      if (typeof r === "string") return false;
+      return r.tenants?.some((t: any) =>
+        t.roles?.some(
+          (roleObj: any) =>
+            roleObj.role?.toUpperCase() === "ADMIN" ||
+            roleObj.role?.toUpperCase() === "SUPERADMIN",
+        ),
+      );
+    });
+
   const seaFarerWorkspace = getSeaFarerWorkspace(user);
   const hasSeaFarerWorkspace = seaFarerWorkspace !== null;
-  const isOnboardingComplete = isSeaFarerOnboardingComplete(user) ?? user?.is_onboarding_complete ?? false;
-  const isOnboardingPage = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+
+  // IMPORTANT: Use my-onboarding API result as the source of truth if available
+  // Otherwise fall back to userinfo-based check
+  const isOnboardingCompleteFromApi =
+    onboardingData?.isOnboardingComplete ||
+    isOnboardingApproved(onboardingData?.status);
+  const isOnboardingComplete =
+    isOnboardingCompleteFromApi ||
+    isSeaFarerOnboardingComplete(user) ||
+    user?.is_onboarding_complete ||
+    false;
+
+  const isOnboardingPage =
+    pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+  const isOnboardingStatusPage = pathname.startsWith("/onboarding/status/");
   const isRootPage = pathname === "/" || pathname === "";
-  
+
+  // If on onboarding status pages (pending/rejected), show without sidebar/header
+  if (isOnboardingStatusPage) {
+    return <div className="min-h-screen bg-background">{children}</div>;
+  }
+
   // For users in Sea Farer workspace who haven't completed onboarding
   // BUT SKIP THIS CHECK FOR ADMINS - they should have full access
-  if (!isInitializing && user && hasSeaFarerWorkspace && !isOnboardingComplete && !isAdmin) {
+  // Also skip if we've already verified via my-onboarding API that user is approved
+  if (
+    !isInitializing &&
+    user &&
+    hasSeaFarerWorkspace &&
+    !isOnboardingComplete &&
+    !isAdmin
+  ) {
     // If on root page, show role selection (for owners) - NO SIDEBAR, NO HEADER
     if (isRootPage) {
-      return (
-        <div className="min-h-screen bg-background">
-          {children}
-        </div>
-      );
+      return <div className="min-h-screen bg-background">{children}</div>;
     }
-    
+
     // If not on onboarding page or root page, redirect to onboarding
     if (!isOnboardingPage) {
       if (typeof window !== "undefined" && !hasRedirectedToOnboarding) {
@@ -604,13 +897,9 @@ function DashboardLayoutContent({
       }
       return <LoadingPage message="Redirecting to onboarding..." />;
     }
-    
+
     // If on onboarding page, show ONLY the page content - NO SIDEBAR, NO HEADER
-    return (
-      <div className="min-h-screen bg-background">
-        {children}
-      </div>
-    );
+    return <div className="min-h-screen bg-background">{children}</div>;
   }
 
   return (

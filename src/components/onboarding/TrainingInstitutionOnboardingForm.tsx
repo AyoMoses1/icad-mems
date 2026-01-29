@@ -64,7 +64,9 @@ export function TrainingInstitutionOnboardingForm() {
 
   // Dropdown data
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeDto[]>([]);
-  const [institutions, setInstitutions] = useState<AccreditedInstitutionDto[]>([]);
+  const [institutions, setInstitutions] = useState<AccreditedInstitutionDto[]>(
+    [],
+  );
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   // Institution Details
@@ -203,10 +205,18 @@ export function TrainingInstitutionOnboardingForm() {
           summary.message ||
             (saveAsDraft
               ? "Draft saved successfully!"
-              : "Onboarding completed successfully!")
+              : "Onboarding submitted successfully! Your application is now pending review."),
         );
 
-        router.push("/institution/dashboard");
+        // After successful submission, the onboarding status is PENDING
+        // Redirect to the pending status page to show the user their application is under review
+        if (saveAsDraft) {
+          // For drafts, stay on the page or redirect to a draft view
+          toast.info("You can continue your onboarding later.");
+        } else {
+          // For full submissions, redirect to pending status page
+          router.push("/onboarding/status/pending");
+        }
       } else {
         toast.error(response.message || "Failed to complete onboarding");
       }
@@ -319,7 +329,8 @@ export function TrainingInstitutionOnboardingForm() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="institution">
-                  Accredited Institution <span className="text-destructive">*</span>
+                  Accredited Institution{" "}
+                  <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={institutionData.accreditedInstitutionId}
@@ -335,7 +346,9 @@ export function TrainingInstitutionOnboardingForm() {
                   </SelectTrigger>
                   <SelectContent>
                     {institutions.flatMap((inst) => {
-                      const id = inst.accreditedInstitutionsId?.toString().trim();
+                      const id = inst.accreditedInstitutionsId
+                        ?.toString()
+                        .trim();
                       if (!id || id === "") return [];
                       return (
                         <SelectItem key={id} value={id}>
@@ -475,7 +488,8 @@ export function TrainingInstitutionOnboardingForm() {
 
               <div className="space-y-2">
                 <Label htmlFor="address">
-                  Institution Address <span className="text-destructive">*</span>
+                  Institution Address{" "}
+                  <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
                   id="address"
@@ -783,7 +797,7 @@ export function TrainingInstitutionOnboardingForm() {
                         {institutions.find(
                           (i) =>
                             i.accreditedInstitutionsId ===
-                            institutionData.accreditedInstitutionId
+                            institutionData.accreditedInstitutionId,
                         )?.accreditedInstitutionName || "Not selected"}
                       </span>
                     </div>
@@ -794,7 +808,9 @@ export function TrainingInstitutionOnboardingForm() {
                       <span>{institutionData.roleSpecificIdentifier}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Department: </span>
+                      <span className="text-muted-foreground">
+                        Department:{" "}
+                      </span>
                       <span>{institutionData.department}</span>
                     </div>
                     <div>
@@ -857,9 +873,7 @@ export function TrainingInstitutionOnboardingForm() {
                     onClick={() => handleSubmit(true)}
                     disabled={isSubmitting}
                   >
-                    {isSubmitting ? (
-                      <LoadingSpinner className="mr-2" />
-                    ) : null}
+                    {isSubmitting ? <LoadingSpinner className="mr-2" /> : null}
                     Save as Draft
                   </Button>
                   <Button
@@ -888,4 +902,3 @@ export function TrainingInstitutionOnboardingForm() {
     </div>
   );
 }
-

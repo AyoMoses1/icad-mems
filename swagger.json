@@ -3405,6 +3405,35 @@
         }
       }
     },
+    "/seafarer/api/v1/Onboarding/my-onboarding/minimal": {
+      "get": {
+        "tags": [
+          "Onboarding"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.UserSeafarerOnboardingMinimalDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.UserSeafarerOnboardingMinimalDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.UserSeafarerOnboardingMinimalDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/seafarer/api/v1/Onboarding/auto-create": {
       "post": {
         "tags": [
@@ -5480,6 +5509,37 @@
           },
           "data": {
             "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.UserSeafarerOnboardingDto"
+          },
+          "error": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiError"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.UserSeafarerOnboardingMinimalDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.UserSeafarerOnboardingMinimalDto"
           },
           "error": {
             "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiError"
@@ -9118,6 +9178,57 @@
           "profileDocumentCount": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Models.DTOs.UserSeafarerOnboardingMinimalDto": {
+        "type": "object",
+        "properties": {
+          "userSeafarerOnboardingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Models.Enums.UserSeafarerRole"
+          },
+          "roleDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Models.Enums.OnboardingStatus"
+          },
+          "statusDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "rn": {
+            "type": "string",
+            "nullable": true
+          },
+          "sin": {
+            "type": "string",
+            "nullable": true
+          },
+          "accreditedInstitutionName": {
+            "type": "string",
+            "nullable": true
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "isOnboardingComplete": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false

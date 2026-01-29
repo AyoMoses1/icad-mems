@@ -129,11 +129,17 @@ export default function OnboardingDetailsPage() {
       return;
     }
 
+    if (reviewAction === "REJECTED" && !reviewNotes.trim()) {
+      toast.error("Please provide a rejection reason");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       const response = await updateOnboardingStatus(onboarding.id, {
         status: reviewAction as OnboardingStatus,
         rn: reviewAction === "APPROVED" ? registrationNumber : undefined,
+        rejectionReason: reviewAction === "REJECTED" ? reviewNotes : undefined,
         notes: reviewNotes || undefined,
       });
 
@@ -281,13 +287,20 @@ export default function OnboardingDetailsPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="notes">
+                {reviewAction === "REJECTED" ? "Rejection Reason *" : "Notes"}
+              </Label>
               <Textarea
                 id="notes"
-                placeholder="Add any notes or comments..."
+                placeholder={
+                  reviewAction === "REJECTED"
+                    ? "Please provide a reason for rejection..."
+                    : "Add any notes or comments..."
+                }
                 rows={3}
                 value={reviewNotes}
                 onChange={(e) => setReviewNotes(e.target.value)}
+                required={reviewAction === "REJECTED"}
               />
             </div>
           </div>
@@ -297,7 +310,7 @@ export default function OnboardingDetailsPage() {
             </Button>
             <Button
               onClick={handleReviewOnboarding}
-              disabled={isSubmitting}
+              disabled={isSubmitting || (reviewAction === "REJECTED" && !reviewNotes.trim())}
               className={
                 reviewAction === "APPROVED"
                   ? "bg-green-600 hover:bg-green-700"

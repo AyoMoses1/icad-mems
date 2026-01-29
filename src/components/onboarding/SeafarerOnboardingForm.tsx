@@ -93,7 +93,9 @@ export function SeafarerOnboardingForm() {
   const [stcwAccreditations, setSTCWAccreditations] = useState<
     STCWAccreditationDto[]
   >([]);
-  const [trainingStatuses, setTrainingStatuses] = useState<TrainingStatusDto[]>([]);
+  const [trainingStatuses, setTrainingStatuses] = useState<TrainingStatusDto[]>(
+    [],
+  );
   const [ranks, setRanks] = useState<RankDto[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
@@ -134,7 +136,7 @@ export function SeafarerOnboardingForm() {
 
   // Profile Documents
   const [profileDocuments, setProfileDocuments] = useState<DocumentUpload[]>(
-    []
+    [],
   );
 
   // Education Documents
@@ -152,12 +154,13 @@ export function SeafarerOnboardingForm() {
     const loadData = async () => {
       try {
         setIsLoadingData(true);
-        const [docTypesRes, stcwRes, trainingStatusRes, ranksData] = await Promise.all([
-          getDocumentTypes(),
-          getSTCWAccreditations(),
-          getTrainingStatuses(),
-          getAllRanks(),
-        ]);
+        const [docTypesRes, stcwRes, trainingStatusRes, ranksData] =
+          await Promise.all([
+            getDocumentTypes(),
+            getSTCWAccreditations(),
+            getTrainingStatuses(),
+            getAllRanks(),
+          ]);
 
         if (docTypesRes.data) {
           setDocumentTypes(docTypesRes.data);
@@ -198,9 +201,11 @@ export function SeafarerOnboardingForm() {
 
   const handleRemoveEducation = (index: number) => {
     setEducationDetails(educationDetails.filter((_, i) => i !== index));
-    setEducationDetails((prev) => prev.map((item, i) => ({ ...item, index: i })));
+    setEducationDetails((prev) =>
+      prev.map((item, i) => ({ ...item, index: i })),
+    );
     setEducationDocuments((prev) =>
-      prev.filter((doc) => doc.educationIndex !== index)
+      prev.filter((doc) => doc.educationIndex !== index),
     );
   };
 
@@ -246,9 +251,11 @@ export function SeafarerOnboardingForm() {
 
   const handleRemoveVoyage = (index: number) => {
     setVoyageActivities(voyageActivities.filter((_, i) => i !== index));
-    setVoyageActivities((prev) => prev.map((item, i) => ({ ...item, index: i })));
+    setVoyageActivities((prev) =>
+      prev.map((item, i) => ({ ...item, index: i })),
+    );
     setVoyageDocuments((prev) =>
-      prev.filter((doc) => doc.voyageActivityIndex !== index)
+      prev.filter((doc) => doc.voyageActivityIndex !== index),
     );
   };
 
@@ -341,13 +348,13 @@ export function SeafarerOnboardingForm() {
         notes: basicData.notes || undefined,
         contactDetails: contactData,
         educationDetails: educationDetails.filter(
-          (edu) => edu.institution && edu.institution.trim() !== ""
+          (edu) => edu.institution && edu.institution.trim() !== "",
         ),
         seafarerTrainings: seafarerTrainings.filter(
-          (training) => training.institutionSTCWAccreditationId
+          (training) => training.institutionSTCWAccreditationId,
         ),
         voyageActivities: voyageActivities.filter(
-          (voyage) => voyage.vesselName && voyage.vesselName.trim() !== ""
+          (voyage) => voyage.vesselName && voyage.vesselName.trim() !== "",
         ),
         profileDocuments: profileDocuments
           .filter((doc) => doc.file && doc.documentTypesId)
@@ -399,21 +406,18 @@ export function SeafarerOnboardingForm() {
           summary.message ||
             (saveAsDraft
               ? "Draft saved successfully!"
-              : "Onboarding completed successfully!")
+              : "Onboarding submitted successfully! Your application is now pending review."),
         );
 
-        // Check user role to determine redirect destination
-        // Owners should go to normal dashboard (/), not seafarer dashboard
-        const userRole = typeof window !== "undefined" 
-          ? localStorage.getItem("userRole")?.toUpperCase() 
-          : null;
-        
-        if (userRole === "OWNER") {
-          // Owner completes seafarer onboarding but should go to normal dashboard
-          router.push("/");
+        // After successful submission, the onboarding status is PENDING
+        // Redirect to the pending status page to show the user their application is under review
+        if (saveAsDraft) {
+          // For drafts, stay on the page or redirect to a draft view
+          // The user can continue editing later
+          toast.info("You can continue your onboarding later.");
         } else {
-          // Regular seafarers go to seafarer dashboard
-          router.push("/seafarer/dashboard");
+          // For full submissions, redirect to pending status page
+          router.push("/onboarding/status/pending");
         }
       } else {
         toast.error(response.message || "Failed to complete onboarding");
@@ -649,7 +653,8 @@ export function SeafarerOnboardingForm() {
 
               <div className="space-y-2">
                 <Label htmlFor="address">
-                  Residential Address <span className="text-destructive">*</span>
+                  Residential Address{" "}
+                  <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
                   id="address"
@@ -940,7 +945,9 @@ export function SeafarerOnboardingForm() {
                         </SelectTrigger>
                         <SelectContent>
                           {stcwAccreditations.flatMap((stcw) => {
-                            const id = stcw.institutionSTCWAccreditationId?.toString().trim();
+                            const id = stcw.institutionSTCWAccreditationId
+                              ?.toString()
+                              .trim();
                             if (!id || id === "") return [];
                             return (
                               <SelectItem key={id} value={id}>
@@ -979,7 +986,9 @@ export function SeafarerOnboardingForm() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Training Status <span className="text-red-500">*</span></Label>
+                      <Label>
+                        Training Status <span className="text-red-500">*</span>
+                      </Label>
                       <Select
                         value={training.trainingStatusId}
                         onValueChange={(value) => {
@@ -993,7 +1002,9 @@ export function SeafarerOnboardingForm() {
                         </SelectTrigger>
                         <SelectContent>
                           {trainingStatuses.flatMap((status) => {
-                            const id = status.trainingStatusId?.toString().trim();
+                            const id = status.trainingStatusId
+                              ?.toString()
+                              .trim();
                             if (!id || id === "") return [];
                             return (
                               <SelectItem key={id} value={id}>
@@ -1307,10 +1318,13 @@ export function SeafarerOnboardingForm() {
                   <div>
                     <h3 className="font-semibold">
                       Identity & Professional Documents{" "}
-                      <span className="text-sm text-destructive">(Required - Min 1)</span>
+                      <span className="text-sm text-destructive">
+                        (Required - Min 1)
+                      </span>
                     </h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Upload your identification and professional certificates (e.g., Passport, Seaman's Book, Certificates)
+                      Upload your identification and professional certificates
+                      (e.g., Passport, Seaman's Book, Certificates)
                     </p>
                   </div>
                   <Button
@@ -1358,7 +1372,9 @@ export function SeafarerOnboardingForm() {
                           </SelectTrigger>
                           <SelectContent>
                             {documentTypes.flatMap((type) => {
-                              const id = type.documentTypesId?.toString().trim();
+                              const id = type.documentTypesId
+                                ?.toString()
+                                .trim();
                               if (!id || id === "") return [];
                               return (
                                 <SelectItem key={id} value={id}>
@@ -1462,9 +1478,12 @@ export function SeafarerOnboardingForm() {
                 <div className="border rounded-lg p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-semibold">Education Documents (Optional)</h3>
+                      <h3 className="font-semibold">
+                        Education Documents (Optional)
+                      </h3>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Upload documents related to your education records (e.g., Certificates, Diplomas, Transcripts)
+                        Upload documents related to your education records
+                        (e.g., Certificates, Diplomas, Transcripts)
                       </p>
                     </div>
                     <Button
@@ -1513,7 +1532,7 @@ export function SeafarerOnboardingForm() {
                               {educationDetails.map((edu, idx) => (
                                 <SelectItem key={idx} value={idx.toString()}>
                                   {edu.institution || `Education #${idx + 1}`}
-                                  </SelectItem>
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -1534,7 +1553,9 @@ export function SeafarerOnboardingForm() {
                             </SelectTrigger>
                             <SelectContent>
                               {documentTypes.flatMap((type) => {
-                                const id = type.documentTypesId?.toString().trim();
+                                const id = type.documentTypesId
+                                  ?.toString()
+                                  .trim();
                                 if (!id || id === "") return [];
                                 return (
                                   <SelectItem key={id} value={id}>
@@ -1575,7 +1596,8 @@ export function SeafarerOnboardingForm() {
                     <div className="text-center py-4 text-muted-foreground text-sm">
                       <p>No documents added yet for your education records</p>
                       <p className="text-xs mt-1">
-                        Link documents to the education records you added earlier
+                        Link documents to the education records you added
+                        earlier
                       </p>
                     </div>
                   )}
@@ -1620,8 +1642,10 @@ export function SeafarerOnboardingForm() {
                       <div>
                         <span className="text-muted-foreground">Rank: </span>
                         <span>
-                          {ranks.find((r) => r.id === basicData.rankId)?.title ||
-                            ranks.find((r) => r.id === basicData.rankId)?.category ||
+                          {ranks.find((r) => r.id === basicData.rankId)
+                            ?.title ||
+                            ranks.find((r) => r.id === basicData.rankId)
+                              ?.category ||
                             "N/A"}
                         </span>
                       </div>
@@ -1661,13 +1685,11 @@ export function SeafarerOnboardingForm() {
                       </span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">
-                        Trainings:{" "}
-                      </span>
+                      <span className="text-muted-foreground">Trainings: </span>
                       <span>
                         {
                           seafarerTrainings.filter(
-                            (t) => t.institutionSTCWAccreditationId
+                            (t) => t.institutionSTCWAccreditationId,
                           ).length
                         }
                       </span>
@@ -1740,4 +1762,3 @@ export function SeafarerOnboardingForm() {
     </div>
   );
 }
-

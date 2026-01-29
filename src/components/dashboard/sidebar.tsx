@@ -52,9 +52,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuthStore, useUIStore } from "@/store";
 import type { UserType } from "@/store/ui-store";
-import { getMenu, filterMenuByPermissions, type WorkspaceMenuDto, type MenuItemDto } from "@/lib/services/menu-service";
+import {
+  getMenu,
+  filterMenuByPermissions,
+  type WorkspaceMenuDto,
+  type MenuItemDto,
+} from "@/lib/services/menu-service";
 import { getMyPermissions } from "@/lib/services/permissions-service";
-import { isSeaFarerOnboardingComplete, getSeaFarerWorkspace } from "@/lib/utils/workspace-helpers";
+import {
+  isSeaFarerOnboardingComplete,
+  getSeaFarerWorkspace,
+} from "@/lib/utils/workspace-helpers";
 
 type MenuItem = {
   title: string;
@@ -124,16 +132,49 @@ const seafarerMenuItems: MenuItem[] = [
  * TRAINING_INSTITUTION Menu Items
  * Training institutions can:
  * - Manage their institution profile
- * - Manage courses/programs
+ * - Onboard seafarers (on behalf of)
+ * - View seafarer registry (read-only, cannot approve)
+ * - Apply for services on behalf of seafarers
+ * - Upload training results for seafarers (Excel format)
  * - Apply for accreditation
  * - Respond to deficiencies
  * - View inspection results
+ *
+ * NOTE: Training institutions have ALL agent capabilities PLUS:
+ * - Upload Training Results feature
  */
 const trainingInstitutionMenuItems: MenuItem[] = [
   {
     title: "Dashboard",
     href: "/institution/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Seafarer Management",
+    href: "#",
+    icon: Users,
+    children: [
+      { title: "Onboard Seafarer", href: "/seafarer/add" },
+      { title: "Seafarer Registry", href: "/seafarer/registry" },
+    ],
+  },
+  {
+    title: "Services & Applications",
+    href: "#",
+    icon: Briefcase,
+    children: [
+      { title: "Apply for Seafarer", href: "/seafarer/services" },
+      { title: "View Applications", href: "/seafarer/applications" },
+    ],
+  },
+  {
+    title: "Training Results",
+    href: "#",
+    icon: GraduationCap,
+    children: [
+      { title: "Upload Results", href: "/institution/training-results/upload" },
+      { title: "View Results", href: "/institution/training-results" },
+    ],
   },
   {
     title: "Institution Management",
@@ -163,17 +204,54 @@ const trainingInstitutionMenuItems: MenuItem[] = [
       { title: "Deficiency Reports", href: "/institution/deficiencies" },
     ],
   },
+  {
+    title: "Billing & Payments",
+    href: "#",
+    icon: CreditCard,
+    children: [
+      { title: "My Invoices", href: "/invoices/my-invoices" },
+      { title: "Payment History", href: "/invoices/payments" },
+    ],
+  },
 ];
 
 /**
  * AGENT Menu Items
- * Agents are similar to training institutions
+ * Agents can:
+ * - Onboard seafarers (on behalf of)
+ * - View seafarer registry (read-only, cannot approve)
+ * - Apply for services on behalf of seafarers
+ * - Manage their agency profile
+ * - Apply for accreditation
+ * - Respond to deficiencies
+ * - View inspection results
+ *
+ * NOTE: Agents have the SAME capabilities as training institutions
+ * EXCEPT they cannot upload training results
  */
 const agentMenuItems: MenuItem[] = [
   {
     title: "Dashboard",
     href: "/agent/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Seafarer Management",
+    href: "#",
+    icon: Users,
+    children: [
+      { title: "Onboard Seafarer", href: "/seafarer/add" },
+      { title: "Seafarer Registry", href: "/seafarer/registry" },
+    ],
+  },
+  {
+    title: "Services & Applications",
+    href: "#",
+    icon: Briefcase,
+    children: [
+      { title: "Apply for Seafarer", href: "/seafarer/services" },
+      { title: "View Applications", href: "/seafarer/applications" },
+    ],
   },
   {
     title: "Agency Management",
@@ -200,6 +278,15 @@ const agentMenuItems: MenuItem[] = [
     children: [
       { title: "Scheduled Inspections", href: "/institution/inspections" },
       { title: "Deficiency Reports", href: "/institution/deficiencies" },
+    ],
+  },
+  {
+    title: "Billing & Payments",
+    href: "#",
+    icon: CreditCard,
+    children: [
+      { title: "My Invoices", href: "/invoices/my-invoices" },
+      { title: "Payment History", href: "/invoices/payments" },
     ],
   },
 ];
@@ -255,9 +342,7 @@ const accreditationOfficerMenuItems: MenuItem[] = [
     title: "Audits",
     href: "#",
     icon: ClipboardList,
-    children: [
-      { title: "Follow-up Audits", href: "/admin/audits" },
-    ],
+    children: [{ title: "Follow-up Audits", href: "/admin/audits" }],
   },
 ];
 
@@ -328,9 +413,7 @@ const financeMenuItems: MenuItem[] = [
     title: "Applications",
     href: "#",
     icon: FileText,
-    children: [
-      { title: "All Applications", href: "/seafarer/applications" },
-    ],
+    children: [{ title: "All Applications", href: "/seafarer/applications" }],
   },
   {
     title: "Statistics",
@@ -350,8 +433,19 @@ const financeMenuItems: MenuItem[] = [
 const ownerMenuItems: MenuItem[] = [
   // Dashboard - points to role selection screen
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
-  
-  // Seafarer menu items (except dashboard)
+
+  // Seafarer Management (Agent/Training Institution capability)
+  {
+    title: "Seafarer Management",
+    href: "#",
+    icon: Users,
+    children: [
+      { title: "Onboard Seafarer", href: "/seafarer/add" },
+      { title: "Seafarer Registry", href: "/seafarer/registry" },
+    ],
+  },
+
+  // My Profile (Seafarer capability)
   {
     title: "My Profile",
     href: "#",
@@ -364,31 +458,31 @@ const ownerMenuItems: MenuItem[] = [
       { title: "Training Records", href: "/seafarer/profile/trainings" },
     ],
   },
+
+  // Services & Applications
   {
-    title: "Services",
-    href: "/seafarer/services",
-    icon: Briefcase,
-  },
-  {
-    title: "Applications",
+    title: "Services & Applications",
     href: "#",
-    icon: FileText,
+    icon: Briefcase,
     children: [
+      { title: "Browse Services", href: "/seafarer/services" },
       { title: "My Applications", href: "/seafarer/applications" },
       { title: "Application History", href: "/seafarer/applications/history" },
     ],
   },
+
+  // Training Results (Training Institution capability)
   {
-    title: "Billing & Payments",
+    title: "Training Results",
     href: "#",
-    icon: CreditCard,
+    icon: GraduationCap,
     children: [
-      { title: "My Invoices", href: "/invoices/my-invoices" },
-      { title: "Payment History", href: "/invoices/payments" },
+      { title: "Upload Results", href: "/institution/training-results/upload" },
+      { title: "View Results", href: "/institution/training-results" },
     ],
   },
-  
-  // Training Institution menu items (except dashboard)
+
+  // Institution/Agency Management
   {
     title: "Institution Management",
     href: "#",
@@ -398,6 +492,8 @@ const ownerMenuItems: MenuItem[] = [
       { title: "Documents", href: "/documents" },
     ],
   },
+
+  // Accreditation
   {
     title: "Accreditation",
     href: "#",
@@ -408,6 +504,8 @@ const ownerMenuItems: MenuItem[] = [
       { title: "STCW Standards", href: "/accreditations/stcw" },
     ],
   },
+
+  // Inspections & Deficiencies
   {
     title: "Inspections & Deficiencies",
     href: "#",
@@ -417,17 +515,15 @@ const ownerMenuItems: MenuItem[] = [
       { title: "Deficiency Reports", href: "/institution/deficiencies" },
     ],
   },
-  
-  // Agent menu items (except dashboard)
-  // Note: Agency Management is similar to Institution Management but kept separate
-  // Accreditation from agent doesn't include STCW Standards, so we use Training Institution's version above
+
+  // Billing & Payments
   {
-    title: "Agency Management",
+    title: "Billing & Payments",
     href: "#",
-    icon: Building2,
+    icon: CreditCard,
     children: [
-      { title: "My Agency", href: "/institutions" },
-      { title: "Documents", href: "/documents" },
+      { title: "My Invoices", href: "/invoices/my-invoices" },
+      { title: "Payment History", href: "/invoices/payments" },
     ],
   },
 ];
@@ -450,9 +546,7 @@ const adminMenuItems: MenuItem[] = [
     title: "Seafarer",
     href: "#",
     icon: UserPlus,
-    children: [
-      { title: "All Onboarding", href: "/admin/onboarding" },
-    ],
+    children: [{ title: "All Onboarding", href: "/admin/onboarding" }],
   },
   {
     title: "Seafarer Management",
@@ -549,36 +643,36 @@ const getMenuItemsByRole = (role: string | null): MenuItem[] => {
   switch (normalizedRole) {
     case "OWNER":
       return ownerMenuItems;
-    
+
     case "SEAFARER":
     case "SEA_FARER":
       return seafarerMenuItems;
-    
+
     case "TRAINING_INSTITUTION":
     case "TRAINING":
     case "MTI":
       return trainingInstitutionMenuItems;
-    
+
     case "AGENT":
       return agentMenuItems;
-    
+
     case "ACCREDITATION_OFFICER":
     case "OFFICER":
       return accreditationOfficerMenuItems;
-    
+
     case "INSPECTOR":
       return inspectorMenuItems;
-    
+
     case "FINANCE":
     case "ACCOUNTANT":
       return financeMenuItems;
-    
+
     case "ADMIN":
     case "ADMINISTRATOR":
     case "SUPER_ADMIN":
     case "SUPERADMIN":
       return adminMenuItems;
-    
+
     default:
       // Default to seafarer for unknown roles in seafarer app
       console.warn(`Unknown role: ${role}, defaulting to seafarer menu`);
@@ -595,7 +689,7 @@ const getMenuItems = (userType: UserType): MenuItem[] => {
       return getMenuItemsByRole(role);
     }
   }
-  
+
   // Fallback to userType
   switch (userType) {
     case "admin":
@@ -614,7 +708,10 @@ const getMenuItems = (userType: UserType): MenuItem[] => {
 // Maps menu item names/URLs to appropriate icons
 // ============================================================================
 
-const getIconForMenuItem = (name: string, url?: string | null): React.ComponentType<{ className?: string }> => {
+const getIconForMenuItem = (
+  name: string,
+  url?: string | null,
+): React.ComponentType<{ className?: string }> => {
   const nameLower = name.toLowerCase();
   const urlLower = url?.toLowerCase() || "";
 
@@ -624,7 +721,11 @@ const getIconForMenuItem = (name: string, url?: string | null): React.ComponentT
   }
 
   // Profile/User
-  if (nameLower.includes("profile") || nameLower.includes("user") || nameLower.includes("account")) {
+  if (
+    nameLower.includes("profile") ||
+    nameLower.includes("user") ||
+    nameLower.includes("account")
+  ) {
     return User;
   }
 
@@ -639,12 +740,20 @@ const getIconForMenuItem = (name: string, url?: string | null): React.ComponentT
   }
 
   // Billing/Payments/Invoices
-  if (nameLower.includes("billing") || nameLower.includes("payment") || nameLower.includes("invoice")) {
+  if (
+    nameLower.includes("billing") ||
+    nameLower.includes("payment") ||
+    nameLower.includes("invoice")
+  ) {
     return CreditCard;
   }
 
   // Institution/Agency
-  if (nameLower.includes("institution") || nameLower.includes("agency") || nameLower.includes("organization")) {
+  if (
+    nameLower.includes("institution") ||
+    nameLower.includes("agency") ||
+    nameLower.includes("organization")
+  ) {
     return Building2;
   }
 
@@ -689,7 +798,11 @@ const getIconForMenuItem = (name: string, url?: string | null): React.ComponentT
   }
 
   // Settings/System
-  if (nameLower.includes("setting") || nameLower.includes("system") || nameLower.includes("configuration")) {
+  if (
+    nameLower.includes("setting") ||
+    nameLower.includes("system") ||
+    nameLower.includes("configuration")
+  ) {
     return Settings;
   }
 
@@ -699,7 +812,11 @@ const getIconForMenuItem = (name: string, url?: string | null): React.ComponentT
   }
 
   // Education/Training
-  if (nameLower.includes("education") || nameLower.includes("training") || nameLower.includes("course")) {
+  if (
+    nameLower.includes("education") ||
+    nameLower.includes("training") ||
+    nameLower.includes("course")
+  ) {
     return GraduationCap;
   }
 
@@ -711,7 +828,9 @@ const getIconForMenuItem = (name: string, url?: string | null): React.ComponentT
 // Convert API Menu Items to Sidebar Menu Format
 // ============================================================================
 
-const convertApiMenuToSidebarMenu = (workspaceMenus: WorkspaceMenuDto[]): MenuItem[] => {
+const convertApiMenuToSidebarMenu = (
+  workspaceMenus: WorkspaceMenuDto[],
+): MenuItem[] => {
   const menuItems: MenuItem[] = [];
 
   // For now, we'll use the first workspace's menu items
@@ -728,12 +847,13 @@ const convertApiMenuToSidebarMenu = (workspaceMenus: WorkspaceMenuDto[]): MenuIt
 
   // Convert API menu items to sidebar menu items
   const convertMenuItem = (item: MenuItemDto): MenuItem => {
-    const children = item.children && item.children.length > 0
-      ? item.children.map((child) => ({
-          title: child.name,
-          href: child.url || "#",
-        }))
-      : undefined;
+    const children =
+      item.children && item.children.length > 0
+        ? item.children.map((child) => ({
+            title: child.name,
+            href: child.url || "#",
+          }))
+        : undefined;
 
     return {
       title: item.name,
@@ -760,23 +880,34 @@ export function Sidebar() {
   const [apiMenuItems, setApiMenuItems] = React.useState<MenuItem[]>([]);
   const [useApiMenu, setUseApiMenu] = React.useState(false);
   const [isLoadingMenu, setIsLoadingMenu] = React.useState(true);
-  
+
   // Check if onboarding is complete - if not, don't render sidebar
   // BUT EXCLUDE ADMINS - admins should always see the sidebar
-  const userRoleFromStorage = typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
-  const isAdmin = userRoleFromStorage?.toUpperCase() === "ADMIN" || userRoleFromStorage?.toUpperCase() === "SUPERADMIN";
-  
+  const userRoleFromStorage =
+    typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
+  const isAdmin =
+    userRoleFromStorage?.toUpperCase() === "ADMIN" ||
+    userRoleFromStorage?.toUpperCase() === "SUPERADMIN";
+
   // Skip onboarding check for admins
   if (!isAdmin) {
     const seaFarerWorkspace = getSeaFarerWorkspace(user);
     const hasSeaFarerWorkspace = seaFarerWorkspace !== null;
-    const isOnboardingComplete = isSeaFarerOnboardingComplete(user) ?? user?.is_onboarding_complete ?? false;
-    const isOnboardingPage = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+    const isOnboardingComplete =
+      isSeaFarerOnboardingComplete(user) ??
+      user?.is_onboarding_complete ??
+      false;
+    const isOnboardingPage =
+      pathname === "/onboarding" || pathname.startsWith("/onboarding/");
     const isRootPage = pathname === "/" || pathname === "";
-    
+
     // Don't render sidebar if user has Sea Farer workspace but onboarding is not complete
     // Allow root page for role selection, but hide sidebar on onboarding pages
-    if (hasSeaFarerWorkspace && !isOnboardingComplete && (isOnboardingPage || isRootPage)) {
+    if (
+      hasSeaFarerWorkspace &&
+      !isOnboardingComplete &&
+      (isOnboardingPage || isRootPage)
+    ) {
       return null;
     }
   }
@@ -799,18 +930,23 @@ export function Sidebar() {
 
       try {
         setIsLoadingMenu(true);
-        
+
         // Try to get workspaceId from user workspaces
-        const workspaceId = user.workspaces?.[0]?.workspaceId || 
-                           (user.workspaces as any)?.[0]?.id ||
-                           undefined;
+        const workspaceId =
+          user.workspaces?.[0]?.workspaceId ||
+          (user.workspaces as any)?.[0]?.id ||
+          undefined;
 
         // Fetch menu items
         const menuResponse = await getMenu(workspaceId);
-        
-        if (menuResponse.success && menuResponse.data && menuResponse.data.length > 0) {
+
+        if (
+          menuResponse.success &&
+          menuResponse.data &&
+          menuResponse.data.length > 0
+        ) {
           let filteredMenus = menuResponse.data;
-          
+
           // If we have a workspaceId, fetch permissions and filter menu
           if (workspaceId) {
             try {
@@ -818,17 +954,20 @@ export function Sidebar() {
               if (permissionsResponse.success && permissionsResponse.data) {
                 filteredMenus = filterMenuByPermissions(
                   menuResponse.data,
-                  permissionsResponse.data
+                  permissionsResponse.data,
                 );
               }
             } catch (permError) {
-              console.warn("Failed to fetch permissions, showing all menu items:", permError);
+              console.warn(
+                "Failed to fetch permissions, showing all menu items:",
+                permError,
+              );
             }
           }
-          
+
           // Convert API menu items to sidebar menu format
           const convertedMenuItems = convertApiMenuToSidebarMenu(filteredMenus);
-          
+
           if (convertedMenuItems.length > 0) {
             setApiMenuItems(convertedMenuItems);
             setUseApiMenu(true);
@@ -841,7 +980,10 @@ export function Sidebar() {
           setUseApiMenu(false);
         }
       } catch (error) {
-        console.warn("Failed to fetch menu from API, falling back to role-based menu:", error);
+        console.warn(
+          "Failed to fetch menu from API, falling back to role-based menu:",
+          error,
+        );
         setUseApiMenu(false);
       } finally {
         setIsLoadingMenu(false);
@@ -852,11 +994,12 @@ export function Sidebar() {
   }, [user]);
 
   // Get menu items - use API menu if available, otherwise fall back to role-based
-  const currentMenuItems = useApiMenu && apiMenuItems.length > 0
-    ? apiMenuItems
-    : (userRole 
+  const currentMenuItems =
+    useApiMenu && apiMenuItems.length > 0
+      ? apiMenuItems
+      : userRole
         ? getMenuItemsByRole(userRole)
-        : getMenuItems("admin")); // Fallback
+        : getMenuItems("admin"); // Fallback
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) =>
@@ -938,9 +1081,7 @@ export function Sidebar() {
   }) => {
     // For child items, use exact match only (no startsWith to prevent multiple highlights)
     // For parent items, use isActive which checks exact match
-    const active = isChild 
-      ? pathname === item.href
-      : isActive(item.href);
+    const active = isChild ? pathname === item.href : isActive(item.href);
     const Icon = icon;
 
     if (isChild) {
@@ -1013,10 +1154,11 @@ export function Sidebar() {
 
             if (hasChildren) {
               // Check if any child is active (exact match only)
-              const hasActiveChild = item.children?.some(child => {
-                return pathname === child.href;
-              }) || false;
-              
+              const hasActiveChild =
+                item.children?.some((child) => {
+                  return pathname === child.href;
+                }) || false;
+
               return (
                 <div key={item.title}>
                   <button
@@ -1041,10 +1183,10 @@ export function Sidebar() {
                   {isExpanded && (
                     <div className="mt-1 space-y-1 ml-0">
                       {item.children?.map((child) => (
-                        <NavLink 
-                          key={child.href} 
-                          item={child} 
-                          isChild 
+                        <NavLink
+                          key={child.href}
+                          item={child}
+                          isChild
                           parentHref={item.href}
                         />
                       ))}

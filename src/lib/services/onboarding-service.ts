@@ -1,7 +1,7 @@
 /**
  * Onboarding Service - Corrected API integration based on swagger.json and FRONTEND_INTEGRATION_GUIDE.md
  * Base URL: /seafarer/api/v1/Onboarding
- * 
+ *
  * ⚠️ IMPORTANT NOTE ON DOCUMENTS AND ONBOARDING:
  * Documents are DIRECTLY LINKED to the onboarding process. For Seafarers, Training Institutions, and Agents,
  * all required documents must be uploaded as part of the onboarding workflow. Documents are not separate
@@ -21,9 +21,13 @@ const API_BASE = "/seafarer/api/v1/Onboarding";
 
 /**
  * Onboarding Status Enum
+ * Note: DRAFT is the initial state when onboarding is created but not yet submitted
  */
 export enum OnboardingStatus {
+  DRAFT = "DRAFT",
   PENDING = "PENDING",
+  SUBMITTED = "SUBMITTED",
+  UNDER_REVIEW = "UNDER_REVIEW",
   APPROVED = "APPROVED",
   REJECTED = "REJECTED",
   SUSPENDED = "SUSPENDED",
@@ -211,6 +215,23 @@ export interface ContactDetailsDto {
 }
 
 /**
+ * Institution Document DTO
+ */
+export interface InstitutionDocumentDto {
+  documentId: string;
+  userOrganizationId?: string;
+  documentTypesId: string;
+  documentTypeDescription?: string | null;
+  documentNumber?: string | null;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  issuingAuthority?: string | null;
+  filePathOrUrl?: string | null;
+  dateCreated?: string | null;
+  dateModified?: string | null;
+}
+
+/**
  * User Seafarer Onboarding DTO
  * Note: COMPLETE_API_INTEGRATION_GUIDE.md shows simplified field names (id, createdAt, updatedAt)
  * but swagger.json uses full names (userSeafarerOnboardingId, dateCreated, dateModified)
@@ -243,7 +264,7 @@ export interface UserSeafarerOnboardingDto {
   isActive?: boolean;
   educationDetails?: EducationDetailsDto[] | null;
   contactDetails?: ContactDetailsDto | null;
-  institutionDocuments?: any[] | null;
+  institutionDocuments?: InstitutionDocumentDto[] | null;
   hasEducationDetails?: boolean;
   hasContactDetails?: boolean;
   hasInstitutionDocuments?: boolean;
@@ -269,19 +290,50 @@ export interface UserSeafarerOnboardingDto {
 }
 
 /**
+ * Helper function to check if onboarding status is pending review
+ * (includes DRAFT, PENDING, SUBMITTED, UNDER_REVIEW)
+ */
+export function isOnboardingPendingReview(status?: string | null): boolean {
+  if (!status) return false;
+  const normalizedStatus = status.toUpperCase();
+  return [
+    OnboardingStatus.DRAFT,
+    OnboardingStatus.PENDING,
+    OnboardingStatus.SUBMITTED,
+    OnboardingStatus.UNDER_REVIEW,
+  ].includes(normalizedStatus as OnboardingStatus);
+}
+
+/**
+ * Helper function to check if onboarding status is approved
+ */
+export function isOnboardingApproved(status?: string | null): boolean {
+  if (!status) return false;
+  return status.toUpperCase() === OnboardingStatus.APPROVED;
+}
+
+/**
+ * Helper function to check if onboarding status is rejected
+ */
+export function isOnboardingRejected(status?: string | null): boolean {
+  if (!status) return false;
+  return status.toUpperCase() === OnboardingStatus.REJECTED;
+}
+
+/**
  * Create onboarding request
  * POST /seafarer/api/v1/Onboarding
- * 
+ *
  * ⚠️ IMPORTANT: After creating the onboarding request, you MUST upload required documents
  * that are linked to this onboarding. Use the document upload endpoints from document-service.ts:
  * - uploadEducationDocument() - for education-related documents
  * - uploadProfileDocument() - for profile documents (passport, medical, CoC, etc.)
- * 
+ *
  * The onboarding status and approval depend on the completion of document uploads.
  * Documents are directly linked to the onboarding process, not separate entities.
  */
 export async function createOnboarding(
-  data: CreateOnboardingRequest
+  data: CreateOnboardingRequest,
 ): Promise<ApiResponse<UserSeafarerOnboardingDto>> {
   return apiPostMain<UserSeafarerOnboardingDto>(API_BASE, data);
 }
@@ -289,12 +341,12 @@ export async function createOnboarding(
 /**
  * Get my onboarding status
  * GET /seafarer/api/v1/onboarding/my-onboarding
- * 
+ *
  * Returns onboarding status including:
  * - hasEducationDetails: Whether education details have been added
  * - hasContactDetails: Whether contact details have been added
  * - educationDocumentCount: Number of education documents uploaded
- * 
+ *
  * Note: The onboarding status reflects the completion of required documents.
  * Admin approval depends on all required documents being uploaded.
  */
@@ -309,7 +361,7 @@ export async function getMyOnboarding(): Promise<
  * GET /seafarer/api/v1/onboarding/{id}
  */
 export async function getOnboardingById(
-  id: string
+  id: string,
 ): Promise<ApiResponse<UserSeafarerOnboardingDto>> {
   return apiGetMain<UserSeafarerOnboardingDto>(`${API_BASE}/${id}`);
 }
@@ -350,11 +402,10 @@ export async function getAllOnboardings(): Promise<
  */
 export async function updateOnboardingStatus(
   id: string,
-  data: UpdateOnboardingStatusRequest
+  data: UpdateOnboardingStatusRequest,
 ): Promise<ApiResponse<UserSeafarerOnboardingDto>> {
   return apiPatchMain<UserSeafarerOnboardingDto>(
     `${API_BASE}/${id}/status`,
-    data
+    data,
   );
 }
-
