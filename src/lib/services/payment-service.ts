@@ -250,9 +250,7 @@ export async function getMyInvoices(): Promise<ApiResponse<SeafarerInvoiceDto[]>
     error: { message: "Endpoint /seafarer/api/v1/invoices/me does not exist in the API. Use getApplicationInvoice() from application-service.ts instead.", code: "ENDPOINT_NOT_FOUND" },
     data: undefined,
   };
-}
-
-/**
+}/**
  * Initiate payment for an application
  * POST /seafarer/api/v1/Payment/applications/{id}/payment/initiate
  */
