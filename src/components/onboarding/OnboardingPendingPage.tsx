@@ -65,7 +65,7 @@ export function OnboardingPendingPage({
 
   const handleLogout = () => {
     logout();
-    router.replace("/auth/signin");
+    window.location.href = "https://icad-ims.netlify.app/";
   };
 
   // Get role display name

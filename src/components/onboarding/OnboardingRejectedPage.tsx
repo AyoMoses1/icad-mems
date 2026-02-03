@@ -65,7 +65,7 @@ export function OnboardingRejectedPage({
 
   const handleLogout = () => {
     logout();
-    router.replace("/auth/signin");
+    window.location.href = "https://icad-ims.netlify.app/";
   };
 
   const handleReapply = () => {

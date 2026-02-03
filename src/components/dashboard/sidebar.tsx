@@ -1019,7 +1019,7 @@ export function Sidebar() {
         localStorage.removeItem("userRole");
       }
       logout();
-      router.push("/auth/signin");
+      window.location.href = "https://icad-ims.netlify.app/";
     }
   };
 
