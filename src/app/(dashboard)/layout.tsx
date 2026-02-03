@@ -193,8 +193,14 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       setIsInitializing(true);
       setInitializationError(null);
 
-      // Step 1: Check for token in URL (from IMS redirect)
+      // Step 1: Check for token and workspaceId in URL (from IMS redirect when clicking seafarer card)
       const tokenFromUrl = searchParams.get("token");
+      const workspaceIdFromUrl = searchParams.get("workspaceId");
+
+      // Store workspaceId from URL so menu endpoint can use it (GET /api/menu?workspaceId=...)
+      if (workspaceIdFromUrl && typeof window !== "undefined") {
+        localStorage.setItem("workspaceId", workspaceIdFromUrl);
+      }
 
       // Step 2: Also check localStorage directly as a fallback
       let storedToken = token;
@@ -443,10 +449,14 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       localStorage.setItem("userRole", role);
       setUserRole(role);
 
-      // Step 11: Remove token from URL if present (keep URL clean)
-      if (tokenFromUrl && typeof window !== "undefined") {
+      // Step 11: Remove token and workspaceId from URL if present (keep URL clean)
+      if (
+        (tokenFromUrl || workspaceIdFromUrl) &&
+        typeof window !== "undefined"
+      ) {
         const url = new URL(window.location.href);
         url.searchParams.delete("token");
+        url.searchParams.delete("workspaceId");
         window.history.replaceState({}, "", url.toString());
       }
 

@@ -19,7 +19,7 @@ function getSsoBaseUrl(): string {
       "\n  - NEXT_PUBLIC_OAUTH_BASE_URL:",
       process.env.NEXT_PUBLIC_OAUTH_BASE_URL,
       "\n  Please add NEXT_PUBLIC_SSO_BASE_URL to your .env.local file",
-      "\n  Example: NEXT_PUBLIC_SSO_BASE_URL=https://staging-api.icadpay.com"
+      "\n  Example: NEXT_PUBLIC_SSO_BASE_URL=https://staging-api.icadpay.com",
     );
   }
 
@@ -51,7 +51,7 @@ export function getApiBaseUrl(): string {
         "\n  Please:",
         "\n  1. Add NEXT_PUBLIC_API_BASE_URL to your .env.local file",
         "\n  2. Restart your Next.js dev server (npm run dev)",
-        "\n  3. Clear .next cache if needed (rm -rf .next)"
+        "\n  3. Clear .next cache if needed (rm -rf .next)",
       );
     }
     // else if (process.env.NODE_ENV === "development") {
@@ -63,23 +63,26 @@ export function getApiBaseUrl(): string {
 }
 
 // Determine which base URL to use based on endpoint
-// OAuth/SSO endpoints (/connect/*) use SSO base URL
-// All other endpoints use the main API base URL
+// - OAuth/SSO (/connect/*) and IMS (/api/menu, /api/workspaces/) use SSO base URL (NEXT_PUBLIC_SSO_BASE_URL)
+// - All other endpoints use the main API base URL
 function getBaseUrlForEndpoint(endpoint: string): string {
-  // Check if this is an OAuth/SSO endpoint
-  if (endpoint.startsWith("/connect/")) {
+  const useIms =
+    endpoint.startsWith("/connect/") ||
+    endpoint.startsWith("/api/menu") ||
+    endpoint.startsWith("/api/workspaces/");
+
+  if (useIms) {
     const ssoUrl = getSsoBaseUrl();
     if (!ssoUrl) {
       throw new Error(
         "NEXT_PUBLIC_SSO_BASE_URL is not configured. " +
           "Please add it to your .env.local file. " +
-          "Example: NEXT_PUBLIC_SSO_BASE_URL=https://staging-api.icadpay.com"
+          "Example: NEXT_PUBLIC_SSO_BASE_URL=https://staging-api.icadpay.com",
       );
     }
     return ssoUrl;
   }
 
-  // Use main API base URL for all other endpoints
   return getApiBaseUrl();
 }
 
@@ -94,7 +97,7 @@ export class ApiError extends Error {
   constructor(
     public code: string,
     message: string,
-    public statusCode?: number
+    public statusCode?: number,
   ) {
     super(message);
     this.name = "ApiError";
@@ -157,7 +160,7 @@ function getAuthToken(): string | null {
     // Log warning if token is missing (only in development)
     if (process.env.NODE_ENV === "development") {
       console.warn(
-        "⚠️ No authentication token found. Please ensure you are logged in."
+        "⚠️ No authentication token found. Please ensure you are logged in.",
       );
     }
 
@@ -282,7 +285,7 @@ export { refreshAccessToken, getValidToken, isTokenExpired };
  */
 export async function apiClient<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<ApiResponse<T>> {
   const API_BASE_URL = getApiBaseUrl();
 
@@ -356,7 +359,7 @@ export async function apiClient<T>(
       throw new Error(
         data.error?.message ||
           data.message ||
-          `Request failed with status ${response.status}`
+          `Request failed with status ${response.status}`,
       );
     }
 
@@ -377,20 +380,24 @@ export async function apiClient<T>(
 }
 export async function apiClientMain<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<ApiResponse<T>> {
-  // Use the same getApiBaseUrl function for consistency
-  const API_BASE_URL = getApiBaseUrl();
+  // IMS endpoints (/api/menu, /api/workspaces/) use NEXT_PUBLIC_SSO_BASE_URL; others use NEXT_PUBLIC_API_BASE_URL
+  const baseUrl = getBaseUrlForEndpoint(endpoint);
 
-  // console.log({ API_BASE_URL });
-
-  if (!API_BASE_URL) {
-    const errorMsg = `NEXT_PUBLIC_API_BASE_URL is not configured. Please check your .env.local file and restart the dev server.`;
+  if (!baseUrl) {
+    const isImsEndpoint =
+      endpoint.startsWith("/connect/") ||
+      endpoint.startsWith("/api/menu") ||
+      endpoint.startsWith("/api/workspaces/");
+    const errorMsg = isImsEndpoint
+      ? `NEXT_PUBLIC_SSO_BASE_URL (IMS) is not configured. Please check your .env.local file and restart the dev server.`
+      : `NEXT_PUBLIC_API_BASE_URL is not configured. Please check your .env.local file and restart the dev server.`;
     console.error("❌ API Client Error:", errorMsg);
     throw new Error(errorMsg);
   }
 
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${baseUrl}${endpoint}`;
 
   // Debug logging in development
   // if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
@@ -492,7 +499,7 @@ export async function apiGetMain<T>(endpoint: string): Promise<ApiResponse<T>> {
  */
 export async function apiPost<T>(
   endpoint: string,
-  body?: unknown
+  body?: unknown,
 ): Promise<ApiResponse<T>> {
   return apiClient<T>(endpoint, {
     method: "POST",
@@ -501,7 +508,7 @@ export async function apiPost<T>(
 }
 export async function apiPostMain<T>(
   endpoint: string,
-  body?: unknown
+  body?: unknown,
 ): Promise<ApiResponse<T>> {
   return apiClientMain<T>(endpoint, {
     method: "POST",
@@ -514,7 +521,7 @@ export async function apiPostMain<T>(
  */
 export async function apiPut<T>(
   endpoint: string,
-  body?: unknown
+  body?: unknown,
 ): Promise<ApiResponse<T>> {
   return apiClient<T>(endpoint, {
     method: "PUT",
@@ -524,7 +531,7 @@ export async function apiPut<T>(
 
 export async function apiPutMain<T>(
   endpoint: string,
-  body?: unknown
+  body?: unknown,
 ): Promise<ApiResponse<T>> {
   return apiClientMain<T>(endpoint, {
     method: "PUT",
@@ -537,7 +544,7 @@ export async function apiPutMain<T>(
  */
 export async function apiPatch<T>(
   endpoint: string,
-  body?: unknown
+  body?: unknown,
 ): Promise<ApiResponse<T>> {
   return apiClient<T>(endpoint, {
     method: "PATCH",
@@ -547,7 +554,7 @@ export async function apiPatch<T>(
 
 export async function apiPatchMain<T>(
   endpoint: string,
-  body?: unknown
+  body?: unknown,
 ): Promise<ApiResponse<T>> {
   return apiClientMain<T>(endpoint, {
     method: "PATCH",
@@ -563,7 +570,7 @@ export async function apiDelete<T>(endpoint: string): Promise<ApiResponse<T>> {
 }
 
 export async function apiDeleteMain<T>(
-  endpoint: string
+  endpoint: string,
 ): Promise<ApiResponse<T>> {
   return apiClientMain<T>(endpoint, { method: "DELETE" });
 }
@@ -576,7 +583,7 @@ export async function apiDeleteMain<T>(
  */
 export async function apiPostForm<T>(
   endpoint: string,
-  formData: Record<string, string>
+  formData: Record<string, string>,
 ): Promise<T> {
   // Ensure endpoint starts with / if it doesn't already
   const normalizedEndpoint = endpoint.startsWith("/")
@@ -614,7 +621,7 @@ export async function apiPostForm<T>(
         error: "Request failed",
       }));
       throw new Error(
-        errorData.error_description || errorData.error || "Request failed"
+        errorData.error_description || errorData.error || "Request failed",
       );
     }
 
@@ -636,13 +643,13 @@ export async function apiPostForm<T>(
 }
 export async function apiPostFormMain<T>(
   endpoint: string,
-  formData: Record<string, string>
+  formData: Record<string, string>,
 ): Promise<T> {
   const API_BASE_URL = getApiBaseUrl();
 
   if (!API_BASE_URL) {
     throw new Error(
-      "NEXT_PUBLIC_API_BASE_URL is not configured. Please check your .env.local file and restart the dev server."
+      "NEXT_PUBLIC_API_BASE_URL is not configured. Please check your .env.local file and restart the dev server.",
     );
   }
 
@@ -668,7 +675,7 @@ export async function apiPostFormMain<T>(
         error: "Request failed",
       }));
       throw new Error(
-        errorData.error_description || errorData.error || "Request failed"
+        errorData.error_description || errorData.error || "Request failed",
       );
     }
 
@@ -694,13 +701,13 @@ export async function apiPostFormMain<T>(
  */
 export async function apiPostMultipart<T>(
   endpoint: string,
-  formData: FormData
+  formData: FormData,
 ): Promise<ApiResponse<T>> {
   const API_BASE_URL = getApiBaseUrl();
 
   if (!API_BASE_URL) {
     throw new Error(
-      "NEXT_PUBLIC_API_LOGIN_BASE_URL is not configured. Please check your .env file and restart the dev server."
+      "NEXT_PUBLIC_API_LOGIN_BASE_URL is not configured. Please check your .env file and restart the dev server.",
     );
   }
 
@@ -740,13 +747,13 @@ export async function apiPostMultipart<T>(
 
 export async function apiPostMultipartMain<T>(
   endpoint: string,
-  formData: FormData
+  formData: FormData,
 ): Promise<ApiResponse<T>> {
   const API_BASE_URL = getApiBaseUrl();
 
   if (!API_BASE_URL) {
     throw new Error(
-      "NEXT_PUBLIC_API_BASE_URL is not configured. Please check your .env.local file and restart the dev server."
+      "NEXT_PUBLIC_API_BASE_URL is not configured. Please check your .env.local file and restart the dev server.",
     );
   }
 
@@ -817,7 +824,7 @@ export async function apiGetAuth<T>(endpoint: string): Promise<T> {
         error: "Request failed",
       }));
       throw new Error(
-        errorData.error_description || errorData.error || "Request failed"
+        errorData.error_description || errorData.error || "Request failed",
       );
     }
 
@@ -842,7 +849,7 @@ export async function apiGetAuth<T>(endpoint: string): Promise<T> {
  */
 export async function apiPostAuth<T>(
   endpoint: string,
-  body?: unknown
+  body?: unknown,
 ): Promise<T> {
   // Ensure endpoint starts with / if it doesn't already
   const normalizedEndpoint = endpoint.startsWith("/")
@@ -871,7 +878,7 @@ export async function apiPostAuth<T>(
         error: "Request failed",
       }));
       throw new Error(
-        errorData.error_description || errorData.error || "Request failed"
+        errorData.error_description || errorData.error || "Request failed",
       );
     }
 

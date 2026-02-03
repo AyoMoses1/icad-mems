@@ -629,7 +629,7 @@ const adminMenuItems: MenuItem[] = [
 ];
 
 // ============================================================================
-// Role-based Menu Mapping
+// Role-based Menu Mapping (fallback only when IMS menu API is unavailable)
 // Maps backend roles from IMS userInfo to menu items
 // ============================================================================
 
@@ -920,7 +920,9 @@ export function Sidebar() {
     }
   }, []);
 
-  // Fetch menu from API and permissions
+  // Authorization/navigation: driven by IMS menu endpoint (GET /api/menu).
+  // What the user sees in the sidebar comes from the menu items returned by IMS.
+  // Role-based menus are used only when the menu API call fails (e.g. network error).
   React.useEffect(() => {
     const fetchMenuAndPermissions = async () => {
       if (!user) {
@@ -931,24 +933,23 @@ export function Sidebar() {
       try {
         setIsLoadingMenu(true);
 
-        // Try to get workspaceId from user workspaces
+        // Prefer workspaceId from URL (IMS redirect when clicking seafarer card), then user's first workspace
         const workspaceId =
+          (typeof window !== "undefined"
+            ? localStorage.getItem("workspaceId")
+            : null) ||
           user.workspaces?.[0]?.workspaceId ||
           (user.workspaces as any)?.[0]?.id ||
           undefined;
 
-        // Fetch menu items
+        // Fetch menu items from IMS (GET /api/menu?workspaceId=...) - source of truth for what user can see
         const menuResponse = await getMenu(workspaceId);
 
-        if (
-          menuResponse.success &&
-          menuResponse.data &&
-          menuResponse.data.length > 0
-        ) {
+        if (menuResponse.success && menuResponse.data !== undefined) {
           let filteredMenus = menuResponse.data;
 
-          // If we have a workspaceId, fetch permissions and filter menu
-          if (workspaceId) {
+          // If we have a workspaceId, filter by user permissions for that workspace
+          if (workspaceId && filteredMenus.length > 0) {
             try {
               const permissionsResponse = await getMyPermissions(workspaceId);
               if (permissionsResponse.success && permissionsResponse.data) {
@@ -965,23 +966,18 @@ export function Sidebar() {
             }
           }
 
-          // Convert API menu items to sidebar menu format
+          // Convert IMS menu items to sidebar format; use this even if empty
           const convertedMenuItems = convertApiMenuToSidebarMenu(filteredMenus);
-
-          if (convertedMenuItems.length > 0) {
-            setApiMenuItems(convertedMenuItems);
-            setUseApiMenu(true);
-          } else {
-            // Fall back to role-based menu if conversion resulted in empty menu
-            setUseApiMenu(false);
-          }
+          setApiMenuItems(convertedMenuItems);
+          setUseApiMenu(true);
         } else {
-          // Fall back to role-based menu if API returns empty or fails
-          setUseApiMenu(false);
+          // API returned unsuccessful or no data - still prefer "menu from API" with empty list
+          setApiMenuItems([]);
+          setUseApiMenu(true);
         }
       } catch (error) {
         console.warn(
-          "Failed to fetch menu from API, falling back to role-based menu:",
+          "Failed to fetch menu from IMS, falling back to role-based menu:",
           error,
         );
         setUseApiMenu(false);
@@ -993,13 +989,12 @@ export function Sidebar() {
     fetchMenuAndPermissions();
   }, [user]);
 
-  // Get menu items - use API menu if available, otherwise fall back to role-based
-  const currentMenuItems =
-    useApiMenu && apiMenuItems.length > 0
-      ? apiMenuItems
-      : userRole
-        ? getMenuItemsByRole(userRole)
-        : getMenuItems("admin"); // Fallback
+  // Menu items: from IMS menu endpoint when API succeeded; role-based only on API failure
+  const currentMenuItems = useApiMenu
+    ? apiMenuItems
+    : userRole
+      ? getMenuItemsByRole(userRole)
+      : getMenuItems("admin"); // Fallback when no role
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) =>
