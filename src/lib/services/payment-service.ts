@@ -233,10 +233,8 @@ export async function simulatePayment(
 
 // ============================================================================
 // Seafarer Invoice and Payment Functions
-// ============================================================================
-
-/**
- * Get invoices for the current seafarer user
+// ============================================================================/**
+ /* Get invoices for the current seafarer user
  * ⚠️ DEPRECATED: The /seafarer/api/v1/invoices/me endpoint does not exist in swagger.json
  * Use getApplicationInvoice() from application-service.ts for application-specific invoices instead.
  * 
