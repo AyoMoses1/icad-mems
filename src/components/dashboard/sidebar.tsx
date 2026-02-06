@@ -63,6 +63,7 @@ import {
   isSeaFarerOnboardingComplete,
   getSeaFarerWorkspace,
 } from "@/lib/utils/workspace-helpers";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type MenuItem = {
   title: string;
@@ -994,6 +995,7 @@ export function Sidebar() {
   }, [user, currentWorkspaceId, workspaceIdFromUrl]);
 
   // Get menu items - use API menu when API succeeded (even if empty); only fall back on API failure
+  // While loading, sidebar shows skeleton (see nav below); no fallback menu is shown
   const currentMenuItems = useApiMenu
     ? apiMenuItems
     : userRole
@@ -1139,65 +1141,88 @@ export function Sidebar() {
       <ScrollArea className="flex-1 px-3 py-4 sidebar-scroll">
         <div className="px-3 mb-3">
           <span className="text-xs font-semibold text-sidebar-muted-foreground uppercase tracking-wider">
-            {userRole ? userRole.replace(/_/g, " ") : "Workspace"}
+            {isLoadingMenu ? (
+              <Skeleton className="h-3 w-20" />
+            ) : userRole ? (
+              userRole.replace(/_/g, " ")
+            ) : (
+              "Workspace"
+            )}
           </span>
         </div>
 
-        <nav className="space-y-1">
-          {currentMenuItems.map((item) => {
-            const Icon = item.icon;
-            const hasChildren = item.children && item.children.length > 0;
-            const isExpanded = expandedItems.includes(item.title);
-            const isItemActive =
-              isActive(item.href) || isChildActive(item.children);
+        {isLoadingMenu ? (
+          <nav className="space-y-1" aria-busy="true" aria-label="Loading menu">
+            {[70, 85, 60, 90, 75, 65].map((widthPct, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
+              >
+                <Skeleton className="h-5 w-5 flex-shrink-0 rounded" />
+                <Skeleton
+                  className="h-4 flex-1 rounded"
+                  style={{ maxWidth: `${widthPct}%` }}
+                />
+              </div>
+            ))}
+          </nav>
+        ) : (
+          <nav className="space-y-1">
+            {currentMenuItems.map((item) => {
+              const Icon = item.icon;
+              const hasChildren = item.children && item.children.length > 0;
+              const isExpanded = expandedItems.includes(item.title);
+              const isItemActive =
+                isActive(item.href) || isChildActive(item.children);
 
-            if (hasChildren) {
-              // Check if any child is active (exact match only)
-              const hasActiveChild =
-                item.children?.some((child) => {
-                  return pathname === child.href;
-                }) || false;
+              if (hasChildren) {
+                // Check if any child is active (exact match only)
+                const hasActiveChild =
+                  item.children?.some((child) => {
+                    return pathname === child.href;
+                  }) || false;
 
-              return (
-                <div key={item.title}>
-                  <button
-                    onClick={() => toggleExpand(item.title)}
-                    className={cn(
-                      "flex items-center justify-between w-full px-3 py-2.5 text-sm rounded-lg transition-colors border",
-                      hasActiveChild
-                        ? "bg-[#1E40AF] border-[#3B82F6] text-white font-medium"
-                        : "text-sidebar-foreground hover:bg-sidebar-muted border-transparent"
+                return (
+                  <div key={item.title}>
+                    <button
+                      onClick={() => toggleExpand(item.title)}
+                      className={cn(
+                        "flex items-center justify-between w-full px-3 py-2.5 text-sm rounded-lg transition-colors border",
+                        hasActiveChild
+                          ? "bg-[#1E40AF] border-[#3B82F6] text-white font-medium"
+                          : "text-sidebar-foreground hover:bg-sidebar-muted border-transparent"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        {Icon && <Icon className="h-5 w-5 flex-shrink-0" />}
+                        <span>{item.title}</span>
+                      </div>
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                      )}
+                    </button>
+                    {isExpanded && (
+                      <div className="mt-1 space-y-1 ml-0">
+                        {item.children?.map((child) => (
+                          <NavLink
+                            key={child.href}
+                            item={child}
+                            isChild
+                            parentHref={item.href}
+                          />
+                        ))}
+                      </div>
                     )}
-                  >
-                    <div className="flex items-center gap-3">
-                      {Icon && <Icon className="h-5 w-5 flex-shrink-0" />}
-                      <span>{item.title}</span>
-                    </div>
-                    {isExpanded ? (
-                      <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                    )}
-                  </button>
-                  {isExpanded && (
-                    <div className="mt-1 space-y-1 ml-0">
-                      {item.children?.map((child) => (
-                        <NavLink
-                          key={child.href}
-                          item={child}
-                          isChild
-                          parentHref={item.href}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            }
+                  </div>
+                );
+              }
 
-            return <NavLink key={item.href} item={item} icon={Icon} />;
-          })}
-        </nav>
+              return <NavLink key={item.href} item={item} icon={Icon} />;
+            })}
+          </nav>
+        )}
       </ScrollArea>
 
       {/* Return to IMS Link */}
