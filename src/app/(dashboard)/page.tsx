@@ -16,6 +16,8 @@ import {
   getMyOnboarding,
   isOnboardingApproved,
 } from "@/lib/services/onboarding-service";
+import { getFirstMenuRouteForWorkspace } from "@/lib/services/menu-service";
+import { SEA_FARER_WORKSPACE_ID } from "@/lib/utils/workspace-helpers";
 
 export default function DashboardRedirectPage() {
   const router = useRouter();
@@ -46,8 +48,12 @@ export default function DashboardRedirectPage() {
               isOnboardingApproved(response.data.status)
             ) {
               const role = response.data.role?.toUpperCase();
-              const dashboardRoute = getDashboardRoute(role || "SEAFARER");
-              router.replace(dashboardRoute);
+              const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+                SEA_FARER_WORKSPACE_ID
+              );
+              const targetRoute =
+                firstMenuRoute || getDashboardRoute(role || "SEAFARER");
+              router.replace(targetRoute);
               return;
             }
           } catch {
@@ -56,6 +62,13 @@ export default function DashboardRedirectPage() {
 
           const seaFarerOnboardingComplete = isSeaFarerOnboardingComplete(user);
           if (seaFarerOnboardingComplete) {
+            const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+              SEA_FARER_WORKSPACE_ID
+            );
+            if (firstMenuRoute) {
+              router.replace(firstMenuRoute);
+              return;
+            }
             const primaryRole = getSeaFarerPrimaryRole(user);
             if (primaryRole === "Seafarer" || primaryRole === "Owner") {
               router.replace("/seafarer/dashboard");

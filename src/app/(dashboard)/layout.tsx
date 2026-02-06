@@ -16,7 +16,9 @@ import {
 import {
   isSeaFarerOnboardingComplete,
   getSeaFarerWorkspace,
+  SEA_FARER_WORKSPACE_ID,
 } from "@/lib/utils/workspace-helpers";
+import { getFirstMenuRouteForWorkspace } from "@/lib/services/menu-service";
 import { Button } from "@/components/ui/button";
 import {
   getMyOnboarding,
@@ -562,23 +564,21 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
           // Handle different statuses
           if (isOnboardingApproved(status)) {
-            // User is approved - redirect to the correct dashboard based on their ONBOARDING role
-            // This is important for OWNER users who completed onboarding for a specific role
+            // User is approved - use first menu item so they see what the menu shows (avoids Owner vs role mismatch)
             setOnboardingStatusChecked(true);
 
-            // Determine the correct dashboard based on onboarding role
-            const correctDashboard = getDashboardRoute(
-              onboardingRole || "SEAFARER"
+            const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+              SEA_FARER_WORKSPACE_ID
             );
+            const correctDashboard =
+              firstMenuRoute || getDashboardRoute(onboardingRole || "SEAFARER");
+
             const isOnRootPage = pathname === "/" || pathname === "";
             const isOnOnboardingPage = pathname.startsWith("/onboarding");
 
-            // If user is on root page or onboarding page, redirect to correct dashboard
-            // Also redirect if they're on the WRONG dashboard (e.g., seafarer dashboard when they're an agent)
             if (isOnRootPage || isOnOnboardingPage) {
               router.replace(correctDashboard);
             } else {
-              // Check if user is on wrong dashboard and redirect if needed
               const isOnWrongDashboard =
                 (onboardingRole === "AGENT" &&
                   pathname.startsWith("/seafarer")) ||

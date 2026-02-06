@@ -25,6 +25,8 @@ import { useOnboardingStatus } from "@/hooks/use-onboarding-status";
 import { formatDate } from "@/lib/utils";
 import { getDashboardRoute } from "@/lib/role-routing";
 import { isOnboardingApproved } from "@/lib/services/onboarding-service";
+import { getFirstMenuRouteForWorkspace } from "@/lib/services/menu-service";
+import { SEA_FARER_WORKSPACE_ID } from "@/lib/utils/workspace-helpers";
 
 interface OnboardingPendingPageProps {
   /** Optional callback when status changes */
@@ -64,7 +66,12 @@ export function OnboardingPendingPage({
   const handleRefresh = async () => {
     const data = await refresh();
     if (data && isOnboardingApproved(data.status)) {
-      router.replace(getDashboardRoute(data.role ?? "SEAFARER"));
+      const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+        SEA_FARER_WORKSPACE_ID
+      );
+      const targetRoute =
+        firstMenuRoute || getDashboardRoute(data.role ?? "SEAFARER");
+      router.replace(targetRoute);
     }
   };
 

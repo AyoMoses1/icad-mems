@@ -1,6 +1,6 @@
 /**
  * Services Index - Export API services
- * 
+ *
  * Note: Import directly from specific service files when you need access to types
  * or when there are name conflicts.
  */
@@ -36,10 +36,7 @@ export {
 } from "./seafarers";
 
 // Ranks - specific exports to avoid PagedResult conflict
-export {
-  getRanks,
-  getRankById,
-} from "./ranks";
+export { getRanks, getRankById } from "./ranks";
 
 // Application service functions
 export {
@@ -96,10 +93,7 @@ export {
 } from "./organization-service";
 
 // Service service
-export {
-  getServices,
-  getServiceRequirements,
-} from "./service-service";
+export { getServices, getServiceRequirements } from "./service-service";
 
 // Service Management API (Admin-only mutations)
 export {
@@ -198,9 +192,7 @@ export {
 } from "./cohorts-service";
 
 // Maritime departments - specific exports
-export {
-  getMaritimeDepartments,
-} from "./maritime-departments-service";
+export { getMaritimeDepartments } from "./maritime-departments-service";
 
 // Documents master - specific exports
 export {
@@ -220,9 +212,7 @@ export {
 export * from "./onboarding-requirements-service";
 
 // Admin review - specific exports using renamed exports
-export {
-  getPendingApplications,
-} from "./admin-review-service";
+export { getPendingApplications } from "./admin-review-service";
 
 // Permissions service
 export {
@@ -235,6 +225,8 @@ export {
 // Menu service
 export {
   getMenu,
+  getFirstMenuRoute,
+  getFirstMenuRouteForWorkspace,
   flattenMenuItems,
   findMenuItemByUrl,
   filterMenuByPermissions,
