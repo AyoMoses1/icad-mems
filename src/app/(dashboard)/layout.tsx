@@ -567,11 +567,17 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             // User is approved - use first menu item so they see what the menu shows (avoids Owner vs role mismatch)
             setOnboardingStatusChecked(true);
 
-            const firstMenuRoute = await getFirstMenuRouteForWorkspace(
-              SEA_FARER_WORKSPACE_ID
+            let correctDashboard = getDashboardRoute(
+              onboardingRole || "SEAFARER"
             );
-            const correctDashboard =
-              firstMenuRoute || getDashboardRoute(onboardingRole || "SEAFARER");
+            try {
+              const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+                SEA_FARER_WORKSPACE_ID
+              );
+              if (firstMenuRoute) correctDashboard = firstMenuRoute;
+            } catch {
+              // Use role-based route when menu API fails
+            }
 
             const isOnRootPage = pathname === "/" || pathname === "";
             const isOnOnboardingPage = pathname.startsWith("/onboarding");
@@ -634,6 +640,11 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Only run after initialization is complete and we have a role
     if (isInitializing || !userRole || onboardingStatusChecked) {
+      return;
+    }
+    // Skip when user is on onboarding status pages (pending/rejected) - that page has its own status check and "Check Status" button
+    if (pathname.startsWith("/onboarding/status/")) {
+      setOnboardingStatusChecked(true);
       return;
     }
 

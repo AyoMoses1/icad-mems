@@ -43,6 +43,7 @@ import {
   type DocumentTypeDto,
   type AccreditedInstitutionDto,
 } from "@/lib/services/lookup-service";
+import { IdentityVerificationStep } from "./IdentityVerificationStep";
 
 type Step = "agent" | "contact" | "documents" | "review";
 
@@ -66,6 +67,7 @@ export function AgentOnboardingForm({
   const { user } = useAuthStore();
   const [currentStep, setCurrentStep] = useState<Step>("agent");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isIdentityVerified, setIsIdentityVerified] = useState(false);
 
   // Dropdown data
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeDto[]>([]);
@@ -142,6 +144,14 @@ export function AgentOnboardingForm({
   };
 
   const handleSubmit = async (saveAsDraft: boolean = false) => {
+    if (!saveAsDraft && !isIdentityVerified) {
+      toast.error(
+        "Please complete identity verification in the Documents step before submitting."
+      );
+      setCurrentStep("documents");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -233,7 +243,7 @@ export function AgentOnboardingForm({
   };
 
   const progress = () => {
-    const steps = ["agent", "contact", "documents", "review"];
+    const steps: Step[] = ["agent", "contact", "documents", "review"];
     const currentIndex = steps.indexOf(currentStep);
     return ((currentIndex + 1) / steps.length) * 100;
   };
@@ -610,6 +620,15 @@ export function AgentOnboardingForm({
 
         {/* Documents Step - Same structure as Training Institution */}
         <TabsContent value="documents" className="space-y-4">
+          {/* Identity Verification - verify before document upload */}
+          <IdentityVerificationStep
+            userId={user?.id ?? ""}
+            firstName={user?.firstName}
+            lastName={user?.lastName}
+            redirectToStatusPage
+            onVerificationStatusChange={setIsIdentityVerified}
+          />
+
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">

@@ -11,7 +11,7 @@
  * - No onboarding -> Onboarding form
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   getMyOnboarding,
@@ -79,9 +79,15 @@ export function useOnboardingStatus(
     useState<UserSeafarerOnboardingDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const fetchInFlightRef = useRef(false);
+  const initialFetchDoneRef = useRef(false);
 
   const fetchOnboardingStatus =
     useCallback(async (): Promise<UserSeafarerOnboardingDto | null> => {
+      if (fetchInFlightRef.current) {
+        return null;
+      }
+      fetchInFlightRef.current = true;
       setIsLoading(true);
       setError(null);
 
@@ -129,6 +135,7 @@ export function useOnboardingStatus(
         return null;
       } finally {
         setIsLoading(false);
+        fetchInFlightRef.current = false;
       }
     }, []);
 
@@ -168,11 +175,11 @@ export function useOnboardingStatus(
     }
   }, [status, onboardingData, router]);
 
-  // Auto-fetch on mount if enabled
+  // Auto-fetch once on mount if enabled (guard against Strict Mode double-mount / re-runs)
   useEffect(() => {
-    if (autoFetch) {
-      fetchOnboardingStatus();
-    }
+    if (!autoFetch || initialFetchDoneRef.current) return;
+    initialFetchDoneRef.current = true;
+    fetchOnboardingStatus();
   }, [autoFetch, fetchOnboardingStatus]);
 
   return {

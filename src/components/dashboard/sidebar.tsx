@@ -946,12 +946,23 @@ export function Sidebar() {
           undefined;
 
         // Fetch menu items (GET /api/menu?workspaceId=... on SSO base URL)
-        const menuResponse = await getMenu(workspaceId);
+        let menuResponse: Awaited<ReturnType<typeof getMenu>> | null = null;
+        try {
+          menuResponse = await getMenu(workspaceId);
+        } catch (menuErr) {
+          console.warn(
+            "Failed to fetch menu from API, falling back to role-based menu:",
+            menuErr
+          );
+          setUseApiMenu(false);
+          setIsLoadingMenu(false);
+          return;
+        }
 
-        if (menuResponse.success && menuResponse.data) {
+        if (menuResponse?.success && menuResponse?.data) {
           let filteredMenus = menuResponse.data;
 
-          // If we have a workspaceId, fetch permissions and filter menu
+          // If we have a workspaceId, fetch permissions and filter menu (optional - show menu even if this fails)
           if (workspaceId) {
             try {
               const permissionsResponse = await getMyPermissions(workspaceId);
@@ -966,6 +977,7 @@ export function Sidebar() {
                 "Failed to fetch permissions, showing all menu items:",
                 permError
               );
+              // Keep filteredMenus as menuResponse.data so we still show the menu
             }
           }
 
@@ -976,7 +988,6 @@ export function Sidebar() {
           setApiMenuItems(convertedMenuItems);
           setUseApiMenu(true);
         } else {
-          // Only fall back to role-based menu when API returns no data or not success
           setUseApiMenu(false);
         }
       } catch (error) {

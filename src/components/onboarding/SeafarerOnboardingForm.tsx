@@ -54,6 +54,11 @@ import {
   type TrainingStatusDto,
 } from "@/lib/services/lookup-service";
 import { getAllRanks, type RankDto } from "@/lib/services/ranks";
+import {
+  getVerificationStatus,
+  type VerificationStatusResponse,
+} from "@/lib/services/verification-service";
+import { IdentityVerificationStep } from "./IdentityVerificationStep";
 
 type Step =
   | "basic"
@@ -81,6 +86,24 @@ interface VoyageDocumentUpload extends DocumentUpload {
   voyageActivityIndex: number;
 }
 
+/** Check if document type is identity (Passport, National ID, etc.) */
+function isIdentityDocumentType(
+  documentTypesId: string,
+  documentTypes: DocumentTypeDto[]
+): boolean {
+  const type = documentTypes.find(
+    (t) => t.documentTypesId?.toString().trim() === documentTypesId
+  );
+  const desc = (type?.description || "").toLowerCase();
+  return (
+    desc.includes("passport") ||
+    desc.includes("national id") ||
+    desc.includes("international passport") ||
+    desc.includes("id card") ||
+    desc.includes("identity")
+  );
+}
+
 interface SeafarerOnboardingFormProps {
   workspaceRoleId?: string;
 }
@@ -92,6 +115,7 @@ export function SeafarerOnboardingForm({
   const { user } = useAuthStore();
   const [currentStep, setCurrentStep] = useState<Step>("basic");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isIdentityVerified, setIsIdentityVerified] = useState(false);
   const [isDraft, setIsDraft] = useState(false);
 
   // Dropdown data
@@ -145,6 +169,11 @@ export function SeafarerOnboardingForm({
     []
   );
 
+  // Verified document number from Veriff identity verification
+  const [verifiedDocumentNumber, setVerifiedDocumentNumber] = useState<
+    string | null
+  >(null);
+
   // Education Documents
   const [educationDocuments, setEducationDocuments] = useState<
     EducationDocumentUpload[]
@@ -154,6 +183,45 @@ export function SeafarerOnboardingForm({
   const [voyageDocuments, setVoyageDocuments] = useState<
     VoyageDocumentUpload[]
   >([]);
+
+  // Fetch verified document number from identity verification
+  useEffect(() => {
+    if (!user?.id) return;
+    const fetchVerifiedDoc = async () => {
+      try {
+        const res = await getVerificationStatus(user.id);
+        if (
+          res.success &&
+          res.data?.isVerified &&
+          res.data.latestVerification
+        ) {
+          const docNum =
+            res.data.latestVerification.documentNumber ||
+            res.data.latestVerification.idNumber;
+          if (docNum) setVerifiedDocumentNumber(docNum);
+        }
+      } catch {
+        // Ignore - verification may not be available
+      }
+    };
+    fetchVerifiedDoc();
+  }, [user?.id]);
+
+  // Sync verified document number into identity docs when it loads
+  useEffect(() => {
+    if (!verifiedDocumentNumber) return;
+    setProfileDocuments((prev) =>
+      prev.map((doc) => {
+        if (
+          isIdentityDocumentType(doc.documentTypesId, documentTypes) &&
+          !doc.documentNumber
+        ) {
+          return { ...doc, documentNumber: verifiedDocumentNumber };
+        }
+        return doc;
+      })
+    );
+  }, [verifiedDocumentNumber, documentTypes]);
 
   // Load dropdown data
   useEffect(() => {
@@ -322,6 +390,14 @@ export function SeafarerOnboardingForm({
   };
 
   const handleSubmit = async (saveAsDraft: boolean = false) => {
+    if (!saveAsDraft && !isIdentityVerified) {
+      toast.error(
+        "Please complete identity verification in the Documents step before submitting."
+      );
+      setCurrentStep("documents");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setIsDraft(saveAsDraft);
@@ -368,7 +444,12 @@ export function SeafarerOnboardingForm({
           .map((doc) => ({
             documentTypesId: doc.documentTypesId,
             file: doc.file!,
-            documentNumber: doc.documentNumber,
+            documentNumber:
+              doc.documentNumber ||
+              (isIdentityDocumentType(doc.documentTypesId, documentTypes) &&
+              verifiedDocumentNumber
+                ? verifiedDocumentNumber
+                : doc.documentNumber),
             issueDate: doc.issueDate,
             expiryDate: doc.expiryDate,
             issuingAuthority: doc.issuingAuthority,
@@ -439,7 +520,7 @@ export function SeafarerOnboardingForm({
   };
 
   const progress = () => {
-    const steps = [
+    const steps: Step[] = [
       "basic",
       "contact",
       "education",
@@ -514,7 +595,7 @@ export function SeafarerOnboardingForm({
         value={currentStep}
         onValueChange={(v) => setCurrentStep(v as Step)}
       >
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7">
           <TabsTrigger value="basic">Basic</TabsTrigger>
           <TabsTrigger value="contact">Contact</TabsTrigger>
           <TabsTrigger value="education">Education</TabsTrigger>
@@ -1311,6 +1392,15 @@ export function SeafarerOnboardingForm({
 
         {/* Documents Step */}
         <TabsContent value="documents" className="space-y-4">
+          {/* Identity Verification - verify before/after document details */}
+          <IdentityVerificationStep
+            userId={user?.id ?? ""}
+            firstName={user?.firstName}
+            lastName={user?.lastName}
+            redirectToStatusPage
+            onVerificationStatusChange={setIsIdentityVerified}
+          />
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1371,6 +1461,24 @@ export function SeafarerOnboardingForm({
                           onValueChange={(value) => {
                             const newDocs = [...profileDocuments];
                             newDocs[index].documentTypesId = value;
+                            // Auto-fill document number for identity docs when verified
+                            const type = documentTypes.find(
+                              (t) =>
+                                t.documentTypesId?.toString().trim() === value
+                            );
+                            const desc = (
+                              type?.description || ""
+                            ).toLowerCase();
+                            const isIdentity =
+                              desc.includes("passport") ||
+                              desc.includes("national id") ||
+                              desc.includes("international passport") ||
+                              desc.includes("id card") ||
+                              desc.includes("identity");
+                            if (isIdentity && verifiedDocumentNumber) {
+                              newDocs[index].documentNumber =
+                                verifiedDocumentNumber;
+                            }
                             setProfileDocuments(newDocs);
                           }}
                         >
@@ -1394,16 +1502,66 @@ export function SeafarerOnboardingForm({
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Document Number</Label>
-                        <Input
-                          value={doc.documentNumber}
-                          onChange={(e) => {
-                            const newDocs = [...profileDocuments];
-                            newDocs[index].documentNumber = e.target.value;
-                            setProfileDocuments(newDocs);
-                          }}
-                          placeholder="Document number"
-                        />
+                        <Label>
+                          Document Number
+                          {isIdentityDocumentType(
+                            doc.documentTypesId,
+                            documentTypes
+                          ) &&
+                            verifiedDocumentNumber && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-2 text-xs font-normal"
+                              >
+                                Verified
+                              </Badge>
+                            )}
+                        </Label>
+                        {isIdentityDocumentType(
+                          doc.documentTypesId,
+                          documentTypes
+                        ) && verifiedDocumentNumber ? (
+                          <div className="space-y-1">
+                            <Input
+                              value={
+                                doc.documentNumber || verifiedDocumentNumber
+                              }
+                              readOnly
+                              className="bg-muted font-mono"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Pre-filled from identity verification. This number
+                              was verified via Veriff.
+                            </p>
+                          </div>
+                        ) : (
+                          <Input
+                            value={doc.documentNumber}
+                            onChange={(e) => {
+                              const newDocs = [...profileDocuments];
+                              newDocs[index].documentNumber = e.target.value;
+                              setProfileDocuments(newDocs);
+                            }}
+                            placeholder={
+                              isIdentityDocumentType(
+                                doc.documentTypesId,
+                                documentTypes
+                              ) && !verifiedDocumentNumber
+                                ? "Complete identity verification first to auto-fill"
+                                : "Document number"
+                            }
+                          />
+                        )}
+                        {isIdentityDocumentType(
+                          doc.documentTypesId,
+                          documentTypes
+                        ) &&
+                          !verifiedDocumentNumber && (
+                            <p className="text-xs text-amber-600 dark:text-amber-500">
+                              Complete the Identity verification step first to
+                              auto-fill this from your verified document.
+                            </p>
+                          )}
                       </div>
 
                       <div className="space-y-2">

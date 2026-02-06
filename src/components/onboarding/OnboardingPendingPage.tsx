@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -45,11 +45,12 @@ export function OnboardingPendingPage({
     refresh,
     navigateToAppropriateRoute,
   } = useOnboardingStatus(true);
+  const isHandlingRefreshRef = useRef(false);
 
-  // Handle status changes
+  // Handle status changes (rejected, no_onboarding). Skip "approved" when user clicked Check Status - handleRefresh does that redirect.
   useEffect(() => {
     if (status === "approved") {
-      // Status changed to approved, navigate to dashboard
+      if (isHandlingRefreshRef.current) return;
       onStatusChange?.("approved");
       navigateToAppropriateRoute();
     } else if (status === "rejected") {
@@ -64,14 +65,25 @@ export function OnboardingPendingPage({
   }, [status, onStatusChange, navigateToAppropriateRoute, router]);
 
   const handleRefresh = async () => {
-    const data = await refresh();
-    if (data && isOnboardingApproved(data.status)) {
-      const firstMenuRoute = await getFirstMenuRouteForWorkspace(
-        SEA_FARER_WORKSPACE_ID
-      );
-      const targetRoute =
-        firstMenuRoute || getDashboardRoute(data.role ?? "SEAFARER");
-      router.replace(targetRoute);
+    if (isLoading) return;
+    isHandlingRefreshRef.current = true;
+    try {
+      const data = await refresh();
+      if (data && isOnboardingApproved(data.status)) {
+        let targetRoute = getDashboardRoute(data.role ?? "SEAFARER");
+        try {
+          const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+            SEA_FARER_WORKSPACE_ID
+          );
+          if (firstMenuRoute) targetRoute = firstMenuRoute;
+        } catch {
+          // Use role-based route when menu API fails
+        }
+        router.replace(targetRoute);
+        return;
+      }
+    } finally {
+      isHandlingRefreshRef.current = false;
     }
   };
 

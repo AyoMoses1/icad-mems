@@ -48,11 +48,15 @@ export default function DashboardRedirectPage() {
               isOnboardingApproved(response.data.status)
             ) {
               const role = response.data.role?.toUpperCase();
-              const firstMenuRoute = await getFirstMenuRouteForWorkspace(
-                SEA_FARER_WORKSPACE_ID
-              );
-              const targetRoute =
-                firstMenuRoute || getDashboardRoute(role || "SEAFARER");
+              let targetRoute = getDashboardRoute(role || "SEAFARER");
+              try {
+                const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+                  SEA_FARER_WORKSPACE_ID
+                );
+                if (firstMenuRoute) targetRoute = firstMenuRoute;
+              } catch {
+                // Use role-based route when menu API fails
+              }
               router.replace(targetRoute);
               return;
             }
@@ -62,13 +66,19 @@ export default function DashboardRedirectPage() {
 
           const seaFarerOnboardingComplete = isSeaFarerOnboardingComplete(user);
           if (seaFarerOnboardingComplete) {
-            const firstMenuRoute = await getFirstMenuRouteForWorkspace(
-              SEA_FARER_WORKSPACE_ID
-            );
-            if (firstMenuRoute) {
-              router.replace(firstMenuRoute);
-              return;
+            let didRedirect = false;
+            try {
+              const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+                SEA_FARER_WORKSPACE_ID
+              );
+              if (firstMenuRoute) {
+                router.replace(firstMenuRoute);
+                didRedirect = true;
+              }
+            } catch {
+              // Fall through to role-based redirect
             }
+            if (didRedirect) return;
             const primaryRole = getSeaFarerPrimaryRole(user);
             if (primaryRole === "Seafarer" || primaryRole === "Owner") {
               router.replace("/seafarer/dashboard");

@@ -3,6 +3,7 @@
  * Role-based onboarding forms for different user types
  */
 
+export { IdentityVerificationStep } from "./IdentityVerificationStep";
 export { SeafarerOnboardingForm } from "./SeafarerOnboardingForm";
 export { TrainingInstitutionOnboardingForm } from "./TrainingInstitutionOnboardingForm";
 export { AgentOnboardingForm } from "./AgentOnboardingForm";

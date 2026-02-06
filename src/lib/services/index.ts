@@ -222,6 +222,15 @@ export {
   hasAllPermissions,
 } from "./permissions-service";
 
+// Verification service (Veriff identity verification)
+export {
+  startVerificationSession,
+  getVerificationStatus,
+  type VerificationStatusResponse,
+  type VerificationRecord,
+  type StartVerificationResponse,
+} from "./verification-service";
+
 // Menu service
 export {
   getMenu,

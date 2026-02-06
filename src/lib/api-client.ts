@@ -112,6 +112,18 @@ function getBaseUrlForEndpoint(endpoint: string): string {
     return ssoUrl;
   }
 
+  // Verification API (Veriff identity verification) - uses mems-api/SSO base
+  if (pathname.startsWith("/api/verification/")) {
+    const ssoUrl = getSsoBaseUrl();
+    if (!ssoUrl) {
+      throw new Error(
+        "NEXT_PUBLIC_SSO_BASE_URL is not configured for verification. " +
+          "Please add it to your .env.local file."
+      );
+    }
+    return ssoUrl;
+  }
+
   // Use main API base URL for all other endpoints
   return getApiBaseUrl();
 }
