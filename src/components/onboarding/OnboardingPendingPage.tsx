@@ -23,6 +23,8 @@ import {
 import { useAuthStore } from "@/store";
 import { useOnboardingStatus } from "@/hooks/use-onboarding-status";
 import { formatDate } from "@/lib/utils";
+import { getDashboardRoute } from "@/lib/role-routing";
+import { isOnboardingApproved } from "@/lib/services/onboarding-service";
 
 interface OnboardingPendingPageProps {
   /** Optional callback when status changes */
@@ -60,7 +62,10 @@ export function OnboardingPendingPage({
   }, [status, onStatusChange, navigateToAppropriateRoute, router]);
 
   const handleRefresh = async () => {
-    await refresh();
+    const data = await refresh();
+    if (data && isOnboardingApproved(data.status)) {
+      router.replace(getDashboardRoute(data.role ?? "SEAFARER"));
+    }
   };
 
   const handleLogout = () => {

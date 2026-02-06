@@ -3,10 +3,7 @@
  * Based on FRONTEND_INTEGRATION_GUIDE.md
  */
 
-import {
-  apiPostMultipartMain,
-  type ApiResponse,
-} from "@/lib/api-client";
+import { apiPostMultipartMain, type ApiResponse } from "@/lib/api-client";
 
 const API_BASE = "/seafarer/api/v1";
 
@@ -95,10 +92,11 @@ export interface InstitutionDocumentRequest {
 export interface ComprehensiveOnboardingRequest {
   // Common fields - Role is REQUIRED
   role: "SEAFARER" | "TRAINING_INSTITUTION" | "AGENT"; // Required: determines which nested data is required/allowed
+  workspaceRoleId?: string; // UUID - workspace (domain) role id from IMS, required for comprehensive payload
   saveAsDraft?: boolean; // true = DRAFT, false/undefined = PENDING
   notes?: string;
   contactDetails: ContactDetailsRequest;
-  
+
   // SEAFARER specific fields
   sin?: string; // Seafarer Identification Number (for SEAFARER)
   rankId?: string; // Rank ID for seafarer
@@ -108,7 +106,7 @@ export interface ComprehensiveOnboardingRequest {
   profileDocuments?: Array<ProfileDocumentRequest & { file: File }>;
   educationDocuments?: Array<EducationDocumentRequest & { file: File }>;
   voyageDocuments?: Array<VoyageDocumentRequest & { file: File }>;
-  
+
   // TRAINING_INSTITUTION and AGENT specific fields
   accreditedInstitutionId?: string; // Required for TRAINING_INSTITUTION and AGENT
   roleSpecificIdentifier?: string; // Institution/Agent registration number
@@ -254,20 +252,25 @@ export async function submitComprehensiveOnboarding(
   data: ComprehensiveOnboardingRequest
 ): Promise<ApiResponse<ComprehensiveOnboardingResponse>> {
   const formData = new FormData();
-  
+
   // Add Role field (REQUIRED) - must be one of SEAFARER, TRAINING_INSTITUTION, or AGENT
   formData.append("Role", data.role);
-  
+
+  // Add workspace role id (from IMS domain roles for this workspace)
+  if (data.workspaceRoleId) {
+    formData.append("WorkspaceRoleId", data.workspaceRoleId);
+  }
+
   // Add optional draft flag
   if (data.saveAsDraft !== undefined) {
     formData.append("SaveAsDraft", data.saveAsDraft.toString());
   }
-  
+
   // Add optional notes
   if (data.notes) {
     formData.append("Notes", data.notes);
   }
-  
+
   // Add SEAFARER specific fields
   if (data.sin) {
     formData.append("SIN", data.sin);
@@ -275,7 +278,7 @@ export async function submitComprehensiveOnboarding(
   if (data.rankId) {
     formData.append("RankId", data.rankId);
   }
-  
+
   // Add TRAINING_INSTITUTION and AGENT specific fields
   if (data.accreditedInstitutionId) {
     formData.append("AccreditedInstitutionId", data.accreditedInstitutionId);
@@ -292,7 +295,7 @@ export async function submitComprehensiveOnboarding(
   if (data.employeeId) {
     formData.append("EmployeeId", data.employeeId);
   }
-  
+
   // Add contact details (required)
   formData.append("ContactDetails.Phone", data.contactDetails.phone);
   formData.append("ContactDetails.Email", data.contactDetails.email);
@@ -304,7 +307,10 @@ export async function submitComprehensiveOnboarding(
     );
   }
   if (data.contactDetails.relationship) {
-    formData.append("ContactDetails.Relationship", data.contactDetails.relationship);
+    formData.append(
+      "ContactDetails.Relationship",
+      data.contactDetails.relationship
+    );
   }
   if (data.contactDetails.emergencyContactNumber) {
     formData.append(
@@ -318,18 +324,24 @@ export async function submitComprehensiveOnboarding(
       data.contactDetails.emergencyContactAddress
     );
   }
-  
+
   // Add education details (optional)
   if (data.educationDetails && data.educationDetails.length > 0) {
     data.educationDetails.forEach((edu, index) => {
       formData.append(`EducationDetails[${index}].Index`, edu.index.toString());
-      formData.append(`EducationDetails[${index}].Institution`, edu.institution);
-      formData.append(`EducationDetails[${index}].CertificateObtained`, edu.certificateObtained);
+      formData.append(
+        `EducationDetails[${index}].Institution`,
+        edu.institution
+      );
+      formData.append(
+        `EducationDetails[${index}].CertificateObtained`,
+        edu.certificateObtained
+      );
       formData.append(`EducationDetails[${index}].StartDate`, edu.startDate);
       formData.append(`EducationDetails[${index}].EndDate`, edu.endDate);
     });
   }
-  
+
   // Add seafarer trainings (optional, SEAFARER only)
   if (data.seafarerTrainings && data.seafarerTrainings.length > 0) {
     data.seafarerTrainings.forEach((training, index) => {
@@ -337,12 +349,24 @@ export async function submitComprehensiveOnboarding(
         `SeafarerTrainings[${index}].InstitutionSTCWAccreditationId`,
         training.institutionSTCWAccreditationId
       );
-      formData.append(`SeafarerTrainings[${index}].StartDate`, training.startDate);
+      formData.append(
+        `SeafarerTrainings[${index}].StartDate`,
+        training.startDate
+      );
       formData.append(`SeafarerTrainings[${index}].EndDate`, training.endDate);
       formData.append(`SeafarerTrainings[${index}].Result`, training.result);
-      formData.append(`SeafarerTrainings[${index}].CertificateName`, training.certificateName);
-      formData.append(`SeafarerTrainings[${index}].IssueDate`, training.issueDate);
-      formData.append(`SeafarerTrainings[${index}].ExpiryDate`, training.expiryDate);
+      formData.append(
+        `SeafarerTrainings[${index}].CertificateName`,
+        training.certificateName
+      );
+      formData.append(
+        `SeafarerTrainings[${index}].IssueDate`,
+        training.issueDate
+      );
+      formData.append(
+        `SeafarerTrainings[${index}].ExpiryDate`,
+        training.expiryDate
+      );
       if (training.trainingStatusId) {
         formData.append(
           `SeafarerTrainings[${index}].TrainingStatusId`,
@@ -351,39 +375,72 @@ export async function submitComprehensiveOnboarding(
       }
     });
   }
-  
+
   // Add voyage activities (optional, SEAFARER only)
   if (data.voyageActivities && data.voyageActivities.length > 0) {
     data.voyageActivities.forEach((voyage, index) => {
-      formData.append(`VoyageActivities[${index}].Index`, voyage.index.toString());
-      formData.append(`VoyageActivities[${index}].SeamanBookNo`, voyage.seamanBookNo);
-      formData.append(`VoyageActivities[${index}].VesselName`, voyage.vesselName);
+      formData.append(
+        `VoyageActivities[${index}].Index`,
+        voyage.index.toString()
+      );
+      formData.append(
+        `VoyageActivities[${index}].SeamanBookNo`,
+        voyage.seamanBookNo
+      );
+      formData.append(
+        `VoyageActivities[${index}].VesselName`,
+        voyage.vesselName
+      );
       formData.append(`VoyageActivities[${index}].IMONumber`, voyage.imoNumber);
       formData.append(`VoyageActivities[${index}].FlagState`, voyage.flagState);
-      formData.append(`VoyageActivities[${index}].OperatorCompany`, voyage.operatorCompany);
-      formData.append(`VoyageActivities[${index}].PortOfEngagement`, voyage.portOfEngagement);
-      formData.append(`VoyageActivities[${index}].PortOfDischarge`, voyage.portOfDischarge);
-      formData.append(`VoyageActivities[${index}].DateJoined`, voyage.dateJoined);
+      formData.append(
+        `VoyageActivities[${index}].OperatorCompany`,
+        voyage.operatorCompany
+      );
+      formData.append(
+        `VoyageActivities[${index}].PortOfEngagement`,
+        voyage.portOfEngagement
+      );
+      formData.append(
+        `VoyageActivities[${index}].PortOfDischarge`,
+        voyage.portOfDischarge
+      );
+      formData.append(
+        `VoyageActivities[${index}].DateJoined`,
+        voyage.dateJoined
+      );
       formData.append(`VoyageActivities[${index}].DateLeft`, voyage.dateLeft);
-      formData.append(`VoyageActivities[${index}].TotalSeaTimeDays`, voyage.totalSeaTimeDays);
+      formData.append(
+        `VoyageActivities[${index}].TotalSeaTimeDays`,
+        voyage.totalSeaTimeDays
+      );
       if (voyage.remarks) {
         formData.append(`VoyageActivities[${index}].Remarks`, voyage.remarks);
       }
     });
   }
-  
+
   // Add profile documents (for SEAFARER, required - minimum 1)
   if (data.profileDocuments && data.profileDocuments.length > 0) {
     data.profileDocuments.forEach((doc, index) => {
-      formData.append(`ProfileDocuments[${index}].DocumentTypesId`, doc.documentTypesId);
-      formData.append(`ProfileDocuments[${index}].DocumentNumber`, doc.documentNumber);
+      formData.append(
+        `ProfileDocuments[${index}].DocumentTypesId`,
+        doc.documentTypesId
+      );
+      formData.append(
+        `ProfileDocuments[${index}].DocumentNumber`,
+        doc.documentNumber
+      );
       formData.append(`ProfileDocuments[${index}].IssueDate`, doc.issueDate);
       formData.append(`ProfileDocuments[${index}].ExpiryDate`, doc.expiryDate);
-      formData.append(`ProfileDocuments[${index}].IssuingAuthority`, doc.issuingAuthority);
+      formData.append(
+        `ProfileDocuments[${index}].IssuingAuthority`,
+        doc.issuingAuthority
+      );
       formData.append(`ProfileDocuments[${index}].File`, doc.file);
     });
   }
-  
+
   // Add education documents (optional, SEAFARER only)
   if (data.educationDocuments && data.educationDocuments.length > 0) {
     data.educationDocuments.forEach((doc, index) => {
@@ -391,16 +448,28 @@ export async function submitComprehensiveOnboarding(
         `EducationDocuments[${index}].EducationIndex`,
         doc.educationIndex.toString()
       );
-      formData.append(`EducationDocuments[${index}].DocumentTypesId`, doc.documentTypesId);
+      formData.append(
+        `EducationDocuments[${index}].DocumentTypesId`,
+        doc.documentTypesId
+      );
       formData.append(`EducationDocuments[${index}].File`, doc.file);
       if (doc.documentNumber) {
-        formData.append(`EducationDocuments[${index}].DocumentNumber`, doc.documentNumber);
+        formData.append(
+          `EducationDocuments[${index}].DocumentNumber`,
+          doc.documentNumber
+        );
       }
       if (doc.issueDate) {
-        formData.append(`EducationDocuments[${index}].IssueDate`, doc.issueDate);
+        formData.append(
+          `EducationDocuments[${index}].IssueDate`,
+          doc.issueDate
+        );
       }
       if (doc.expiryDate) {
-        formData.append(`EducationDocuments[${index}].ExpiryDate`, doc.expiryDate);
+        formData.append(
+          `EducationDocuments[${index}].ExpiryDate`,
+          doc.expiryDate
+        );
       }
       if (doc.issuingAuthority) {
         formData.append(
@@ -410,7 +479,7 @@ export async function submitComprehensiveOnboarding(
       }
     });
   }
-  
+
   // Add voyage documents (optional, SEAFARER only)
   if (data.voyageDocuments && data.voyageDocuments.length > 0) {
     data.voyageDocuments.forEach((doc, index) => {
@@ -418,10 +487,16 @@ export async function submitComprehensiveOnboarding(
         `VoyageDocuments[${index}].VoyageActivityIndex`,
         doc.voyageActivityIndex.toString()
       );
-      formData.append(`VoyageDocuments[${index}].DocumentTypesId`, doc.documentTypesId);
+      formData.append(
+        `VoyageDocuments[${index}].DocumentTypesId`,
+        doc.documentTypesId
+      );
       formData.append(`VoyageDocuments[${index}].File`, doc.file);
       if (doc.documentNumber) {
-        formData.append(`VoyageDocuments[${index}].DocumentNumber`, doc.documentNumber);
+        formData.append(
+          `VoyageDocuments[${index}].DocumentNumber`,
+          doc.documentNumber
+        );
       }
       if (doc.issueDate) {
         formData.append(`VoyageDocuments[${index}].IssueDate`, doc.issueDate);
@@ -437,7 +512,7 @@ export async function submitComprehensiveOnboarding(
       }
     });
   }
-  
+
   // Add institution documents (for TRAINING_INSTITUTION and AGENT, required - minimum 1)
   if (data.institutionDocuments && data.institutionDocuments.length > 0) {
     data.institutionDocuments.forEach((doc, index) => {
@@ -445,22 +520,30 @@ export async function submitComprehensiveOnboarding(
         `InstitutionDocuments[${index}].DocumentTypesId`,
         doc.documentTypesId
       );
-      formData.append(`InstitutionDocuments[${index}].DocumentNumber`, doc.documentNumber);
-      formData.append(`InstitutionDocuments[${index}].IssueDate`, doc.issueDate);
+      formData.append(
+        `InstitutionDocuments[${index}].DocumentNumber`,
+        doc.documentNumber
+      );
+      formData.append(
+        `InstitutionDocuments[${index}].IssueDate`,
+        doc.issueDate
+      );
       formData.append(
         `InstitutionDocuments[${index}].IssuingAuthority`,
         doc.issuingAuthority
       );
       formData.append(`InstitutionDocuments[${index}].File`, doc.file);
       if (doc.expiryDate) {
-        formData.append(`InstitutionDocuments[${index}].ExpiryDate`, doc.expiryDate);
+        formData.append(
+          `InstitutionDocuments[${index}].ExpiryDate`,
+          doc.expiryDate
+        );
       }
     });
   }
-  
+
   return apiPostMultipartMain<ComprehensiveOnboardingResponse>(
     `${API_BASE}/Onboarding/comprehensive`,
     formData
   );
 }
-

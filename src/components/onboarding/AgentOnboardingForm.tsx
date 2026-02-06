@@ -55,7 +55,13 @@ interface DocumentUpload {
   issuingAuthority: string;
 }
 
-export function AgentOnboardingForm() {
+interface AgentOnboardingFormProps {
+  workspaceRoleId?: string;
+}
+
+export function AgentOnboardingForm({
+  workspaceRoleId,
+}: AgentOnboardingFormProps) {
   const router = useRouter();
   const { user } = useAuthStore();
   const [currentStep, setCurrentStep] = useState<Step>("agent");
@@ -169,6 +175,7 @@ export function AgentOnboardingForm() {
       // Prepare the request data
       const requestData: ComprehensiveOnboardingRequest = {
         role: "AGENT", // Required: Role must be AGENT for agent onboarding
+        workspaceRoleId,
         saveAsDraft,
         accreditedInstitutionId: agentData.accreditedInstitutionId,
         roleSpecificIdentifier: agentData.roleSpecificIdentifier,
@@ -202,7 +209,7 @@ export function AgentOnboardingForm() {
           summary.message ||
             (saveAsDraft
               ? "Draft saved successfully!"
-              : "Onboarding submitted successfully! Your application is now pending review."),
+              : "Onboarding submitted successfully! Your application is now pending review.")
         );
 
         // After successful submission, the onboarding status is PENDING
@@ -808,7 +815,7 @@ export function AgentOnboardingForm() {
                         {agents.find(
                           (a) =>
                             a.accreditedInstitutionsId ===
-                            agentData.accreditedInstitutionId,
+                            agentData.accreditedInstitutionId
                         )?.accreditedInstitutionName || "Not selected"}
                       </span>
                     </div>

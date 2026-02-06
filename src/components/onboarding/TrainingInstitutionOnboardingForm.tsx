@@ -56,7 +56,13 @@ interface DocumentUpload {
   issuingAuthority: string;
 }
 
-export function TrainingInstitutionOnboardingForm() {
+interface TrainingInstitutionOnboardingFormProps {
+  workspaceRoleId?: string;
+}
+
+export function TrainingInstitutionOnboardingForm({
+  workspaceRoleId,
+}: TrainingInstitutionOnboardingFormProps) {
   const router = useRouter();
   const { user } = useAuthStore();
   const [currentStep, setCurrentStep] = useState<Step>("institution");
@@ -65,7 +71,7 @@ export function TrainingInstitutionOnboardingForm() {
   // Dropdown data
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeDto[]>([]);
   const [institutions, setInstitutions] = useState<AccreditedInstitutionDto[]>(
-    [],
+    []
   );
   const [isLoadingData, setIsLoadingData] = useState(true);
 
@@ -173,6 +179,7 @@ export function TrainingInstitutionOnboardingForm() {
       // Prepare the request data
       const requestData: ComprehensiveOnboardingRequest = {
         role: "TRAINING_INSTITUTION", // Required: Role must be TRAINING_INSTITUTION for training institution onboarding
+        workspaceRoleId,
         saveAsDraft,
         accreditedInstitutionId: institutionData.accreditedInstitutionId,
         roleSpecificIdentifier: institutionData.roleSpecificIdentifier,
@@ -205,7 +212,7 @@ export function TrainingInstitutionOnboardingForm() {
           summary.message ||
             (saveAsDraft
               ? "Draft saved successfully!"
-              : "Onboarding submitted successfully! Your application is now pending review."),
+              : "Onboarding submitted successfully! Your application is now pending review.")
         );
 
         // After successful submission, the onboarding status is PENDING
@@ -797,7 +804,7 @@ export function TrainingInstitutionOnboardingForm() {
                         {institutions.find(
                           (i) =>
                             i.accreditedInstitutionsId ===
-                            institutionData.accreditedInstitutionId,
+                            institutionData.accreditedInstitutionId
                         )?.accreditedInstitutionName || "Not selected"}
                       </span>
                     </div>

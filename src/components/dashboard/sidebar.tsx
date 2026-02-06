@@ -3,7 +3,7 @@
 import React, { Fragment, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Award,
   CreditCard,
@@ -50,7 +50,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuthStore, useUIStore } from "@/store";
+import { useAuthStore, useUIStore, useWorkspaceStore } from "@/store";
 import type { UserType } from "@/store/ui-store";
 import {
   getMenu,
@@ -710,7 +710,7 @@ const getMenuItems = (userType: UserType): MenuItem[] => {
 
 const getIconForMenuItem = (
   name: string,
-  url?: string | null,
+  url?: string | null
 ): React.ComponentType<{ className?: string }> => {
   const nameLower = name.toLowerCase();
   const urlLower = url?.toLowerCase() || "";
@@ -829,7 +829,7 @@ const getIconForMenuItem = (
 // ============================================================================
 
 const convertApiMenuToSidebarMenu = (
-  workspaceMenus: WorkspaceMenuDto[],
+  workspaceMenus: WorkspaceMenuDto[]
 ): MenuItem[] => {
   const menuItems: MenuItem[] = [];
 
@@ -873,8 +873,10 @@ const convertApiMenuToSidebarMenu = (
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, logout } = useAuthStore();
   const { mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
+  const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const [expandedItems, setExpandedItems] = React.useState<string[]>([]);
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const [apiMenuItems, setApiMenuItems] = React.useState<MenuItem[]>([]);
@@ -920,6 +922,9 @@ export function Sidebar() {
     }
   }, []);
 
+  // workspaceId from URL (when navigating from IMS dashboard with ?workspaceId=...)
+  const workspaceIdFromUrl = searchParams.get("workspaceId")?.trim() || null;
+
   // Fetch menu from API and permissions
   React.useEffect(() => {
     const fetchMenuAndPermissions = async () => {
@@ -931,13 +936,15 @@ export function Sidebar() {
       try {
         setIsLoadingMenu(true);
 
-        // Try to get workspaceId from user workspaces
+        // WorkspaceId for menu: prefer URL (from IMS dashboard), then store, then user's first workspace
         const workspaceId =
+          workspaceIdFromUrl ||
+          currentWorkspaceId ||
           user.workspaces?.[0]?.workspaceId ||
           (user.workspaces as any)?.[0]?.id ||
           undefined;
 
-        // Fetch menu items
+        // Fetch menu items (GET /api/menu?workspaceId=... on SSO base URL)
         const menuResponse = await getMenu(workspaceId);
 
         if (
@@ -954,13 +961,13 @@ export function Sidebar() {
               if (permissionsResponse.success && permissionsResponse.data) {
                 filteredMenus = filterMenuByPermissions(
                   menuResponse.data,
-                  permissionsResponse.data,
+                  permissionsResponse.data
                 );
               }
             } catch (permError) {
               console.warn(
                 "Failed to fetch permissions, showing all menu items:",
-                permError,
+                permError
               );
             }
           }
@@ -982,7 +989,7 @@ export function Sidebar() {
       } catch (error) {
         console.warn(
           "Failed to fetch menu from API, falling back to role-based menu:",
-          error,
+          error
         );
         setUseApiMenu(false);
       } finally {
@@ -991,7 +998,8 @@ export function Sidebar() {
     };
 
     fetchMenuAndPermissions();
-  }, [user]);
+    // Re-fetch when workspaceId from URL or store changes (e.g. landing from IMS with ?workspaceId=...)
+  }, [user, currentWorkspaceId, workspaceIdFromUrl]);
 
   // Get menu items - use API menu if available, otherwise fall back to role-based
   const currentMenuItems =
@@ -1003,7 +1011,7 @@ export function Sidebar() {
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
@@ -1094,7 +1102,7 @@ export function Sidebar() {
             "before:content-['']",
             active
               ? "bg-[#1E40AF] border-[#3B82F6] text-white font-medium"
-              : "text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted border-transparent",
+              : "text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted border-transparent"
           )}
           onClick={() => setMobileSidebarOpen(false)}
         >
@@ -1111,7 +1119,7 @@ export function Sidebar() {
           "flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors",
           active
             ? "bg-[#1E40AF] border border-[#3B82F6] text-white font-medium"
-            : "text-sidebar-foreground hover:bg-sidebar-muted",
+            : "text-sidebar-foreground hover:bg-sidebar-muted"
         )}
         onClick={() => setMobileSidebarOpen(false)}
       >
@@ -1167,7 +1175,7 @@ export function Sidebar() {
                       "flex items-center justify-between w-full px-3 py-2.5 text-sm rounded-lg transition-colors border",
                       hasActiveChild
                         ? "bg-[#1E40AF] border-[#3B82F6] text-white font-medium"
-                        : "text-sidebar-foreground hover:bg-sidebar-muted border-transparent",
+                        : "text-sidebar-foreground hover:bg-sidebar-muted border-transparent"
                     )}
                   >
                     <div className="flex items-center gap-3">
@@ -1283,7 +1291,7 @@ export function Sidebar() {
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out lg:hidden",
-          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
+          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         <SidebarContent />

@@ -44,8 +44,8 @@ export interface OnboardingStatusResult {
   role: string | null;
   /** Rejection reason if status is rejected */
   rejectionReason: string | null;
-  /** Function to refresh the onboarding status */
-  refresh: () => Promise<void>;
+  /** Function to refresh the onboarding status. Returns the latest onboarding data (or null) so callers can redirect using the response. */
+  refresh: () => Promise<UserSeafarerOnboardingDto | null>;
   /** Function to navigate to the appropriate page based on status */
   navigateToAppropriateRoute: () => void;
 }
@@ -71,7 +71,7 @@ export function requiresOnboardingCheck(role?: string | null): boolean {
  * @returns OnboardingStatusResult
  */
 export function useOnboardingStatus(
-  autoFetch: boolean = true,
+  autoFetch: boolean = true
 ): OnboardingStatusResult {
   const router = useRouter();
   const [status, setStatus] = useState<OnboardingStatusType>("loading");
@@ -80,53 +80,57 @@ export function useOnboardingStatus(
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchOnboardingStatus = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  const fetchOnboardingStatus =
+    useCallback(async (): Promise<UserSeafarerOnboardingDto | null> => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const response = await getMyOnboarding();
+      try {
+        const response = await getMyOnboarding();
 
-      if (response.success && response.data) {
-        setOnboardingData(response.data);
+        if (response.success && response.data) {
+          const data = response.data;
+          setOnboardingData(data);
 
-        const onboardingStatus = response.data.status?.toUpperCase();
+          const onboardingStatus = data.status?.toUpperCase();
 
-        // Determine the status type based on the response
-        if (isOnboardingApproved(onboardingStatus)) {
-          setStatus("approved");
-        } else if (isOnboardingRejected(onboardingStatus)) {
-          setStatus("rejected");
-        } else if (isOnboardingPendingReview(onboardingStatus)) {
-          setStatus("pending_review");
+          if (isOnboardingApproved(onboardingStatus)) {
+            setStatus("approved");
+          } else if (isOnboardingRejected(onboardingStatus)) {
+            setStatus("rejected");
+          } else if (isOnboardingPendingReview(onboardingStatus)) {
+            setStatus("pending_review");
+          } else {
+            setStatus("pending_review");
+          }
+          return data;
         } else {
-          // Unknown status, treat as pending review to be safe
-          setStatus("pending_review");
+          setOnboardingData(null);
+          setStatus("no_onboarding");
+          return null;
         }
-      } else {
-        // No onboarding data found - user needs to complete onboarding
-        setOnboardingData(null);
-        setStatus("no_onboarding");
-      }
-    } catch (err) {
-      console.error("Error fetching onboarding status:", err);
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : "Failed to fetch onboarding status";
+      } catch (err) {
+        console.error("Error fetching onboarding status:", err);
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch onboarding status";
 
-      // Check if it's a 404 - means no onboarding record exists
-      if (errorMessage.includes("404") || errorMessage.includes("not found")) {
-        setOnboardingData(null);
-        setStatus("no_onboarding");
-      } else {
-        setError(errorMessage);
-        setStatus("error");
+        if (
+          errorMessage.includes("404") ||
+          errorMessage.includes("not found")
+        ) {
+          setOnboardingData(null);
+          setStatus("no_onboarding");
+        } else {
+          setError(errorMessage);
+          setStatus("error");
+        }
+        return null;
+      } finally {
+        setIsLoading(false);
       }
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    }, []);
 
   const navigateToAppropriateRoute = useCallback(() => {
     const role = onboardingData?.role?.toUpperCase();

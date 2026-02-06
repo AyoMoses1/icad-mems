@@ -9,6 +9,9 @@ export interface UserWithWorkspaceRoles {
   roles?: WorkspaceRole[] | string[];
 }
 
+/** Known Sea Farer workspace ID (fallback when user.roles structure is missing) */
+export const SEA_FARER_WORKSPACE_ID = "432b0876-c0d8-4a56-b9b4-9f8142c7889c";
+
 /**
  * Get the Sea Farer workspace role information
  * @param user - User object with roles array
@@ -59,7 +62,10 @@ export function getSeaFarerRoles(
   user: UserWithWorkspaceRoles | null | undefined
 ): string[] {
   const seaFarerWorkspace = getSeaFarerWorkspace(user);
-  if (!seaFarerWorkspace?.tenants || !Array.isArray(seaFarerWorkspace.tenants)) {
+  if (
+    !seaFarerWorkspace?.tenants ||
+    !Array.isArray(seaFarerWorkspace.tenants)
+  ) {
     return [];
   }
 
@@ -87,12 +93,12 @@ export function getSeaFarerPrimaryRole(
   user: UserWithWorkspaceRoles | null | undefined
 ): string | null {
   const roles = getSeaFarerRoles(user);
-  
+
   // Priority order
   if (roles.includes("Owner")) return "Owner";
   if (roles.includes("Seafarer")) return "Seafarer";
   if (roles.includes("Agent")) return "Agent";
   if (roles.includes("Training Institution")) return "Training Institution";
-  
+
   return roles[0] || null;
 }

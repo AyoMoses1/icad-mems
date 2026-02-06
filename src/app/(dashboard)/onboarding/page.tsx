@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LoadingSpinner } from "@/components/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
@@ -17,7 +17,15 @@ import { Button } from "@/components/ui/button";
 import {
   isSeaFarerOnboardingComplete,
   getSeaFarerPrimaryRole,
+  getSeaFarerWorkspace,
+  SEA_FARER_WORKSPACE_ID,
 } from "@/lib/utils/workspace-helpers";
+import {
+  getDomainRoles,
+  getOnboardingRoleOptions,
+  type OnboardingRoleOption,
+} from "@/lib/services/domain-roles-service";
+import { Ship, GraduationCap, Building2 } from "lucide-react";
 
 type UserRole = "SEAFARER" | "TRAINING_INSTITUTION" | "AGENT" | null;
 
@@ -71,16 +79,48 @@ interface UserInfo {
   [key: string]: unknown;
 }
 
+const VALID_ROLES: UserRole[] = ["SEAFARER", "TRAINING_INSTITUTION", "AGENT"];
+
 export default function OnboardingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuthStore();
   const [userRole, setUserRole] = useState<UserRole>(null);
+  const [selectedWorkspaceRoleId, setSelectedWorkspaceRoleId] = useState<
+    string | null
+  >(null);
+  const [onboardingRoleOptions, setOnboardingRoleOptions] = useState<
+    OnboardingRoleOption[] | null
+  >(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [myOnboarding, setMyOnboarding] = useState<UserSeafarerOnboardingDto | null>(null);
+  const [myOnboarding, setMyOnboarding] =
+    useState<UserSeafarerOnboardingDto | null>(null);
   const [onboardingCheckDone, setOnboardingCheckDone] = useState(false);
 
+  // When arriving from home with ?workspaceRoleId=...&role=..., use them and show form
   useEffect(() => {
+    const qWorkspaceRoleId = searchParams.get("workspaceRoleId")?.trim();
+    const qRole = searchParams.get("role")?.trim()?.toUpperCase();
+    if (qWorkspaceRoleId && qRole && VALID_ROLES.includes(qRole as UserRole)) {
+      setSelectedWorkspaceRoleId(qWorkspaceRoleId);
+      setUserRole(qRole as UserRole);
+      setOnboardingRoleOptions([]);
+      getMyOnboarding()
+        .then((res) => setMyOnboarding(res.data ?? null))
+        .catch(() => setMyOnboarding(null));
+      setOnboardingCheckDone(true);
+      setIsLoading(false);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const qWorkspaceRoleId = searchParams.get("workspaceRoleId")?.trim();
+    const qRole = searchParams.get("role")?.trim()?.toUpperCase();
+    if (qWorkspaceRoleId && qRole && VALID_ROLES.includes(qRole as UserRole)) {
+      return;
+    }
+
     const detectUserRole = async () => {
       try {
         setIsLoading(true);
@@ -209,8 +249,11 @@ export default function OnboardingPage() {
           }
         }
 
-        const finishOnboardingRole = async (role: UserRole) => {
-          setUserRole(role);
+        const finishOnboardingRole = async (
+          role: UserRole,
+          workspaceId: string,
+          options: OnboardingRoleOption[]
+        ) => {
           try {
             const res = await getMyOnboarding();
             setMyOnboarding(res.data ?? null);
@@ -219,15 +262,28 @@ export default function OnboardingPage() {
           } finally {
             setOnboardingCheckDone(true);
           }
+          if (options.length === 0) {
+            setUserRole(role);
+            return;
+          }
+          if (options.length === 1 && options[0].onboardingRole === role) {
+            setSelectedWorkspaceRoleId(options[0].workspaceRoleId);
+            setUserRole(role);
+            return;
+          }
+          setOnboardingRoleOptions(options);
+          setUserRole(null);
         };
 
         // Check if Sea Farer workspace onboarding is already complete
         // If complete, redirect to appropriate dashboard based on role
         const seaFarerOnboardingComplete = isSeaFarerOnboardingComplete(user);
         if (seaFarerOnboardingComplete) {
-          console.log("✓ Sea Farer workspace onboarding already complete - redirecting to dashboard");
+          console.log(
+            "✓ Sea Farer workspace onboarding already complete - redirecting to dashboard"
+          );
           const primaryRole = getSeaFarerPrimaryRole(user);
-          
+
           // Redirect based on role
           if (primaryRole === "Owner") {
             router.replace("/");
@@ -244,16 +300,50 @@ export default function OnboardingPage() {
           return;
         }
 
+        const workspaceId =
+          getSeaFarerWorkspace(user)?.workspaceId ??
+          (userInfo.roles &&
+          Array.isArray(userInfo.roles) &&
+          userInfo.roles.length > 0
+            ? (
+                userInfo.roles.find(
+                  (r: { workspaceName?: string }) =>
+                    r.workspaceName?.toLowerCase() === "sea farer" ||
+                    r.workspaceName?.toLowerCase() === "seafarer"
+                ) as { workspaceId?: string } | undefined
+              )?.workspaceId
+            : null) ??
+          SEA_FARER_WORKSPACE_ID;
+
+        let domainRoleOptions: OnboardingRoleOption[] = [];
+        try {
+          const domainRoles = await getDomainRoles(workspaceId);
+          domainRoleOptions = getOnboardingRoleOptions(domainRoles);
+        } catch (domainErr) {
+          console.warn(
+            "Failed to fetch domain roles for onboarding cards:",
+            domainErr
+          );
+        }
+
         // Map role to onboarding type
         if (specificRole === "SEAFARER") {
           console.log("✓ Routing to SEAFARER onboarding");
-          await finishOnboardingRole("SEAFARER");
+          await finishOnboardingRole(
+            "SEAFARER",
+            workspaceId,
+            domainRoleOptions
+          );
         } else if (specificRole === "TRAINING_INSTITUTION") {
           console.log("✓ Routing to TRAINING_INSTITUTION onboarding");
-          await finishOnboardingRole("TRAINING_INSTITUTION");
+          await finishOnboardingRole(
+            "TRAINING_INSTITUTION",
+            workspaceId,
+            domainRoleOptions
+          );
         } else if (specificRole === "AGENT") {
           console.log("✓ Routing to AGENT onboarding");
-          await finishOnboardingRole("AGENT");
+          await finishOnboardingRole("AGENT", workspaceId, domainRoleOptions);
         } else {
           // Fallback: Check if any role contains the keywords
           const rolesStr = roles.join(" ").toUpperCase();
@@ -262,7 +352,11 @@ export default function OnboardingPage() {
             console.log(
               "✓ Routing to SEAFARER onboarding (fallback detection)"
             );
-            await finishOnboardingRole("SEAFARER");
+            await finishOnboardingRole(
+              "SEAFARER",
+              workspaceId,
+              domainRoleOptions
+            );
           } else if (
             rolesStr.includes("TRAINING") ||
             rolesStr.includes("INSTITUTION")
@@ -270,10 +364,14 @@ export default function OnboardingPage() {
             console.log(
               "✓ Routing to TRAINING_INSTITUTION onboarding (fallback detection)"
             );
-            await finishOnboardingRole("TRAINING_INSTITUTION");
+            await finishOnboardingRole(
+              "TRAINING_INSTITUTION",
+              workspaceId,
+              domainRoleOptions
+            );
           } else if (rolesStr.includes("AGENT")) {
             console.log("✓ Routing to AGENT onboarding (fallback detection)");
-            await finishOnboardingRole("AGENT");
+            await finishOnboardingRole("AGENT", workspaceId, domainRoleOptions);
           } else {
             // No recognized onboarding role found
             console.error(
@@ -301,7 +399,7 @@ export default function OnboardingPage() {
       setError("No user found. Please log in again.");
       setIsLoading(false);
     }
-  }, [user, router]);
+  }, [user, router, searchParams]);
 
   if (isLoading) {
     return (
@@ -361,11 +459,19 @@ export default function OnboardingPage() {
                       <div className="rounded border bg-muted/50 p-3 text-sm">
                         <p className="text-muted-foreground">
                           Active onboarding:{" "}
-                          {[myOnboarding.activeOnboardingRole, myOnboarding.activeOnboardingStatus]
+                          {[
+                            myOnboarding.activeOnboardingRole,
+                            myOnboarding.activeOnboardingStatus,
+                          ]
                             .filter(Boolean)
                             .join(" – ") || "—"}
                         </p>
-                        <Button variant="outline" size="sm" className="mt-2" asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                          asChild
+                        >
                           <Link
                             href={`/admin/onboarding/${myOnboarding.userSeafarerOnboardingId}`}
                           >
@@ -383,14 +489,92 @@ export default function OnboardingPage() {
     );
   }
 
+  // Show role selection cards when we have options and user hasn't selected yet
+  if (
+    onboardingRoleOptions != null &&
+    onboardingRoleOptions.length > 0 &&
+    !userRole &&
+    !selectedWorkspaceRoleId
+  ) {
+    const cardConfig: Record<
+      "SEAFARER" | "TRAINING_INSTITUTION" | "AGENT",
+      { title: string; description: string; icon: React.ReactNode }
+    > = {
+      SEAFARER: {
+        title: "Seafarer",
+        description:
+          "Register as a seafarer. Submit your profile, documents, and voyage history.",
+        icon: <Ship className="h-10 w-10" />,
+      },
+      TRAINING_INSTITUTION: {
+        title: "Training Institution",
+        description:
+          "Onboard as a training institution. Provide accreditation and contact details.",
+        icon: <GraduationCap className="h-10 w-10" />,
+      },
+      AGENT: {
+        title: "Agent",
+        description:
+          "Onboard as an agent. Link your institution and upload required documents.",
+        icon: <Building2 className="h-10 w-10" />,
+      },
+    };
+
+    return (
+      <div className="container max-w-4xl mx-auto py-8 px-4">
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Choose your onboarding type
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Select the type of onboarding you want to complete for this
+            workspace.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {onboardingRoleOptions.map((option) => {
+            const config = cardConfig[option.onboardingRole];
+            return (
+              <Card
+                key={option.workspaceRoleId}
+                className="cursor-pointer transition-colors hover:bg-muted/50 hover:border-primary/50"
+                onClick={() => {
+                  setSelectedWorkspaceRoleId(option.workspaceRoleId);
+                  setUserRole(option.onboardingRole);
+                }}
+              >
+                <CardContent className="pt-6">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      {config.icon}
+                    </div>
+                    <h3 className="font-semibold">{config.title}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {config.description}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   // Render the appropriate onboarding form based on user role
+  const workspaceRoleIdProp = selectedWorkspaceRoleId ?? undefined;
   switch (userRole) {
     case "SEAFARER":
-      return <SeafarerOnboardingForm />;
+      return <SeafarerOnboardingForm workspaceRoleId={workspaceRoleIdProp} />;
     case "TRAINING_INSTITUTION":
-      return <TrainingInstitutionOnboardingForm />;
+      return (
+        <TrainingInstitutionOnboardingForm
+          workspaceRoleId={workspaceRoleIdProp}
+        />
+      );
     case "AGENT":
-      return <AgentOnboardingForm />;
+      return <AgentOnboardingForm workspaceRoleId={workspaceRoleIdProp} />;
     default:
       return (
         <div className="container max-w-2xl mx-auto py-8">

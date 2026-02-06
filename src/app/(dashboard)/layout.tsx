@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Sidebar, Header } from "@/components/dashboard";
-import { useAuthStore } from "@/store";
+import { useAuthStore, useWorkspaceStore } from "@/store";
 import { LoadingPage, UnauthorizedScreen } from "@/components/shared";
 import { usePathname } from "next/navigation";
 import { apiGetAuth } from "@/lib/api-client";
@@ -122,7 +122,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   } = useAuthStore();
   const [isInitializing, setIsInitializing] = useState(true);
   const [initializationError, setInitializationError] = useState<string | null>(
-    null,
+    null
   );
   const [isUnauthorized, setIsUnauthorized] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -178,7 +178,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     ) {
       // Verify the roles have the workspace structure we need
       const hasWorkspaceRoles = user.roles.some(
-        (r: any) => typeof r === "object" && r.workspaceId && r.workspaceName,
+        (r: any) => typeof r === "object" && r.workspaceId && r.workspaceName
       );
 
       if (hasWorkspaceRoles) {
@@ -223,7 +223,19 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Step 4: Set token in store if it's from URL (needed for apiGetAuth to work)
+      // Step 4a: If workspaceId is in URL (from IMS dashboard), persist it for menu/permissions
+      const workspaceIdFromUrl = searchParams.get("workspaceId");
+      if (
+        workspaceIdFromUrl &&
+        typeof workspaceIdFromUrl === "string" &&
+        workspaceIdFromUrl.trim()
+      ) {
+        useWorkspaceStore
+          .getState()
+          .setCurrentWorkspaceById(workspaceIdFromUrl.trim());
+      }
+
+      // Step 4b: Set token in store if it's from URL (needed for apiGetAuth to work)
       // Also immediately persist to localStorage to survive page refresh
       if (tokenFromUrl && tokenFromUrl !== storedToken) {
         const expiresAt = new Date(Date.now() + 86400 * 1000).toISOString();
@@ -443,7 +455,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       localStorage.setItem("userRole", role);
       setUserRole(role);
 
-      // Step 11: Remove token from URL if present (keep URL clean)
+      // Step 11: Remove token from URL if present (keep URL clean; keep workspaceId for menu)
       if (tokenFromUrl && typeof window !== "undefined") {
         const url = new URL(window.location.href);
         url.searchParams.delete("token");
@@ -507,7 +519,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       } else {
         // For other errors (like network issues), show error but don't redirect
         setInitializationError(
-          "Failed to load user information. Please refresh the page.",
+          "Failed to load user information. Please refresh the page."
         );
         toast.error("Failed to load user information. Please try again.");
       }
@@ -556,7 +568,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
             // Determine the correct dashboard based on onboarding role
             const correctDashboard = getDashboardRoute(
-              onboardingRole || "SEAFARER",
+              onboardingRole || "SEAFARER"
             );
             const isOnRootPage = pathname === "/" || pathname === "";
             const isOnOnboardingPage = pathname.startsWith("/onboarding");
@@ -615,7 +627,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         setIsCheckingOnboardingStatus(false);
       }
     },
-    [pathname, router],
+    [pathname, router]
   );
 
   // Check onboarding status after user initialization completes
@@ -704,8 +716,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           t.roles?.some(
             (roleObj: any) =>
               roleObj.role?.toUpperCase() === "ADMIN" ||
-              roleObj.role?.toUpperCase() === "SUPERADMIN",
-          ),
+              roleObj.role?.toUpperCase() === "SUPERADMIN"
+          )
         );
       });
 
@@ -772,7 +784,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         setIsInitializing(false);
         setIsInitializingUser(false);
         setInitializationError(
-          "Initialization timed out. Please refresh the page.",
+          "Initialization timed out. Please refresh the page."
         );
       }
     }, 10000); // 10 second timeout
@@ -791,7 +803,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         setIsInitializing(false);
         setIsInitializingUser(false);
         setInitializationError(
-          "Loading is taking longer than expected. Please refresh the page.",
+          "Loading is taking longer than expected. Please refresh the page."
         );
       }
     }, 5000);
@@ -845,8 +857,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         t.roles?.some(
           (roleObj: any) =>
             roleObj.role?.toUpperCase() === "ADMIN" ||
-            roleObj.role?.toUpperCase() === "SUPERADMIN",
-        ),
+            roleObj.role?.toUpperCase() === "SUPERADMIN"
+        )
       );
     });
 

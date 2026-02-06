@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store";
 import {
   Card,
@@ -17,59 +17,135 @@ import {
   GraduationCap,
   ArrowRight,
   Shield,
+  Ship,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LoadingSpinner } from "@/components/shared";
+import {
+  getDomainRoles,
+  getOnboardingRoleForRoleName,
+  type DomainRoleDto,
+} from "@/lib/services/domain-roles-service";
+import { SEA_FARER_WORKSPACE_ID } from "@/lib/utils/workspace-helpers";
 
-interface RoleOption {
-  id: "seafarer" | "agent" | "training-institution";
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  route: string;
-  color: string;
-}
-
-const roleOptions: RoleOption[] = [
-  {
-    id: "seafarer",
+const ROLE_DISPLAY: Record<
+  string,
+  { title: string; description: string; icon: React.ReactNode; color: string }
+> = {
+  seafarer: {
     title: "Seafarer Onboarding",
     description:
       "Complete your profile as a seafarer to access seafarer services and applications",
     icon: <User className="h-8 w-8" />,
-    route: "/onboarding/seafarer",
     color: "bg-blue-500",
   },
-  {
-    id: "agent",
+  agent: {
     title: "Agent Onboarding",
     description:
       "Register as an agent to manage seafarer applications and services",
     icon: <Building2 className="h-8 w-8" />,
-    route: "/onboarding/institution?type=agent",
     color: "bg-green-500",
   },
-  {
-    id: "training-institution",
+  "training institution": {
     title: "Training Institution Onboarding",
     description:
       "Register your training institution to offer courses and certifications",
     icon: <GraduationCap className="h-8 w-8" />,
-    route: "/onboarding/institution?type=training",
     color: "bg-purple-500",
   },
-];
+};
+
+function getDisplayForRole(roleName: string) {
+  const key = roleName?.trim().toLowerCase() ?? "";
+  return (
+    ROLE_DISPLAY[key] ?? {
+      title: `${roleName} Onboarding`,
+      description: `Complete onboarding for the ${roleName} role.`,
+      icon: <Ship className="h-8 w-8" />,
+      color: "bg-slate-500",
+    }
+  );
+}
 
 export function RoleSelectionScreen() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuthStore();
-  const [selectedRole, setSelectedRole] = useState<RoleOption["id"] | null>(
-    null,
-  );
+  const [domainRoles, setDomainRoles] = useState<DomainRoleDto[]>([]);
+  const [isLoadingRoles, setIsLoadingRoles] = useState(true);
+  const [rolesError, setRolesError] = useState<string | null>(null);
+  const [selectedWorkspaceRoleId, setSelectedWorkspaceRoleId] = useState<
+    string | null
+  >(null);
 
-  const handleSelectRole = (option: RoleOption) => {
-    setSelectedRole(option.id);
-    router.push(option.route);
+  const workspaceId =
+    searchParams.get("workspaceId")?.trim() || SEA_FARER_WORKSPACE_ID;
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setIsLoadingRoles(true);
+      setRolesError(null);
+      try {
+        const roles = await getDomainRoles(workspaceId);
+        if (!cancelled) {
+          setDomainRoles(roles);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setRolesError(
+            err instanceof Error ? err.message : "Failed to load roles"
+          );
+          setDomainRoles([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingRoles(false);
+        }
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+
+  const handleSelectRole = (role: DomainRoleDto) => {
+    const onboardingRole = getOnboardingRoleForRoleName(role.roleName);
+    setSelectedWorkspaceRoleId(role.workspaceRoleId);
+    const params = new URLSearchParams();
+    params.set("workspaceRoleId", role.workspaceRoleId);
+    if (onboardingRole) {
+      params.set("role", onboardingRole);
+    }
+    router.push(`/onboarding?${params.toString()}`);
   };
+
+  if (isLoadingRoles) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-4 flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner className="mx-auto mb-4" />
+          <p className="text-muted-foreground">
+            Loading roles for this workspace...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (rolesError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-4 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <p className="text-destructive mb-2">
+            Could not load workspace roles.
+          </p>
+          <p className="text-sm text-muted-foreground">{rolesError}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-4">
@@ -90,46 +166,56 @@ export function RoleSelectionScreen() {
           </p>
         </div>
 
-        {/* Role Selection Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {roleOptions.map((option) => (
-            <Card
-              key={option.id}
-              className={cn(
-                "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105",
-                selectedRole === option.id && "ring-2 ring-primary",
-              )}
-              onClick={() => handleSelectRole(option)}
-            >
-              <CardHeader>
-                <div className="flex items-center gap-4 mb-2">
-                  <div
-                    className={cn("rounded-lg p-3 text-white", option.color)}
-                  >
-                    {option.icon}
+        {/* Role Selection Cards - one per domain role from IMS (filtered by workspaceId) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+          {domainRoles.map((role) => {
+            const display = getDisplayForRole(role.roleName);
+            const isSelected = selectedWorkspaceRoleId === role.workspaceRoleId;
+            return (
+              <Card
+                key={role.workspaceRoleId}
+                className={cn(
+                  "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105",
+                  isSelected && "ring-2 ring-primary"
+                )}
+                onClick={() => handleSelectRole(role)}
+              >
+                <CardHeader>
+                  <div className="flex items-center gap-4 mb-2">
+                    <div
+                      className={cn("rounded-lg p-3 text-white", display.color)}
+                    >
+                      {display.icon}
+                    </div>
+                    <CardTitle className="text-xl">{display.title}</CardTitle>
                   </div>
-                  <CardTitle className="text-xl">{option.title}</CardTitle>
-                </div>
-                <CardDescription className="text-sm">
-                  {option.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  variant="outline"
-                  className="w-full group"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSelectRole(option);
-                  }}
-                >
-                  Start Onboarding
-                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                  <CardDescription className="text-sm">
+                    {display.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    variant="outline"
+                    className="w-full group"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectRole(role);
+                    }}
+                  >
+                    Start Onboarding
+                    <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
+
+        {domainRoles.length === 0 && (
+          <p className="text-center text-muted-foreground mb-8">
+            No onboarding roles are configured for this workspace.
+          </p>
+        )}
 
         {/* Info Box */}
         <Card className="bg-muted/50 border-muted">

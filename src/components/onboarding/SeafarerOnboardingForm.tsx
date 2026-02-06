@@ -81,7 +81,13 @@ interface VoyageDocumentUpload extends DocumentUpload {
   voyageActivityIndex: number;
 }
 
-export function SeafarerOnboardingForm() {
+interface SeafarerOnboardingFormProps {
+  workspaceRoleId?: string;
+}
+
+export function SeafarerOnboardingForm({
+  workspaceRoleId,
+}: SeafarerOnboardingFormProps) {
   const router = useRouter();
   const { user } = useAuthStore();
   const [currentStep, setCurrentStep] = useState<Step>("basic");
@@ -94,7 +100,7 @@ export function SeafarerOnboardingForm() {
     STCWAccreditationDto[]
   >([]);
   const [trainingStatuses, setTrainingStatuses] = useState<TrainingStatusDto[]>(
-    [],
+    []
   );
   const [ranks, setRanks] = useState<RankDto[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -136,7 +142,7 @@ export function SeafarerOnboardingForm() {
 
   // Profile Documents
   const [profileDocuments, setProfileDocuments] = useState<DocumentUpload[]>(
-    [],
+    []
   );
 
   // Education Documents
@@ -202,10 +208,10 @@ export function SeafarerOnboardingForm() {
   const handleRemoveEducation = (index: number) => {
     setEducationDetails(educationDetails.filter((_, i) => i !== index));
     setEducationDetails((prev) =>
-      prev.map((item, i) => ({ ...item, index: i })),
+      prev.map((item, i) => ({ ...item, index: i }))
     );
     setEducationDocuments((prev) =>
-      prev.filter((doc) => doc.educationIndex !== index),
+      prev.filter((doc) => doc.educationIndex !== index)
     );
   };
 
@@ -252,10 +258,10 @@ export function SeafarerOnboardingForm() {
   const handleRemoveVoyage = (index: number) => {
     setVoyageActivities(voyageActivities.filter((_, i) => i !== index));
     setVoyageActivities((prev) =>
-      prev.map((item, i) => ({ ...item, index: i })),
+      prev.map((item, i) => ({ ...item, index: i }))
     );
     setVoyageDocuments((prev) =>
-      prev.filter((doc) => doc.voyageActivityIndex !== index),
+      prev.filter((doc) => doc.voyageActivityIndex !== index)
     );
   };
 
@@ -342,19 +348,20 @@ export function SeafarerOnboardingForm() {
       // Prepare the request data
       const requestData: ComprehensiveOnboardingRequest = {
         role: "SEAFARER", // Required: Role must be SEAFARER for seafarer onboarding
+        workspaceRoleId,
         saveAsDraft,
         sin: basicData.sin || undefined,
         rankId: basicData.rankId || undefined,
         notes: basicData.notes || undefined,
         contactDetails: contactData,
         educationDetails: educationDetails.filter(
-          (edu) => edu.institution && edu.institution.trim() !== "",
+          (edu) => edu.institution && edu.institution.trim() !== ""
         ),
         seafarerTrainings: seafarerTrainings.filter(
-          (training) => training.institutionSTCWAccreditationId,
+          (training) => training.institutionSTCWAccreditationId
         ),
         voyageActivities: voyageActivities.filter(
-          (voyage) => voyage.vesselName && voyage.vesselName.trim() !== "",
+          (voyage) => voyage.vesselName && voyage.vesselName.trim() !== ""
         ),
         profileDocuments: profileDocuments
           .filter((doc) => doc.file && doc.documentTypesId)
@@ -406,7 +413,7 @@ export function SeafarerOnboardingForm() {
           summary.message ||
             (saveAsDraft
               ? "Draft saved successfully!"
-              : "Onboarding submitted successfully! Your application is now pending review."),
+              : "Onboarding submitted successfully! Your application is now pending review.")
         );
 
         // After successful submission, the onboarding status is PENDING
@@ -1689,7 +1696,7 @@ export function SeafarerOnboardingForm() {
                       <span>
                         {
                           seafarerTrainings.filter(
-                            (t) => t.institutionSTCWAccreditationId,
+                            (t) => t.institutionSTCWAccreditationId
                           ).length
                         }
                       </span>
