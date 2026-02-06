@@ -947,11 +947,7 @@ export function Sidebar() {
         // Fetch menu items (GET /api/menu?workspaceId=... on SSO base URL)
         const menuResponse = await getMenu(workspaceId);
 
-        if (
-          menuResponse.success &&
-          menuResponse.data &&
-          menuResponse.data.length > 0
-        ) {
+        if (menuResponse.success && menuResponse.data) {
           let filteredMenus = menuResponse.data;
 
           // If we have a workspaceId, fetch permissions and filter menu
@@ -972,18 +968,14 @@ export function Sidebar() {
             }
           }
 
-          // Convert API menu items to sidebar menu format
+          // Convert API menu items to sidebar menu format (may be empty if resources: [])
           const convertedMenuItems = convertApiMenuToSidebarMenu(filteredMenus);
 
-          if (convertedMenuItems.length > 0) {
-            setApiMenuItems(convertedMenuItems);
-            setUseApiMenu(true);
-          } else {
-            // Fall back to role-based menu if conversion resulted in empty menu
-            setUseApiMenu(false);
-          }
+          // Always use API menu when the API succeeded - empty resources means show no items
+          setApiMenuItems(convertedMenuItems);
+          setUseApiMenu(true);
         } else {
-          // Fall back to role-based menu if API returns empty or fails
+          // Only fall back to role-based menu when API returns no data or not success
           setUseApiMenu(false);
         }
       } catch (error) {
@@ -1001,13 +993,12 @@ export function Sidebar() {
     // Re-fetch when workspaceId from URL or store changes (e.g. landing from IMS with ?workspaceId=...)
   }, [user, currentWorkspaceId, workspaceIdFromUrl]);
 
-  // Get menu items - use API menu if available, otherwise fall back to role-based
-  const currentMenuItems =
-    useApiMenu && apiMenuItems.length > 0
-      ? apiMenuItems
-      : userRole
-        ? getMenuItemsByRole(userRole)
-        : getMenuItems("admin"); // Fallback
+  // Get menu items - use API menu when API succeeded (even if empty); only fall back on API failure
+  const currentMenuItems = useApiMenu
+    ? apiMenuItems
+    : userRole
+      ? getMenuItemsByRole(userRole)
+      : getMenuItems("admin"); // Fallback when no role
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) =>
