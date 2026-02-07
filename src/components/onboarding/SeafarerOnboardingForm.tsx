@@ -390,14 +390,6 @@ export function SeafarerOnboardingForm({
   };
 
   const handleSubmit = async (saveAsDraft: boolean = false) => {
-    if (!saveAsDraft && !isIdentityVerified) {
-      toast.error(
-        "Please complete identity verification in the Documents step before submitting."
-      );
-      setCurrentStep("documents");
-      return;
-    }
-
     try {
       setIsSubmitting(true);
       setIsDraft(saveAsDraft);
