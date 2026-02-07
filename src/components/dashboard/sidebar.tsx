@@ -1031,7 +1031,7 @@ export function Sidebar() {
         localStorage.removeItem("userRole");
       }
       logout();
-      window.location.href = "https://icad-ims.netlify.app/";
+      window.location.href = "https://ims.mems.ng";
     }
   };
 

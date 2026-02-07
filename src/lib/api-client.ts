@@ -302,7 +302,7 @@ async function refreshAccessToken(): Promise<string | null> {
     if (typeof window !== "undefined") {
       const { useAuthStore } = require("@/store");
       useAuthStore.getState().logout();
-      window.location.href = "https://icad-ims.netlify.app/";
+      window.location.href = "https://ims.mems.ng";
     }
     return null;
   }
