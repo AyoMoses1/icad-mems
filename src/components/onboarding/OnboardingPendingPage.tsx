@@ -163,7 +163,7 @@ export function OnboardingPendingPage({
           </p>
         </div>
 
-        {/* Draft: Proceed to verification CTA (backend must return DRAFT after submit until verification done) */}
+        {/* Proceed to verification CTA (DRAFT only) */}
         {isDraft && (
           <Card className="border-l-4 border-l-blue-500">
             <CardHeader>

@@ -7,7 +7,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 import { useAuthStore } from "@/store";
 import { apiGetAuth } from "@/lib/api-client";
-import { getMyOnboarding } from "@/lib/services/onboarding-service";
+import {
+  getMyOnboarding,
+  isOnboardingPendingReview,
+} from "@/lib/services/onboarding-service";
 import type { UserSeafarerOnboardingDto } from "@/lib/services/onboarding-service";
 import { SeafarerOnboardingForm } from "@/components/onboarding/SeafarerOnboardingForm";
 import { TrainingInstitutionOnboardingForm } from "@/components/onboarding/TrainingInstitutionOnboardingForm";
@@ -436,6 +439,31 @@ export default function OnboardingPage() {
 
   const blocked =
     myOnboarding != null && myOnboarding.canCreateNewOnboarding === false;
+  const hasPendingOnboarding =
+    blocked &&
+    myOnboarding?.hasActiveOnboarding &&
+    isOnboardingPendingReview(myOnboarding.status);
+
+  // When user has active onboarding in a pending state (DRAFT/PENDING/SUBMITTED/UNDER_REVIEW),
+  // send them to the status page where they can check status and complete verification (Veriff).
+  useEffect(() => {
+    if (hasPendingOnboarding) {
+      router.replace("/onboarding/status/pending");
+    }
+  }, [hasPendingOnboarding, router]);
+
+  if (hasPendingOnboarding) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <LoadingSpinner className="mx-auto mb-4" />
+          <p className="text-muted-foreground">
+            Taking you to your application status...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (blocked) {
     return (

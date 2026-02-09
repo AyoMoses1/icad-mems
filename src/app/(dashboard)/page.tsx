@@ -15,6 +15,7 @@ import {
 import {
   getMyOnboarding,
   isOnboardingApproved,
+  isOnboardingPendingReview,
 } from "@/lib/services/onboarding-service";
 import { getFirstMenuRouteForWorkspace } from "@/lib/services/menu-service";
 import { SEA_FARER_WORKSPACE_ID } from "@/lib/utils/workspace-helpers";
@@ -41,24 +42,33 @@ export default function DashboardRedirectPage() {
         (async () => {
           try {
             const response = await getMyOnboarding();
-            if (
-              response.success &&
-              response.data &&
-              response.data.isOnboardingComplete === true &&
-              isOnboardingApproved(response.data.status)
-            ) {
-              const role = response.data.role?.toUpperCase();
-              let targetRoute = getDashboardRoute(role || "SEAFARER");
-              try {
-                const firstMenuRoute = await getFirstMenuRouteForWorkspace(
-                  SEA_FARER_WORKSPACE_ID
-                );
-                if (firstMenuRoute) targetRoute = firstMenuRoute;
-              } catch {
-                // Use role-based route when menu API fails
+            if (response.success && response.data) {
+              const data = response.data;
+              // If user has active onboarding in pending state, send to status page (check status + Veriff).
+              if (
+                data.hasActiveOnboarding &&
+                isOnboardingPendingReview(data.status)
+              ) {
+                router.replace("/onboarding/status/pending");
+                return;
               }
-              router.replace(targetRoute);
-              return;
+              if (
+                data.isOnboardingComplete === true &&
+                isOnboardingApproved(data.status)
+              ) {
+                const role = data.role?.toUpperCase();
+                let targetRoute = getDashboardRoute(role || "SEAFARER");
+                try {
+                  const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+                    SEA_FARER_WORKSPACE_ID
+                  );
+                  if (firstMenuRoute) targetRoute = firstMenuRoute;
+                } catch {
+                  // Use role-based route when menu API fails
+                }
+                router.replace(targetRoute);
+                return;
+              }
             }
           } catch {
             // API error or no onboarding - fall back to legacy check
@@ -98,6 +108,33 @@ export default function DashboardRedirectPage() {
 
           setShowRoleSelection(true);
           setIsChecking(false);
+        })();
+        return;
+      }
+
+      // SEAFARER / AGENT / TRAINING_INSTITUTION: if they have pending onboarding, send to status page
+      const onboardingRequiredRoles = [
+        "SEAFARER",
+        "AGENT",
+        "TRAINING_INSTITUTION",
+      ];
+      if (onboardingRequiredRoles.includes(roleUpper)) {
+        (async () => {
+          try {
+            const response = await getMyOnboarding();
+            if (
+              response.success &&
+              response.data?.hasActiveOnboarding &&
+              isOnboardingPendingReview(response.data.status)
+            ) {
+              router.replace("/onboarding/status/pending");
+              return;
+            }
+          } catch {
+            // Fall through to dashboard
+          }
+          const dashboardRoute = getDashboardRouteFromRoles([userRole]);
+          router.replace(dashboardRoute);
         })();
         return;
       }
