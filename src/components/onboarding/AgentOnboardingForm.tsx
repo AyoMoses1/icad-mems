@@ -43,8 +43,6 @@ import {
   type DocumentTypeDto,
   type AccreditedInstitutionDto,
 } from "@/lib/services/lookup-service";
-import { IdentityVerificationStep } from "./IdentityVerificationStep";
-
 type Step = "agent" | "contact" | "documents" | "review";
 
 interface DocumentUpload {
@@ -67,7 +65,6 @@ export function AgentOnboardingForm({
   const { user } = useAuthStore();
   const [currentStep, setCurrentStep] = useState<Step>("agent");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isIdentityVerified, setIsIdentityVerified] = useState(false);
 
   // Dropdown data
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeDto[]>([]);
@@ -612,15 +609,6 @@ export function AgentOnboardingForm({
 
         {/* Documents Step - Same structure as Training Institution */}
         <TabsContent value="documents" className="space-y-4">
-          {/* Identity Verification - verify before document upload */}
-          <IdentityVerificationStep
-            userId={user?.id ?? ""}
-            firstName={user?.firstName}
-            lastName={user?.lastName}
-            redirectToStatusPage
-            onVerificationStatusChange={setIsIdentityVerified}
-          />
-
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">

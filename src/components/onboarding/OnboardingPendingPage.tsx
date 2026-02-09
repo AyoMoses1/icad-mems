@@ -19,12 +19,17 @@ import {
   LogOut,
   Loader2,
   HelpCircle,
+  ShieldCheck,
 } from "lucide-react";
+import Link from "next/link";
 import { useAuthStore } from "@/store";
 import { useOnboardingStatus } from "@/hooks/use-onboarding-status";
 import { formatDate } from "@/lib/utils";
 import { getDashboardRoute } from "@/lib/role-routing";
-import { isOnboardingApproved } from "@/lib/services/onboarding-service";
+import {
+  isOnboardingApproved,
+  OnboardingStatus,
+} from "@/lib/services/onboarding-service";
 import { getFirstMenuRouteForWorkspace } from "@/lib/services/menu-service";
 import { SEA_FARER_WORKSPACE_ID } from "@/lib/utils/workspace-helpers";
 
@@ -127,24 +132,60 @@ export function OnboardingPendingPage({
   };
 
   const statusInfo = getStatusInfo(onboardingData?.status);
+  const isDraft =
+    onboardingData?.status?.toUpperCase() === OnboardingStatus.DRAFT;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="mx-auto w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
-            <Clock className="h-8 w-8 text-amber-600" />
+          <div
+            className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
+              isDraft ? "bg-blue-100" : "bg-amber-100"
+            }`}
+          >
+            {isDraft ? (
+              <ShieldCheck className="h-8 w-8 text-blue-600" />
+            ) : (
+              <Clock className="h-8 w-8 text-amber-600" />
+            )}
           </div>
           <h1 className="text-3xl font-bold tracking-tight">
-            Application Under Review
+            {isDraft
+              ? "Complete Identity Verification"
+              : "Application Under Review"}
           </h1>
           <p className="text-muted-foreground max-w-md mx-auto">
-            Your {getRoleDisplayName(onboardingData?.role)} onboarding
-            application has been submitted and is currently being reviewed by
-            our team.
+            {isDraft
+              ? `Your ${getRoleDisplayName(onboardingData?.role)} onboarding has been saved as a draft. Complete identity verification to submit your application for review.`
+              : `Your ${getRoleDisplayName(onboardingData?.role)} onboarding application has been submitted and is currently being reviewed by our team.`}
           </p>
         </div>
+
+        {/* Draft: Proceed to verification CTA (backend must return DRAFT after submit until verification done) */}
+        {isDraft && (
+          <Card className="border-l-4 border-l-blue-500">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                Identity verification required
+              </CardTitle>
+              <CardDescription>
+                Verify your identity with your passport or national ID. After
+                verification, your application will be submitted for review.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="w-full sm:w-auto" size="lg">
+                <Link href="/onboarding/verification">
+                  <ShieldCheck className="h-4 w-4 mr-2" />
+                  Proceed to verification
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Status Card */}
         <Card className="border-l-4 border-l-amber-500">

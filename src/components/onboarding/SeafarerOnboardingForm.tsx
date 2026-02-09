@@ -58,8 +58,6 @@ import {
   getVerificationStatus,
   type VerificationStatusResponse,
 } from "@/lib/services/verification-service";
-import { IdentityVerificationStep } from "./IdentityVerificationStep";
-
 type Step =
   | "basic"
   | "contact"
@@ -115,7 +113,6 @@ export function SeafarerOnboardingForm({
   const { user } = useAuthStore();
   const [currentStep, setCurrentStep] = useState<Step>("basic");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isIdentityVerified, setIsIdentityVerified] = useState(false);
   const [isDraft, setIsDraft] = useState(false);
 
   // Dropdown data
@@ -1384,15 +1381,6 @@ export function SeafarerOnboardingForm({
 
         {/* Documents Step */}
         <TabsContent value="documents" className="space-y-4">
-          {/* Identity Verification - verify before/after document details */}
-          <IdentityVerificationStep
-            userId={user?.id ?? ""}
-            firstName={user?.firstName}
-            lastName={user?.lastName}
-            redirectToStatusPage
-            onVerificationStatusChange={setIsIdentityVerified}
-          />
-
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
