@@ -1111,6 +1111,145 @@
         }
       }
     },
+    "/seafarer/api/v1/audit-logs/my-logs": {
+      "get": {
+        "tags": [
+          "AuditLog"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.AuditLogDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.AuditLogDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.AuditLogDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seafarer/api/v1/audit-logs/admin": {
+      "get": {
+        "tags": [
+          "AuditLog"
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "entityType",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fromDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "toDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "success",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.AuditLogAdminDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.AuditLogAdminDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.AuditLogAdminDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/seafarer/api/v1/Deficiency": {
       "post": {
         "tags": [
@@ -1935,6 +2074,151 @@
         "parameters": [
           {
             "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seafarer/api/v1/document-types": {
+      "post": {
+        "tags": [
+          "DocumentType"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.CreateDocumentTypeRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.CreateDocumentTypeRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.CreateDocumentTypeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.DocumentTypeDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.DocumentTypeDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.DocumentTypeDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seafarer/api/v1/document-types/{documentTypeId}": {
+      "put": {
+        "tags": [
+          "DocumentType"
+        ],
+        "parameters": [
+          {
+            "name": "documentTypeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateDocumentTypeRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateDocumentTypeRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateDocumentTypeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.DocumentTypeDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.DocumentTypeDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.DocumentTypeDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "DocumentType"
+        ],
+        "parameters": [
+          {
+            "name": "documentTypeId",
             "in": "path",
             "required": true,
             "schema": {
@@ -3173,6 +3457,10 @@
                   "Notes": {
                     "type": "string"
                   },
+                  "WorkspaceRoleId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
                   "ContactDetails.Phone": {
                     "type": "string"
                   },
@@ -3264,6 +3552,9 @@
                   "style": "form"
                 },
                 "Notes": {
+                  "style": "form"
+                },
+                "WorkspaceRoleId": {
                   "style": "form"
                 },
                 "ContactDetails.Phone": {
@@ -5144,6 +5435,37 @@
         },
         "additionalProperties": false
       },
+      "MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.DocumentTypeDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.DocumentTypeDto"
+          },
+          "error": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiError"
+          }
+        },
+        "additionalProperties": false
+      },
       "MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.DocumentUploadDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
         "type": "object",
         "properties": {
@@ -5779,6 +6101,76 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.ApplicationStatusDto"
+            },
+            "nullable": true
+          },
+          "error": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiError"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.AuditLogAdminDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.AuditLogAdminDto"
+            },
+            "nullable": true
+          },
+          "error": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiError"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.AuditLogDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.AuditLogDto"
             },
             "nullable": true
           },
@@ -7366,6 +7758,104 @@
             "nullable": true
           },
           "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Models.DTOs.AuditLogAdminDto": {
+        "type": "object",
+        "properties": {
+          "auditLogId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "auditType": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityType": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "action": {
+            "type": "string",
+            "nullable": true
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "requestPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "httpMethod": {
+            "type": "string",
+            "nullable": true
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Models.DTOs.AuditLogDto": {
+        "type": "object",
+        "properties": {
+          "auditLogId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "auditType": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityType": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "action": {
+            "type": "string",
+            "nullable": true
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "requestPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "httpMethod": {
             "type": "string",
             "nullable": true
           }
@@ -9068,6 +9558,11 @@
           "isActive": {
             "type": "boolean"
           },
+          "workspaceRoleId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "isOnboardingComplete": {
             "type": "boolean"
           },
@@ -9538,6 +10033,20 @@
         },
         "additionalProperties": false
       },
+      "MEMS.Seafarer.Models.Requests.CreateDocumentTypeRequest": {
+        "required": [
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "description": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "MEMS.Seafarer.Models.Requests.CreateFollowUpAuditRequest": {
         "type": "object",
         "properties": {
@@ -9779,6 +10288,10 @@
           "notes": {
             "type": "string",
             "nullable": true
+          },
+          "workspaceRoleId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "additionalProperties": false
@@ -10083,6 +10596,24 @@
           },
           "remarks": {
             "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Models.Requests.UpdateDocumentTypeRequest": {
+        "required": [
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "description": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean",
             "nullable": true
           }
         },

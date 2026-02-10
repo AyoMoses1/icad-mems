@@ -127,6 +127,11 @@ const seafarerMenuItems: MenuItem[] = [
       { title: "Payment History", href: "/invoices/payments" },
     ],
   },
+  {
+    title: "Audit Logs",
+    href: "/seafarer/audit-logs",
+    icon: FileText,
+  },
 ];
 
 /**
@@ -620,6 +625,7 @@ const adminMenuItems: MenuItem[] = [
       { title: "Ranks", href: "/ranks" },
       { title: "Nationalities", href: "/nationalities" },
       { title: "Onboarding Requirements", href: "/onboarding-requirements" },
+      { title: "Audit Logs", href: "/admin/audit-logs" },
     ],
   },
   {

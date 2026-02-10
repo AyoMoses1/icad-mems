@@ -404,6 +404,21 @@ export default function OnboardingPage() {
     }
   }, [user, router, searchParams]);
 
+  // Derived before any conditional returns so hooks are always called in the same order
+  const blocked =
+    myOnboarding != null && myOnboarding.canCreateNewOnboarding === false;
+  const hasPendingOnboarding =
+    blocked &&
+    myOnboarding?.hasActiveOnboarding &&
+    isOnboardingPendingReview(myOnboarding.status);
+
+  // When user has active onboarding in a pending state, send them to the status page.
+  useEffect(() => {
+    if (hasPendingOnboarding) {
+      router.replace("/onboarding/status/pending");
+    }
+  }, [hasPendingOnboarding, router]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -436,21 +451,6 @@ export default function OnboardingPage() {
       </div>
     );
   }
-
-  const blocked =
-    myOnboarding != null && myOnboarding.canCreateNewOnboarding === false;
-  const hasPendingOnboarding =
-    blocked &&
-    myOnboarding?.hasActiveOnboarding &&
-    isOnboardingPendingReview(myOnboarding.status);
-
-  // When user has active onboarding in a pending state (DRAFT/PENDING/SUBMITTED/UNDER_REVIEW),
-  // send them to the status page where they can check status and complete verification (Veriff).
-  useEffect(() => {
-    if (hasPendingOnboarding) {
-      router.replace("/onboarding/status/pending");
-    }
-  }, [hasPendingOnboarding, router]);
 
   if (hasPendingOnboarding) {
     return (
