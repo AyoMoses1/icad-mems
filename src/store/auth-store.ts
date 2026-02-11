@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { User, UserWithFullName, AuthSession } from "@/types";
 import { getUserFullName } from "@/lib/mock-data";
 import { safeLocalStorage } from "@/lib/utils";
+import { clearSessionCaches } from "@/lib/session-clear";
 
 interface AuthState {
   // State
@@ -91,8 +92,10 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           isLoading: false,
         });
-        // Clear from storage
+        // Clear auth from storage
         safeLocalStorage.removeItem("auth-storage");
+        // Clear all session caches so next user never sees previous user's role/menu/workspace
+        clearSessionCaches();
       },
 
       setLoading: (loading: boolean) => {

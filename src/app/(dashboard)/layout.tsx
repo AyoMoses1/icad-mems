@@ -197,6 +197,11 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
       // Step 1: Check for token in URL (from IMS redirect)
       const tokenFromUrl = searchParams.get("token");
+      // If we have a token from URL, this is a new login — clear any previous user's caches so we never show their role/menu
+      if (tokenFromUrl && typeof window !== "undefined") {
+        const { clearSessionCaches } = await import("@/lib/session-clear");
+        clearSessionCaches();
+      }
 
       // Step 2: Also check localStorage directly as a fallback
       let storedToken = token;

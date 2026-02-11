@@ -247,6 +247,24 @@ function isTokenExpired(): boolean {
   }
 }
 
+/** IMS logout URL - used when session is invalid or user logs out */
+const IMS_LOGOUT_URL =
+  typeof process !== "undefined" &&
+  process.env?.NEXT_PUBLIC_IMS_LOGOUT_URL?.trim()
+    ? process.env.NEXT_PUBLIC_IMS_LOGOUT_URL.trim()
+    : "https://ims.mems.ng";
+
+/**
+ * Clears full session (auth + role + workspace + UI caches) and redirects to IMS.
+ * Call on 401 or when refresh token fails so the next login never sees stale data.
+ */
+function clearSessionAndRedirectToIms(): void {
+  if (typeof window === "undefined") return;
+  const { useAuthStore } = require("@/store");
+  useAuthStore.getState().logout();
+  window.location.href = IMS_LOGOUT_URL;
+}
+
 /**
  * Refreshes the access token using refresh token
  * Uses SSO base URL for /connect/token endpoint
@@ -298,12 +316,7 @@ async function refreshAccessToken(): Promise<string | null> {
     return tokenResponse.access_token;
   } catch (error) {
     console.error("Failed to refresh token:", error);
-    // Refresh failed - clear session and redirect to IMS
-    if (typeof window !== "undefined") {
-      const { useAuthStore } = require("@/store");
-      useAuthStore.getState().logout();
-      window.location.href = "https://ims.mems.ng";
-    }
+    clearSessionAndRedirectToIms();
     return null;
   }
 }
@@ -858,6 +871,10 @@ export async function apiGetAuth<T>(endpoint: string): Promise<T> {
     });
 
     if (!response.ok) {
+      // 401: clear all session caches and redirect so next user never sees this session's data
+      if (response.status === 401) {
+        clearSessionAndRedirectToIms();
+      }
       const errorData = await response.json().catch(() => ({
         error: "Request failed",
       }));
@@ -912,6 +929,10 @@ export async function apiPostAuth<T>(
     });
 
     if (!response.ok) {
+      // 401: clear all session caches and redirect so next user never sees this session's data
+      if (response.status === 401) {
+        clearSessionAndRedirectToIms();
+      }
       const errorData = await response.json().catch(() => ({
         error: "Request failed",
       }));
