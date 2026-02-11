@@ -13,7 +13,7 @@ export interface DomainRoleDto {
   roleName: string;
 }
 
-/** Role names that map to onboarding types (case-insensitive) */
+/** Role names that map to onboarding types (case-insensitive; underscores normalized to spaces) */
 const ONBOARDING_ROLE_NAMES: Record<
   string,
   "SEAFARER" | "TRAINING_INSTITUTION" | "AGENT"
@@ -60,7 +60,7 @@ export async function getDomainRoles(
 export function getOnboardingRoleForRoleName(
   roleName: string
 ): OnboardingRoleType | null {
-  const key = roleName?.trim().toLowerCase() ?? "";
+  const key = (roleName?.trim().toLowerCase() ?? "").replace(/_/g, " ");
   return ONBOARDING_ROLE_NAMES[key] ?? null;
 }
 

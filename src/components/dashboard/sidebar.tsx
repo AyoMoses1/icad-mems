@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Fragment, useEffect } from "react";
+import React, { Fragment, useEffect, useLayoutEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -41,7 +41,6 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -885,6 +884,12 @@ export function Sidebar() {
   const { mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
   const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const [expandedItems, setExpandedItems] = React.useState<string[]>([]);
+  const [itemJustExpanded, setItemJustExpanded] = React.useState<string | null>(
+    null
+  );
+  const expandableItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const savedScrollTopRef = useRef(0);
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const [apiMenuItems, setApiMenuItems] = React.useState<MenuItem[]>([]);
   const [useApiMenu, setUseApiMenu] = React.useState(false);
@@ -1020,10 +1025,34 @@ export function Sidebar() {
       : getMenuItems("admin"); // Fallback when no role
 
   const toggleExpand = (id: string) => {
+    const isExpanding = !expandedItems.includes(id);
+    if (isExpanding) {
+      const scrollEl = scrollAreaRef.current;
+      if (scrollEl && typeof scrollEl.scrollTop === "number") {
+        savedScrollTopRef.current = scrollEl.scrollTop;
+      }
+      setItemJustExpanded(id);
+    }
     setExpandedItems((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
+
+  // Restore sidebar scroll position after expand (prevents jump to top)
+  useLayoutEffect(() => {
+    if (!itemJustExpanded) return;
+    const scrollEl = scrollAreaRef.current;
+    if (scrollEl && typeof scrollEl.scrollTop === "number") {
+      scrollEl.scrollTop = savedScrollTopRef.current;
+    }
+    // Restore again on next frame in case layout or browser resets it
+    const raf = requestAnimationFrame(() => {
+      const el = scrollAreaRef.current;
+      if (el) el.scrollTop = savedScrollTopRef.current;
+    });
+    setItemJustExpanded(null);
+    return () => cancelAnimationFrame(raf);
+  }, [itemJustExpanded]);
 
   const handleLogout = async () => {
     try {
@@ -1155,7 +1184,12 @@ export function Sidebar() {
         </Link>
       </div>
 
-      <ScrollArea className="flex-1 px-3 py-4 sidebar-scroll">
+      <div
+        ref={scrollAreaRef}
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4 sidebar-scroll"
+        role="region"
+        aria-label="Sidebar menu"
+      >
         <div className="px-3 mb-3">
           <span className="text-xs font-semibold text-sidebar-muted-foreground uppercase tracking-wider">
             {isLoadingMenu ? (
@@ -1200,9 +1234,18 @@ export function Sidebar() {
                   }) || false;
 
                 return (
-                  <div key={item.title}>
+                  <div
+                    key={item.title}
+                    ref={(el) => {
+                      expandableItemRefs.current[item.title] = el;
+                    }}
+                  >
                     <button
-                      onClick={() => toggleExpand(item.title)}
+                      type="button"
+                      onClick={(e) => {
+                        toggleExpand(item.title);
+                        (e.currentTarget as HTMLButtonElement).blur();
+                      }}
                       className={cn(
                         "flex items-center justify-between w-full px-3 py-2.5 text-sm rounded-lg transition-colors border",
                         hasActiveChild
@@ -1240,7 +1283,7 @@ export function Sidebar() {
             })}
           </nav>
         )}
-      </ScrollArea>
+      </div>
 
       {/* Return to IMS Link */}
       <div className="px-3 py-2 border-t border-sidebar-border">

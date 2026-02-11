@@ -55,12 +55,25 @@ const ROLE_DISPLAY: Record<
   },
 };
 
+/** Normalize API role name (e.g. TRAINING_INSTITUTION) to display key (e.g. training institution). */
+function normalizeRoleKey(roleName: string) {
+  return roleName?.trim().toLowerCase().replace(/_/g, " ") ?? "";
+}
+
+/** Format role name for display: "TRAINING_INSTITUTION" → "Training Institution". */
+function formatRoleNameForDisplay(roleName: string) {
+  return normalizeRoleKey(roleName)
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 function getDisplayForRole(roleName: string) {
-  const key = roleName?.trim().toLowerCase() ?? "";
+  const key = normalizeRoleKey(roleName);
   return (
     ROLE_DISPLAY[key] ?? {
-      title: `${roleName} Onboarding`,
-      description: `Complete onboarding for the ${roleName} role.`,
+      title: `${formatRoleNameForDisplay(roleName)} Onboarding`,
+      description: `Complete onboarding for the ${formatRoleNameForDisplay(roleName)} role.`,
       icon: <Ship className="h-8 w-8" />,
       color: "bg-slate-500",
     }
@@ -175,21 +188,26 @@ export function RoleSelectionScreen() {
               <Card
                 key={role.workspaceRoleId}
                 className={cn(
-                  "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105",
+                  "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 min-w-0 overflow-hidden",
                   isSelected && "ring-2 ring-primary"
                 )}
                 onClick={() => handleSelectRole(role)}
               >
-                <CardHeader>
-                  <div className="flex items-center gap-4 mb-2">
+                <CardHeader className="min-w-0">
+                  <div className="flex items-start gap-4 mb-2 min-w-0">
                     <div
-                      className={cn("rounded-lg p-3 text-white", display.color)}
+                      className={cn(
+                        "rounded-lg p-3 text-white shrink-0",
+                        display.color
+                      )}
                     >
                       {display.icon}
                     </div>
-                    <CardTitle className="text-xl">{display.title}</CardTitle>
+                    <CardTitle className="text-xl break-words min-w-0">
+                      {display.title}
+                    </CardTitle>
                   </div>
-                  <CardDescription className="text-sm">
+                  <CardDescription className="text-sm break-words min-w-0">
                     {display.description}
                   </CardDescription>
                 </CardHeader>
