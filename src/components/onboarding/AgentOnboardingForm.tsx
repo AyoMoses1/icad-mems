@@ -266,8 +266,8 @@ export function AgentOnboardingForm({
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Shipping Agent Onboarding"
-          description="Complete your agent representative profile"
+          title="Seafarer Employer Onboarding"
+          description="Complete your seafarer employer profile"
         />
         <Card>
           <CardContent className="pt-6">
@@ -295,8 +295,8 @@ export function AgentOnboardingForm({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Shipping Agent Onboarding"
-        description="Complete your agent representative profile"
+        title="Seafarer Employer Onboarding"
+        description="Complete your seafarer employer profile"
       />
 
       <Card>

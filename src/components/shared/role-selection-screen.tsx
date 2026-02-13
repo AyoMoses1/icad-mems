@@ -40,9 +40,9 @@ const ROLE_DISPLAY: Record<
     color: "bg-blue-500",
   },
   agent: {
-    title: "Agent Onboarding",
+    title: "Seafarer Employer Onboarding",
     description:
-      "Register as an agent to manage seafarer applications and services",
+      "Register as a seafarer employer to manage seafarer applications and services",
     icon: <Building2 className="h-8 w-8" />,
     color: "bg-green-500",
   },

@@ -84,6 +84,16 @@ interface VoyageDocumentUpload extends DocumentUpload {
   voyageActivityIndex: number;
 }
 
+/** Calculate days between two ISO date strings (YYYY-MM-DD). Returns 0 if invalid or missing. */
+function daysBetween(dateFrom: string, dateTo: string): number {
+  if (!dateFrom || !dateTo) return 0;
+  const a = new Date(dateFrom);
+  const b = new Date(dateTo);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 0;
+  const diff = b.getTime() - a.getTime();
+  return Math.max(0, Math.round(diff / (1000 * 60 * 60 * 24)));
+}
+
 /** Check if document type is identity (Passport, National ID, etc.) */
 function isIdentityDocumentType(
   documentTypesId: string,
@@ -425,9 +435,17 @@ export function SeafarerOnboardingForm({
         seafarerTrainings: seafarerTrainings.filter(
           (training) => training.institutionSTCWAccreditationId
         ),
-        voyageActivities: voyageActivities.filter(
-          (voyage) => voyage.vesselName && voyage.vesselName.trim() !== ""
-        ),
+        voyageActivities: voyageActivities
+          .filter(
+            (voyage) => voyage.vesselName && voyage.vesselName.trim() !== ""
+          )
+          .map((voyage) => {
+            const days = daysBetween(voyage.dateJoined, voyage.dateLeft);
+            return {
+              ...voyage,
+              totalSeaTimeDays: days > 0 ? String(days) : voyage.totalSeaTimeDays,
+            };
+          }),
         profileDocuments: profileDocuments
           .filter((doc) => doc.file && doc.documentTypesId)
           .map((doc) => ({
@@ -1301,6 +1319,12 @@ export function SeafarerOnboardingForm({
                         onChange={(e) => {
                           const newVoyages = [...voyageActivities];
                           newVoyages[index].dateJoined = e.target.value;
+                          const days = daysBetween(
+                            newVoyages[index].dateJoined,
+                            newVoyages[index].dateLeft
+                          );
+                          newVoyages[index].totalSeaTimeDays =
+                            days > 0 ? String(days) : "";
                           setVoyageActivities(newVoyages);
                         }}
                       />
@@ -1314,6 +1338,12 @@ export function SeafarerOnboardingForm({
                         onChange={(e) => {
                           const newVoyages = [...voyageActivities];
                           newVoyages[index].dateLeft = e.target.value;
+                          const days = daysBetween(
+                            newVoyages[index].dateJoined,
+                            newVoyages[index].dateLeft
+                          );
+                          newVoyages[index].totalSeaTimeDays =
+                            days > 0 ? String(days) : "";
                           setVoyageActivities(newVoyages);
                         }}
                       />
@@ -1322,14 +1352,18 @@ export function SeafarerOnboardingForm({
                     <div className="space-y-2">
                       <Label>Total Sea Time (Days)</Label>
                       <Input
-                        type="number"
-                        value={voyage.totalSeaTimeDays}
-                        onChange={(e) => {
-                          const newVoyages = [...voyageActivities];
-                          newVoyages[index].totalSeaTimeDays = e.target.value;
-                          setVoyageActivities(newVoyages);
-                        }}
-                        placeholder="188"
+                        type="text"
+                        readOnly
+                        className="bg-muted cursor-not-allowed"
+                        value={
+                          voyage.dateJoined && voyage.dateLeft
+                            ? daysBetween(
+                                voyage.dateJoined,
+                                voyage.dateLeft
+                              ).toString()
+                            : ""
+                        }
+                        placeholder="Calculated from Date Joined and Date Left"
                       />
                     </div>
 
