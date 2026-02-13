@@ -61,6 +61,7 @@ import { getMyPermissions } from "@/lib/services/permissions-service";
 import {
   isSeaFarerOnboardingComplete,
   getSeaFarerWorkspace,
+  isSuperAdminInSeafarer,
 } from "@/lib/utils/workspace-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -834,6 +835,14 @@ const getIconForMenuItem = (
 // Convert API Menu Items to Sidebar Menu Format
 // ============================================================================
 
+/** Remove "Admin " prefix from menu labels for display (e.g. "Admin Dashboard" → "Dashboard") */
+function normalizeMenuItemTitle(name: string): string {
+  if (!name || typeof name !== "string") return name;
+  const trimmed = name.trim();
+  if (/^Admin\s+/i.test(trimmed)) return trimmed.replace(/^Admin\s+/i, "").trim();
+  return trimmed;
+}
+
 const convertApiMenuToSidebarMenu = (
   workspaceMenus: WorkspaceMenuDto[]
 ): MenuItem[] => {
@@ -851,18 +860,18 @@ const convertApiMenuToSidebarMenu = (
     allRootItems.push(...workspaceMenu.resources);
   });
 
-  // Convert API menu items to sidebar menu items
+  // Convert API menu items to sidebar menu items (with normalized display titles)
   const convertMenuItem = (item: MenuItemDto): MenuItem => {
     const children =
       item.children && item.children.length > 0
         ? item.children.map((child) => ({
-            title: child.name,
+            title: normalizeMenuItemTitle(child.name),
             href: child.url || "#",
           }))
         : undefined;
 
     return {
-      title: item.name,
+      title: normalizeMenuItemTitle(item.name),
       href: item.url || "#",
       icon: getIconForMenuItem(item.name, item.url),
       children: children,
@@ -871,6 +880,93 @@ const convertApiMenuToSidebarMenu = (
 
   return allRootItems.map(convertMenuItem);
 };
+
+/** Admin Dashboard - first menu item for Super Admin */
+const ADMIN_DASHBOARD_HREF = "/admin/dashboard";
+
+/**
+ * URLs or path prefixes for menu items that are for agent/seafarer use only.
+ * Super Admin should not see these; only administrative menus are shown.
+ */
+const SUPER_ADMIN_EXCLUDED_HREFS: string[] = [
+  "/agent/dashboard",
+  "/agent/",
+  "/seafarer/dashboard",
+  "/seafarer/applications/history",
+  "/seafarer/overview",
+  "/seafarer/profile",
+  "/seafarer/registry",
+  "/seafarer/services",
+  "/invoices/my-invoices",
+  "/profile-documents",
+  "/onboarding/seafarer", // Onboarding Seafarer (form) - seafarer-facing
+  "/accreditations/apply", // Apply Accreditation - user-facing
+  "/license-certification/apply", // Apply License Certification - user-facing
+  "/invoices/payments", // Payments - typically seafarer-facing
+];
+
+function isExcludedForSuperAdmin(href: string): boolean {
+  if (!href || href === "#") return false;
+  const normalized = href.replace(/^\//, "").toLowerCase();
+  return SUPER_ADMIN_EXCLUDED_HREFS.some((excluded) => {
+    const normExcluded = excluded.replace(/^\//, "").toLowerCase();
+    return normalized === normExcluded || normalized.startsWith(normExcluded);
+  });
+}
+
+/**
+ * For Super Admin: keep only administrative menu items (Admin Dashboard, Services,
+ * Onboarding, Inspections, Audits, Applications Review, Institutions, etc.).
+ * Remove agent/seafarer-facing items and put Admin Dashboard first.
+ */
+function filterMenuForSuperAdmin(menuItems: MenuItem[]): MenuItem[] {
+  const filtered: MenuItem[] = [];
+
+  for (const item of menuItems) {
+    // Skip root-level items that are agent/seafarer-only
+    if (isExcludedForSuperAdmin(item.href)) continue;
+    // Skip items with no URL that are not useful as parents (e.g. Menu, Permissions, Report, etc. with url null)
+    if (!item.href || item.href === "#") {
+      // Keep if it has children we might show after filtering
+      const filteredChildren =
+        item.children?.filter(
+          (c) => c.href && c.href !== "#" && !isExcludedForSuperAdmin(c.href)
+        ) ?? [];
+      if (filteredChildren.length > 0) {
+        filtered.push({ ...item, children: filteredChildren });
+      }
+      continue;
+    }
+
+    // Filter children for this item
+    const filteredChildren =
+      item.children?.filter(
+        (c) => c.href && c.href !== "#" && !isExcludedForSuperAdmin(c.href)
+      ) ?? [];
+    const hasUsableChildren =
+      filteredChildren.length > 0 &&
+      (item.children?.length ?? 0) > 0;
+
+    filtered.push({
+      ...item,
+      children: hasUsableChildren ? filteredChildren : undefined,
+    });
+  }
+
+  // Put Admin Dashboard first (match by href or normalized title "Dashboard")
+  const adminDashboardIndex = filtered.findIndex(
+    (item) =>
+      item.href === ADMIN_DASHBOARD_HREF ||
+      item.title?.toLowerCase() === "admin dashboard" ||
+      item.title?.toLowerCase() === "dashboard"
+  );
+  if (adminDashboardIndex > 0) {
+    const [adminItem] = filtered.splice(adminDashboardIndex, 1);
+    filtered.unshift(adminItem);
+  }
+
+  return filtered;
+}
 
 // ============================================================================
 // Sidebar Component
@@ -993,7 +1089,12 @@ export function Sidebar() {
           }
 
           // Convert API menu items to sidebar menu format (may be empty if resources: [])
-          const convertedMenuItems = convertApiMenuToSidebarMenu(filteredMenus);
+          let convertedMenuItems = convertApiMenuToSidebarMenu(filteredMenus);
+
+          // Super Admin in seafarer module: only show Dashboard, and it must be first
+          if (isSuperAdminInSeafarer(user, workspaceId)) {
+            convertedMenuItems = filterMenuForSuperAdmin(convertedMenuItems);
+          }
 
           // Always use API menu when the API succeeded - empty resources means show no items
           setApiMenuItems(convertedMenuItems);
@@ -1038,20 +1139,27 @@ export function Sidebar() {
     );
   };
 
-  // Restore sidebar scroll position after expand (prevents jump to top)
+  // Restore sidebar scroll position after expand (prevents jump to top when dropdown appears)
   useLayoutEffect(() => {
     if (!itemJustExpanded) return;
-    const scrollEl = scrollAreaRef.current;
-    if (scrollEl && typeof scrollEl.scrollTop === "number") {
-      scrollEl.scrollTop = savedScrollTopRef.current;
-    }
-    // Restore again on next frame in case layout or browser resets it
-    const raf = requestAnimationFrame(() => {
+    const restore = () => {
       const el = scrollAreaRef.current;
-      if (el) el.scrollTop = savedScrollTopRef.current;
-    });
+      if (el && typeof el.scrollTop === "number") {
+        el.scrollTop = savedScrollTopRef.current;
+      }
+    };
+    restore();
+    const raf = requestAnimationFrame(restore);
+    const t0 = setTimeout(restore, 0);
+    const t1 = setTimeout(restore, 50);
+    const t2 = setTimeout(restore, 150);
     setItemJustExpanded(null);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t0);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [itemJustExpanded]);
 
   const handleLogout = async () => {
@@ -1187,6 +1295,7 @@ export function Sidebar() {
       <div
         ref={scrollAreaRef}
         className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4 sidebar-scroll"
+        style={{ overflowAnchor: "none" } as React.CSSProperties}
         role="region"
         aria-label="Sidebar menu"
       >

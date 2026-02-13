@@ -102,3 +102,61 @@ export function getSeaFarerPrimaryRole(
 
   return roles[0] || null;
 }
+
+/** User with optional adminDetails from IMS (adminModules, etc.) */
+export interface UserWithAdminDetails extends UserWithWorkspaceRoles {
+  adminDetails?: {
+    adminModules?: Array<{
+      module?: string;
+      workspaceId?: string;
+      role?: string;
+    }>;
+  };
+}
+
+/**
+ * Check if the user is a Super Admin in the Sea Farer module.
+ * Used to restrict the seafarer app sidebar to only the Dashboard for Super Admins;
+ * other roles get their menu from IMS.
+ * @param user - User object with roles and optional adminDetails
+ * @param workspaceId - Current workspace ID (e.g. Sea Farer workspace)
+ * @returns true if user has SuperAdmin role in this workspace / Sea Farer module
+ */
+export function isSuperAdminInSeafarer(
+  user: UserWithAdminDetails | null | undefined,
+  workspaceId: string | undefined
+): boolean {
+  if (!user) return false;
+
+  // Check adminDetails.adminModules (IMS) for Sea Farer module with SuperAdmin role
+  const adminModules = user.adminDetails?.adminModules;
+  if (adminModules && Array.isArray(adminModules)) {
+    const seaFarerModule = adminModules.find(
+      (m) =>
+        (m.module?.toLowerCase() === "sea farer" ||
+          m.module?.toLowerCase() === "seafarer" ||
+          m.workspaceId === SEA_FARER_WORKSPACE_ID) &&
+        m.role?.toLowerCase() === "superadmin"
+    );
+    if (seaFarerModule) return true;
+  }
+
+  // Check user.roles for this workspace (or Sea Farer) with SuperAdmin in tenants
+  if (!workspaceId && !user.roles) return false;
+  const roles = user.roles as WorkspaceRole[] | undefined;
+  if (!roles || !Array.isArray(roles) || roles.length === 0) return false;
+  if (typeof roles[0] === "string") return false;
+
+  const targetWorkspaceId = workspaceId || SEA_FARER_WORKSPACE_ID;
+  const workspaceRole = (roles as WorkspaceRole[]).find(
+    (r) => r.workspaceId === targetWorkspaceId
+  );
+  if (!workspaceRole?.tenants?.length) return false;
+
+  const hasSuperAdmin = workspaceRole.tenants.some((tenant) =>
+    tenant.roles?.some(
+      (r) => r.role?.toLowerCase() === "superadmin"
+    )
+  );
+  return hasSuperAdmin;
+}
