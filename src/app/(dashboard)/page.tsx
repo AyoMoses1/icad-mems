@@ -106,7 +106,8 @@ export default function DashboardRedirectPage() {
             return;
           }
 
-          setShowRoleSelection(true);
+          // OWNER: send to new onboarding welcome (about app + role dropdown) instead of legacy role selection
+          router.replace("/onboarding/welcome");
           setIsChecking(false);
         })();
         return;

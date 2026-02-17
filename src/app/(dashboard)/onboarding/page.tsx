@@ -101,7 +101,8 @@ export default function OnboardingPage() {
     useState<UserSeafarerOnboardingDto | null>(null);
   const [onboardingCheckDone, setOnboardingCheckDone] = useState(false);
 
-  // When arriving from home with ?workspaceRoleId=...&role=..., use them and show form
+  // When arriving with ?workspaceRoleId=...&role=... (from welcome → setup or verify-identity), use them and show form.
+  // When arriving without params, redirect to welcome so the first screen is always "about the app + role choice".
   useEffect(() => {
     const qWorkspaceRoleId = searchParams.get("workspaceRoleId")?.trim();
     const qRole = searchParams.get("role")?.trim()?.toUpperCase();
@@ -114,13 +115,20 @@ export default function OnboardingPage() {
         .catch(() => setMyOnboarding(null));
       setOnboardingCheckDone(true);
       setIsLoading(false);
+    } else {
+      // No role/workspace in URL: send to welcome (first screen = about app + role dropdown)
+      router.replace("/onboarding/welcome");
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   useEffect(() => {
     const qWorkspaceRoleId = searchParams.get("workspaceRoleId")?.trim();
     const qRole = searchParams.get("role")?.trim()?.toUpperCase();
     if (qWorkspaceRoleId && qRole && VALID_ROLES.includes(qRole as UserRole)) {
+      return;
+    }
+    // No role params: we redirect to /onboarding/welcome in the other useEffect; skip role detection
+    if (!qWorkspaceRoleId || !qRole) {
       return;
     }
 

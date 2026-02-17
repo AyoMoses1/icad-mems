@@ -35,11 +35,15 @@ export default function STCWStandardsPage() {
   };
 
   const filteredStandards = standards.filter((standard) => {
-    const matchesSearch =
-      !searchTerm ||
-      standard.stcwRef?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      standard.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
+    const term = searchTerm.toLowerCase();
+    if (!term) return true;
+    return (
+      standard.competenceArea?.toLowerCase().includes(term) ||
+      standard.stcwRef?.toLowerCase().includes(term) ||
+      standard.regulationCode?.toLowerCase().includes(term) ||
+      standard.level?.toLowerCase().includes(term) ||
+      standard.description?.toLowerCase().includes(term)
+    );
   });
 
   if (isLoading) {
@@ -83,7 +87,7 @@ export default function STCWStandardsPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredStandards.map((standard) => (
                 <div
-                  key={standard.id}
+                  key={standard.stcwRef}
                   className="p-4 border rounded-lg hover:bg-accent/50 transition-colors"
                 >
                   <div className="flex items-start gap-3">
@@ -92,16 +96,18 @@ export default function STCWStandardsPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium">{standard.stcwRef}</p>
+                        <p className="font-medium">
+                          {standard.competenceArea ?? standard.description ?? standard.stcwRef}
+                        </p>
+                        {standard.level && (
+                          <Badge variant="secondary">{standard.level}</Badge>
+                        )}
                         {standard.isActive && (
                           <Badge className="bg-green-100 text-green-800">
                             Active
                           </Badge>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {standard.description}
-                      </p>
                     </div>
                   </div>
                 </div>

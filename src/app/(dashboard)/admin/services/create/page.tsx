@@ -33,6 +33,7 @@ import type { CreateServiceRequest } from "@/types/service-management";
 const formSchema = z.object({
   serviceTypeId: z.string().min(1, "Service type is required"),
   currencyId: z.string().min(1, "Currency is required"),
+  amount: z.coerce.number().min(0, "Amount must be 0 or greater"),
   description: z.string().optional().nullable(),
 });
 
@@ -58,6 +59,7 @@ export default function CreateServicePage() {
     defaultValues: {
       serviceTypeId: "",
       currencyId: "",
+      amount: 0,
       description: "",
     },
   });
@@ -99,6 +101,7 @@ export default function CreateServicePage() {
       const request: CreateServiceRequest = {
         serviceTypeId: data.serviceTypeId,
         currencyId: data.currencyId,
+        amount: data.amount,
         description: data.description?.trim() || null,
       };
 
@@ -194,6 +197,26 @@ export default function CreateServicePage() {
               {errors.currencyId && (
                 <p className="text-sm text-destructive">
                   {errors.currencyId.message}
+                </p>
+              )}
+            </div>
+
+            {/* Amount */}
+            <div className="space-y-2">
+              <Label htmlFor="amount">
+                Amount <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="amount"
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="0"
+                {...register("amount")}
+              />
+              {errors.amount && (
+                <p className="text-sm text-destructive">
+                  {errors.amount.message}
                 </p>
               )}
             </div>

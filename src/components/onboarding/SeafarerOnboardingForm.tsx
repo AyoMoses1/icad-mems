@@ -45,14 +45,23 @@ import {
   type VoyageActivityRequest,
 } from "@/lib/services/comprehensive-onboarding-service";
 import { handleApiError } from "@/lib/error-handler";
+import { ApiError } from "@/lib/api-client";
+import { OnboardingErrorCodes } from "@/types/errors";
 import {
   getDocumentTypes,
-  getSTCWAccreditations,
   getTrainingStatuses,
   type DocumentTypeDto,
-  type STCWAccreditationDto,
   type TrainingStatusDto,
 } from "@/lib/services/lookup-service";
+import {
+  getStcwStandards,
+  type StcwStandardDto,
+} from "@/lib/services/accreditation-service";
+import {
+  getOnboardingRequirementsByRole,
+  normalizeRequirementKind,
+  type OnboardingRequirementDto,
+} from "@/lib/services/onboarding-requirements-service";
 import { getAllRanks, type RankDto } from "@/lib/services/ranks";
 import {
   getVerificationStatus,
@@ -82,6 +91,41 @@ interface EducationDocumentUpload extends DocumentUpload {
 
 interface VoyageDocumentUpload extends DocumentUpload {
   voyageActivityIndex: number;
+}
+
+/** Predefined education certificates for dropdown (no free text) */
+const CERTIFICATE_OBTAINED_OPTIONS = [
+  "First School Leaving Certificate",
+  "Junior Secondary School Certificate (JSSCE)",
+  "Senior Secondary School Certificate (SSCE)",
+  "WAEC (West African Examinations Council)",
+  "NECO (National Examinations Council)",
+  "GCE O-Level",
+  "GCE A-Level",
+  "NCE (Nigeria Certificate in Education)",
+  "OND (Ordinary National Diploma)",
+  "HND (Higher National Diploma)",
+  "Bachelor's Degree",
+  "Postgraduate Diploma",
+  "Master's Degree",
+  "PhD / Doctorate",
+  "Trade Test / Technical Certificate",
+  "Other",
+] as const;
+
+/** One upload slot per onboarding requirement (document types from requirement) */
+interface RequirementDocumentSlot {
+  onboardingRequirementId: string;
+  description: string;
+  requirementKind: 0 | 1;
+  documentTypeIds: string[];
+  documentTypes: { documentTypesId: string; description: string }[];
+  documentTypesId: string;
+  file: File | null;
+  documentNumber: string;
+  issueDate: string;
+  expiryDate: string;
+  issuingAuthority: string;
 }
 
 /** Calculate days between two ISO date strings (YYYY-MM-DD). Returns 0 if invalid or missing. */
@@ -127,18 +171,18 @@ export function SeafarerOnboardingForm({
 
   // Dropdown data
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeDto[]>([]);
-  const [stcwAccreditations, setSTCWAccreditations] = useState<
-    STCWAccreditationDto[]
-  >([]);
+  const [stcwStandards, setStcwStandards] = useState<StcwStandardDto[]>([]);
   const [trainingStatuses, setTrainingStatuses] = useState<TrainingStatusDto[]>(
     []
   );
   const [ranks, setRanks] = useState<RankDto[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
-  // Basic Information
+  // Basic Information (SIN is generated after approval, not collected here)
   const [basicData, setBasicData] = useState({
-    sin: "",
+    firstName: user?.firstName ?? "",
+    lastName: user?.lastName ?? "",
+    middleName: (user as any)?.middleName ?? "",
     rankId: "",
     notes: "",
   });
@@ -171,10 +215,18 @@ export function SeafarerOnboardingForm({
     VoyageActivityRequest[]
   >([]);
 
-  // Profile Documents
+  // Profile Documents (used when no onboarding requirements from API)
   const [profileDocuments, setProfileDocuments] = useState<DocumentUpload[]>(
     []
   );
+
+  // Onboarding requirements (from API) and one upload slot per requirement
+  const [onboardingRequirements, setOnboardingRequirements] = useState<
+    OnboardingRequirementDto[]
+  >([]);
+  const [requirementDocuments, setRequirementDocuments] = useState<
+    RequirementDocumentSlot[]
+  >([]);
 
   // Verified document number from Veriff identity verification
   const [verifiedDocumentNumber, setVerifiedDocumentNumber] = useState<
@@ -230,31 +282,79 @@ export function SeafarerOnboardingForm({
     );
   }, [verifiedDocumentNumber, documentTypes]);
 
-  // Load dropdown data
+  // Load dropdown data and onboarding requirements
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoadingData(true);
-        const [docTypesRes, stcwRes, trainingStatusRes, ranksData] =
-          await Promise.all([
-            getDocumentTypes(),
-            getSTCWAccreditations(),
-            getTrainingStatuses(),
-            getAllRanks(),
-          ]);
+        const [
+          docTypesRes,
+          stcwRes,
+          trainingStatusRes,
+          ranksData,
+          requirementsRes,
+        ] = await Promise.all([
+          getDocumentTypes(),
+          getStcwStandards(),
+          getTrainingStatuses(),
+          getAllRanks(),
+          getOnboardingRequirementsByRole("SEAFARER"),
+        ]);
 
         if (docTypesRes.data) {
           setDocumentTypes(docTypesRes.data);
+          // When no requirements from API: one upload slot per document type (legacy behavior)
+          if (!requirementsRes?.data?.length) {
+            setProfileDocuments((prev) => {
+              const byType = new Map(
+                prev.map((d) => [d.documentTypesId?.toString().trim() ?? "", d])
+              );
+              return docTypesRes.data!.map((t) => {
+                const id = t.documentTypesId?.toString().trim();
+                if (!id) return null;
+                const existing = byType.get(id);
+                return (
+                  existing ?? {
+                    documentTypesId: id,
+                    file: null,
+                    documentNumber: "",
+                    issueDate: "",
+                    expiryDate: "",
+                    issuingAuthority: "",
+                  }
+                );
+              }).filter((x): x is DocumentUpload => x !== null);
+            });
+          }
         }
-        if (stcwRes.data) {
-          setSTCWAccreditations(stcwRes.data);
+
+        if (requirementsRes?.success && requirementsRes.data?.length) {
+          setOnboardingRequirements(requirementsRes.data);
+          setRequirementDocuments(
+            requirementsRes.data.map((req) => {
+              const typeIds = req.documentTypeIds ?? req.documentTypes?.map((dt) => dt.documentTypesId) ?? [];
+              const types = req.documentTypes ?? [];
+              const firstId = typeIds[0] ?? "";
+              return {
+                onboardingRequirementId: req.onboardingRequirementId,
+                description: req.description,
+                requirementKind: normalizeRequirementKind(req.requirementKind),
+                documentTypeIds: typeIds,
+                documentTypes: types,
+                documentTypesId: firstId,
+                file: null,
+                documentNumber: "",
+                issueDate: "",
+                expiryDate: "",
+                issuingAuthority: "",
+              };
+            })
+          );
         }
-        if (trainingStatusRes.data) {
-          setTrainingStatuses(trainingStatusRes.data);
-        }
-        if (ranksData) {
-          setRanks(ranksData);
-        }
+
+        if (stcwRes.data) setStcwStandards(stcwRes.data);
+        if (trainingStatusRes.data) setTrainingStatuses(trainingStatusRes.data);
+        if (ranksData) setRanks(ranksData);
       } catch (error) {
         console.error("Error loading dropdown data:", error);
         toast.error("Failed to load required data. Please refresh the page.");
@@ -358,6 +458,30 @@ export function SeafarerOnboardingForm({
     setProfileDocuments(profileDocuments.filter((_, i) => i !== index));
   };
 
+  const updateProfileDocByType = (
+    documentTypesId: string,
+    patch: Partial<DocumentUpload>
+  ) => {
+    setProfileDocuments((prev) =>
+      prev.map((d) =>
+        d.documentTypesId === documentTypesId ? { ...d, ...patch } : d
+      )
+    );
+  };
+
+  const updateRequirementDocument = (
+    onboardingRequirementId: string,
+    patch: Partial<RequirementDocumentSlot>
+  ) => {
+    setRequirementDocuments((prev) =>
+      prev.map((rd) =>
+        rd.onboardingRequirementId === onboardingRequirementId
+          ? { ...rd, ...patch }
+          : rd
+      )
+    );
+  };
+
   const handleAddEducationDocument = () => {
     setEducationDocuments([
       ...educationDocuments,
@@ -401,6 +525,14 @@ export function SeafarerOnboardingForm({
       setIsSubmitting(true);
       setIsDraft(saveAsDraft);
 
+      const useRequirements = onboardingRequirements.length > 0;
+      const profileDocsFromRequirements = useRequirements
+        ? requirementDocuments.filter((rd) => rd.file && rd.documentTypesId)
+        : [];
+      const profileDocsFromSlots = useRequirements
+        ? []
+        : profileDocuments.filter((doc) => doc.file && doc.documentTypesId);
+
       // Validation for non-draft submissions
       if (!saveAsDraft) {
         if (!basicData.rankId) {
@@ -414,9 +546,28 @@ export function SeafarerOnboardingForm({
           return;
         }
 
-        if (profileDocuments.filter((doc) => doc.file).length === 0) {
-          toast.error("Please upload at least one profile document");
-          return;
+        if (useRequirements) {
+          const compulsoryMissing = requirementDocuments.filter(
+            (rd) => rd.requirementKind === 0 && !rd.file
+          );
+          if (compulsoryMissing.length) {
+            toast.error(
+              "Please upload required documents for: " +
+                compulsoryMissing.map((r) => r.description).join(", ")
+            );
+            setCurrentStep("documents");
+            return;
+          }
+          if (profileDocsFromRequirements.length === 0) {
+            toast.error("Please upload at least one profile document");
+            setCurrentStep("documents");
+            return;
+          }
+        } else {
+          if (profileDocsFromSlots.length === 0) {
+            toast.error("Please upload at least one profile document");
+            return;
+          }
         }
       }
 
@@ -425,42 +576,56 @@ export function SeafarerOnboardingForm({
         role: "SEAFARER", // Required: Role must be SEAFARER for seafarer onboarding
         workspaceRoleId,
         saveAsDraft,
-        sin: basicData.sin || undefined,
         rankId: basicData.rankId || undefined,
         notes: basicData.notes || undefined,
         contactDetails: contactData,
         educationDetails: educationDetails.filter(
-          (edu) => edu.institution && edu.institution.trim() !== ""
+          (edu) => edu.institution && edu.institution.trim() !== "",
         ),
         seafarerTrainings: seafarerTrainings.filter(
-          (training) => training.institutionSTCWAccreditationId
+          (training) => training.institutionSTCWAccreditationId,
         ),
         voyageActivities: voyageActivities
           .filter(
-            (voyage) => voyage.vesselName && voyage.vesselName.trim() !== ""
+            (voyage) => voyage.vesselName && voyage.vesselName.trim() !== "",
           )
           .map((voyage) => {
             const days = daysBetween(voyage.dateJoined, voyage.dateLeft);
             return {
               ...voyage,
-              totalSeaTimeDays: days > 0 ? String(days) : voyage.totalSeaTimeDays,
+              totalSeaTimeDays:
+                days > 0 ? String(days) : voyage.totalSeaTimeDays,
             };
           }),
-        profileDocuments: profileDocuments
-          .filter((doc) => doc.file && doc.documentTypesId)
-          .map((doc) => ({
-            documentTypesId: doc.documentTypesId,
-            file: doc.file!,
-            documentNumber:
-              doc.documentNumber ||
-              (isIdentityDocumentType(doc.documentTypesId, documentTypes) &&
-              verifiedDocumentNumber
-                ? verifiedDocumentNumber
-                : doc.documentNumber),
-            issueDate: doc.issueDate,
-            expiryDate: doc.expiryDate,
-            issuingAuthority: doc.issuingAuthority,
-          })),
+        profileDocuments: useRequirements
+          ? profileDocsFromRequirements.map((rd) => ({
+              documentTypesId: rd.documentTypesId,
+              file: rd.file!,
+              documentNumber:
+                rd.documentNumber ||
+                (isIdentityDocumentType(rd.documentTypesId, documentTypes) &&
+                verifiedDocumentNumber
+                  ? verifiedDocumentNumber
+                  : rd.documentNumber),
+              issueDate: rd.issueDate,
+              expiryDate: rd.expiryDate,
+              issuingAuthority: rd.issuingAuthority,
+            }))
+          : profileDocuments
+              .filter((doc) => doc.file && doc.documentTypesId)
+              .map((doc) => ({
+                documentTypesId: doc.documentTypesId,
+                file: doc.file!,
+                documentNumber:
+                  doc.documentNumber ||
+                  (isIdentityDocumentType(doc.documentTypesId, documentTypes) &&
+                  verifiedDocumentNumber
+                    ? verifiedDocumentNumber
+                    : doc.documentNumber),
+                issueDate: doc.issueDate,
+                expiryDate: doc.expiryDate,
+                issuingAuthority: doc.issuingAuthority,
+              })),
         educationDocuments: educationDocuments
           .filter((doc) => doc.file && doc.documentTypesId)
           .map((doc) => ({
@@ -519,7 +684,15 @@ export function SeafarerOnboardingForm({
       }
     } catch (error) {
       console.error("Error submitting onboarding:", error);
-      toast.error(handleApiError(error));
+      if (
+        error instanceof ApiError &&
+        error.code === OnboardingErrorCodes.MISSING_ONBOARDING_DOCUMENTS
+      ) {
+        setCurrentStep("documents");
+        toast.error(handleApiError(error));
+      } else {
+        toast.error(handleApiError(error));
+      }
     } finally {
       setIsSubmitting(false);
       setIsDraft(false);
@@ -622,13 +795,50 @@ export function SeafarerOnboardingForm({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Full Name</Label>
-                <Input
-                  value={`${user?.firstName || ""} ${user?.middleName || ""} ${user?.lastName || ""}`.trim()}
-                  disabled
-                  className="bg-muted"
-                />
+              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3 text-sm text-amber-900 dark:text-amber-200">
+                <p className="font-medium">Name as on Valid ID / Passport</p>
+                <p className="text-muted-foreground mt-1">
+                  Enter your name exactly as it appears on your valid ID or international passport.
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">
+                    First Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="firstName"
+                    value={basicData.firstName}
+                    onChange={(e) =>
+                      setBasicData({ ...basicData, firstName: e.target.value })
+                    }
+                    placeholder="First name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="middleName">Middle Name</Label>
+                  <Input
+                    id="middleName"
+                    value={basicData.middleName}
+                    onChange={(e) =>
+                      setBasicData({ ...basicData, middleName: e.target.value })
+                    }
+                    placeholder="Middle name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">
+                    Last Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="lastName"
+                    value={basicData.lastName}
+                    onChange={(e) =>
+                      setBasicData({ ...basicData, lastName: e.target.value })
+                    }
+                    placeholder="Last name"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -657,20 +867,6 @@ export function SeafarerOnboardingForm({
                     No ranks available. Please contact support.
                   </p>
                 )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="sin">
-                  Seafarer Identification Number (SIN)
-                </Label>
-                <Input
-                  id="sin"
-                  value={basicData.sin}
-                  onChange={(e) =>
-                    setBasicData({ ...basicData, sin: e.target.value })
-                  }
-                  placeholder="SIN-2025-XXX-XXX"
-                />
               </div>
 
               <div className="space-y-2">
@@ -903,15 +1099,25 @@ export function SeafarerOnboardingForm({
 
                     <div className="space-y-2">
                       <Label>Certificate Obtained</Label>
-                      <Input
-                        value={edu.certificateObtained}
-                        onChange={(e) => {
+                      <Select
+                        value={edu.certificateObtained || ""}
+                        onValueChange={(value) => {
                           const newEdu = [...educationDetails];
-                          newEdu[index].certificateObtained = e.target.value;
+                          newEdu[index].certificateObtained = value;
                           setEducationDetails(newEdu);
                         }}
-                        placeholder="Degree or certificate name"
-                      />
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select certificate or degree" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CERTIFICATE_OBTAINED_OPTIONS.map((cert) => (
+                            <SelectItem key={cert} value={cert}>
+                              {cert}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="space-y-2">
@@ -985,7 +1191,7 @@ export function SeafarerOnboardingForm({
                   variant="outline"
                   size="sm"
                   onClick={handleAddTraining}
-                  disabled={stcwAccreditations.length === 0}
+                  disabled={stcwStandards.length === 0}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Training
@@ -993,17 +1199,16 @@ export function SeafarerOnboardingForm({
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {stcwAccreditations.length === 0 && (
+              {stcwStandards.length === 0 && (
                 <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
                   <div className="flex items-start gap-2">
                     <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
                     <div>
                       <p className="text-sm text-yellow-800 font-medium">
-                        No STCW Accreditations Available
+                        No STCW standards available
                       </p>
                       <p className="text-sm text-yellow-700 mt-1">
-                        Please contact your administrator to add STCW
-                        accreditations to the system before adding trainings.
+                        STCW training courses could not be loaded. Please try again later.
                       </p>
                     </div>
                   </div>
@@ -1039,17 +1244,19 @@ export function SeafarerOnboardingForm({
                           <SelectValue placeholder="Select STCW training" />
                         </SelectTrigger>
                         <SelectContent>
-                          {stcwAccreditations.flatMap((stcw) => {
-                            const id = stcw.institutionSTCWAccreditationId
-                              ?.toString()
-                              .trim();
-                            if (!id || id === "") return [];
-                            return (
-                              <SelectItem key={id} value={id}>
-                                {stcw.stcwRef} - {stcw.institutionName || ""}
-                              </SelectItem>
-                            );
-                          })}
+                          {stcwStandards
+                            .filter((s) => s.stcwRef?.trim())
+                            .map((standard) => {
+                              const id = standard.stcwRef.trim();
+                              const label = standard.competenceArea
+                                ? `${standard.competenceArea}${standard.level ? ` (${standard.level})` : ""}`
+                                : id;
+                              return (
+                                <SelectItem key={id} value={id}>
+                                  {label}
+                                </SelectItem>
+                              );
+                            })}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1423,234 +1630,300 @@ export function SeafarerOnboardingForm({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Identity & Professional Documents Section */}
-              <div className="border rounded-lg p-4 space-y-4">
-                <div className="flex items-center justify-between">
+              {onboardingRequirements.length > 0 ? (
+                /* Requirement-based checklist from API */
+                <div className="space-y-6">
                   <div>
                     <h3 className="font-semibold">
-                      Identity & Professional Documents{" "}
-                      <span className="text-sm text-destructive">
-                        (Required - Min 1)
-                      </span>
+                      Required Documents{" "}
+                      <span className="text-sm text-destructive">*</span>
                     </h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Upload your identification and professional certificates
-                      (e.g., Passport, Seaman's Book, Certificates)
+                      Upload one document per requirement. Compulsory items must be satisfied before submit.
                     </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddProfileDocument}
-                    disabled={documentTypes.length === 0}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Document
-                  </Button>
-                </div>
-
-                {profileDocuments.map((doc, index) => (
-                  <div
-                    key={index}
-                    className="border rounded p-3 space-y-3 bg-muted/30"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">
-                        Document #{index + 1}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveProfileDocument(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="space-y-2 md:col-span-2">
-                        <Label>Document Type</Label>
-                        <Select
-                          value={doc.documentTypesId}
-                          onValueChange={(value) => {
-                            const newDocs = [...profileDocuments];
-                            newDocs[index].documentTypesId = value;
-                            // Auto-fill document number for identity docs when verified
-                            const type = documentTypes.find(
-                              (t) =>
-                                t.documentTypesId?.toString().trim() === value
-                            );
-                            const desc = (
-                              type?.description || ""
-                            ).toLowerCase();
-                            const isIdentity =
-                              desc.includes("passport") ||
-                              desc.includes("national id") ||
-                              desc.includes("international passport") ||
-                              desc.includes("id card") ||
-                              desc.includes("identity");
-                            if (isIdentity && verifiedDocumentNumber) {
-                              newDocs[index].documentNumber =
-                                verifiedDocumentNumber;
+                  {requirementDocuments.map((rd) => {
+                    const isRequired = rd.requirementKind === 0;
+                    const isIdentity = isIdentityDocumentType(rd.documentTypesId, documentTypes);
+                    const fileInputId = `file-req-${rd.onboardingRequirementId}`;
+                    return (
+                      <div key={rd.onboardingRequirementId} className="space-y-3 border rounded-lg p-4 bg-muted/20">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-sm font-medium">{rd.description}</h4>
+                          <Badge variant={isRequired ? "destructive" : "secondary"}>
+                            {isRequired ? "Required" : "Optional"}
+                          </Badge>
+                          {rd.documentTypes.length > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              Acceptable: {rd.documentTypes.map((dt) => dt.description).join(" or ")}
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label>Document Type</Label>
+                            <Select
+                              value={rd.documentTypesId || ""}
+                              onValueChange={(value) =>
+                                updateRequirementDocument(rd.onboardingRequirementId, {
+                                  documentTypesId: value,
+                                })
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {rd.documentTypes.map((dt) => (
+                                  <SelectItem key={dt.documentTypesId} value={dt.documentTypesId}>
+                                    {dt.description}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div
+                          className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 min-h-[120px] bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                          onClick={() =>
+                            (document.getElementById(fileInputId) as HTMLInputElement)?.click()
+                          }
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.currentTarget.classList.add("border-primary/50");
+                          }}
+                          onDragLeave={(e) => {
+                            e.currentTarget.classList.remove("border-primary/50");
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            e.currentTarget.classList.remove("border-primary/50");
+                            const file = e.dataTransfer.files?.[0];
+                            if (file && /\.(pdf|jpg|jpeg|png)$/i.test(file.name)) {
+                              updateRequirementDocument(rd.onboardingRequirementId, { file });
                             }
-                            setProfileDocuments(newDocs);
                           }}
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select document type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {documentTypes.flatMap((type) => {
-                              const id = type.documentTypesId
-                                ?.toString()
-                                .trim();
-                              if (!id || id === "") return [];
-                              return (
-                                <SelectItem key={id} value={id}>
-                                  {type.description}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>
-                          Document Number
-                          {isIdentityDocumentType(
-                            doc.documentTypesId,
-                            documentTypes
-                          ) &&
-                            verifiedDocumentNumber && (
-                              <Badge
-                                variant="secondary"
-                                className="ml-2 text-xs font-normal"
-                              >
-                                Verified
-                              </Badge>
-                            )}
-                        </Label>
-                        {isIdentityDocumentType(
-                          doc.documentTypesId,
-                          documentTypes
-                        ) && verifiedDocumentNumber ? (
-                          <div className="space-y-1">
-                            <Input
-                              value={
-                                doc.documentNumber || verifiedDocumentNumber
-                              }
-                              readOnly
-                              className="bg-muted font-mono"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Pre-filled from identity verification. This number
-                              was verified via Veriff.
-                            </p>
-                          </div>
-                        ) : (
-                          <Input
-                            value={doc.documentNumber}
+                          <input
+                            id={fileInputId}
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            className="hidden"
                             onChange={(e) => {
-                              const newDocs = [...profileDocuments];
-                              newDocs[index].documentNumber = e.target.value;
-                              setProfileDocuments(newDocs);
+                              const file = e.target.files?.[0];
+                              if (file)
+                                updateRequirementDocument(rd.onboardingRequirementId, { file });
+                              e.target.value = "";
                             }}
-                            placeholder={
-                              isIdentityDocumentType(
-                                doc.documentTypesId,
-                                documentTypes
-                              ) && !verifiedDocumentNumber
-                                ? "Complete identity verification first to auto-fill"
-                                : "Document number"
-                            }
                           />
-                        )}
-                        {isIdentityDocumentType(
-                          doc.documentTypesId,
-                          documentTypes
-                        ) &&
-                          !verifiedDocumentNumber && (
-                            <p className="text-xs text-amber-600 dark:text-amber-500">
-                              Complete the Identity verification step first to
-                              auto-fill this from your verified document.
-                            </p>
-                          )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Issuing Authority</Label>
-                        <Input
-                          value={doc.issuingAuthority}
-                          onChange={(e) => {
-                            const newDocs = [...profileDocuments];
-                            newDocs[index].issuingAuthority = e.target.value;
-                            setProfileDocuments(newDocs);
-                          }}
-                          placeholder="Issuing authority"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Issue Date</Label>
-                        <Input
-                          type="date"
-                          value={doc.issueDate}
-                          onChange={(e) => {
-                            const newDocs = [...profileDocuments];
-                            newDocs[index].issueDate = e.target.value;
-                            setProfileDocuments(newDocs);
-                          }}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Expiry Date</Label>
-                        <Input
-                          type="date"
-                          value={doc.expiryDate}
-                          onChange={(e) => {
-                            const newDocs = [...profileDocuments];
-                            newDocs[index].expiryDate = e.target.value;
-                            setProfileDocuments(newDocs);
-                          }}
-                        />
-                      </div>
-
-                      <div className="space-y-2 md:col-span-2">
-                        <Label>Upload File</Label>
-                        <Input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const newDocs = [...profileDocuments];
-                              newDocs[index].file = file;
-                              setProfileDocuments(newDocs);
-                            }
-                          }}
-                        />
-                        {doc.file && (
-                          <p className="text-sm text-muted-foreground">
-                            {doc.file.name} (
-                            {(doc.file.size / 1024 / 1024).toFixed(2)} MB)
+                          <Upload className="h-10 w-10 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground text-center">
+                            Drop file or click to upload
                           </p>
-                        )}
+                          {rd.file && (
+                            <p className="text-sm font-medium text-primary mt-1">{rd.file.name}</p>
+                          )}
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2 pt-2">
+                          <div className="space-y-2">
+                            <Label>Document Number</Label>
+                            {isIdentity && verifiedDocumentNumber ? (
+                              <Input
+                                value={rd.documentNumber || verifiedDocumentNumber}
+                                readOnly
+                                className="bg-muted font-mono"
+                              />
+                            ) : (
+                              <Input
+                                value={rd.documentNumber}
+                                onChange={(e) =>
+                                  updateRequirementDocument(rd.onboardingRequirementId, {
+                                    documentNumber: e.target.value,
+                                  })
+                                }
+                                placeholder="Document number"
+                              />
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Issuing Authority</Label>
+                            <Input
+                              value={rd.issuingAuthority}
+                              onChange={(e) =>
+                                updateRequirementDocument(rd.onboardingRequirementId, {
+                                  issuingAuthority: e.target.value,
+                                })
+                              }
+                              placeholder="Issuing authority"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Issue Date</Label>
+                            <Input
+                              type="date"
+                              value={rd.issueDate}
+                              onChange={(e) =>
+                                updateRequirementDocument(rd.onboardingRequirementId, {
+                                  issueDate: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Expiry Date</Label>
+                            <Input
+                              type="date"
+                              value={rd.expiryDate}
+                              onChange={(e) =>
+                                updateRequirementDocument(rd.onboardingRequirementId, {
+                                  expiryDate: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
-
-                {profileDocuments.length === 0 && (
-                  <div className="text-center py-4 text-muted-foreground text-sm">
-                    <p>No documents added yet</p>
-                    <p className="text-xs mt-1 text-destructive">
-                      At least one identity or professional document is required
+                    );
+                  })}
+                  {requirementDocuments.filter((d) => d.file).length === 0 && (
+                    <p className="text-sm text-destructive">
+                      Upload at least one document for the requirements above. All compulsory items are required.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                /* Legacy: one upload per document type when no requirements from API */
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="font-semibold">
+                      Required Documents{" "}
+                      <span className="text-sm text-destructive">*</span>
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Upload the correct document for each requirement. At least one document is required.
                     </p>
                   </div>
-                )}
-              </div>
+                  {documentTypes.map((type) => {
+                    const id = type.documentTypesId?.toString().trim();
+                    if (!id) return null;
+                    const doc = profileDocuments.find((d) => d.documentTypesId === id);
+                    if (!doc) return null;
+                    const isIdentity = isIdentityDocumentType(id, documentTypes);
+                    return (
+                      <div key={id} className="space-y-3">
+                        <h4 className="text-sm font-medium">
+                          {type.description}{" "}
+                          <span className="text-destructive">*</span>
+                        </h4>
+                        <div
+                          className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 min-h-[140px] bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                          onClick={() =>
+                            (document.getElementById(`file-${id}`) as HTMLInputElement)?.click()
+                          }
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.currentTarget.classList.add("border-primary/50");
+                          }}
+                          onDragLeave={(e) => {
+                            e.currentTarget.classList.remove("border-primary/50");
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            e.currentTarget.classList.remove("border-primary/50");
+                            const file = e.dataTransfer.files?.[0];
+                            if (file && /\.(pdf|jpg|jpeg|png)$/i.test(file.name)) {
+                              updateProfileDocByType(id, { file });
+                            }
+                          }}
+                        >
+                          <input
+                            id={`file-${id}`}
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) updateProfileDocByType(id, { file });
+                              e.target.value = "";
+                            }}
+                          />
+                          <Upload className="h-10 w-10 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground text-center">
+                            Drop files here or click to upload
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Select a single file to upload
+                          </p>
+                          {doc.file && (
+                            <p className="text-sm font-medium text-primary mt-1">
+                              {doc.file.name}
+                            </p>
+                          )}
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2 pt-2">
+                          <div className="space-y-2">
+                            <Label>Document Number</Label>
+                            {isIdentity && verifiedDocumentNumber ? (
+                              <Input
+                                value={doc.documentNumber || verifiedDocumentNumber}
+                                readOnly
+                                className="bg-muted font-mono"
+                              />
+                            ) : (
+                              <Input
+                                value={doc.documentNumber}
+                                onChange={(e) =>
+                                  updateProfileDocByType(id, {
+                                    documentNumber: e.target.value,
+                                  })
+                                }
+                                placeholder="Document number"
+                              />
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Issuing Authority</Label>
+                            <Input
+                              value={doc.issuingAuthority}
+                              onChange={(e) =>
+                                updateProfileDocByType(id, {
+                                  issuingAuthority: e.target.value,
+                                })
+                              }
+                              placeholder="Issuing authority"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Issue Date</Label>
+                            <Input
+                              type="date"
+                              value={doc.issueDate}
+                              onChange={(e) =>
+                                updateProfileDocByType(id, { issueDate: e.target.value })
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Expiry Date</Label>
+                            <Input
+                              type="date"
+                              value={doc.expiryDate}
+                              onChange={(e) =>
+                                updateProfileDocByType(id, { expiryDate: e.target.value })
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {profileDocuments.filter((d) => d.file).length === 0 && (
+                    <p className="text-sm text-destructive">
+                      At least one document is required. Upload the correct file for each requirement above.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Education Documents Section */}
               {educationDetails.length > 0 && (
@@ -1814,7 +2087,9 @@ export function SeafarerOnboardingForm({
                     <div>
                       <span className="text-muted-foreground">Name: </span>
                       <span>
-                        {`${user?.firstName || ""} ${user?.middleName || ""} ${user?.lastName || ""}`.trim()}
+                        {[basicData.firstName, basicData.middleName, basicData.lastName]
+                          .filter(Boolean)
+                          .join(" ")}
                       </span>
                     </div>
                     {basicData.rankId && (
@@ -1827,12 +2102,6 @@ export function SeafarerOnboardingForm({
                               ?.category ||
                             "N/A"}
                         </span>
-                      </div>
-                    )}
-                    {basicData.sin && (
-                      <div>
-                        <span className="text-muted-foreground">SIN: </span>
-                        <span>{basicData.sin}</span>
                       </div>
                     )}
                   </div>
@@ -1884,7 +2153,10 @@ export function SeafarerOnboardingForm({
                         Profile Documents:{" "}
                       </span>
                       <span>
-                        {profileDocuments.filter((d) => d.file).length} file(s)
+                        {onboardingRequirements.length > 0
+                          ? requirementDocuments.filter((d) => d.file).length
+                          : profileDocuments.filter((d) => d.file).length}{" "}
+                        file(s)
                       </span>
                     </div>
                   </div>

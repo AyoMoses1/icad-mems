@@ -827,13 +827,21 @@ export async function apiPostMultipartMain<T>(
     const data: ApiResponse<T> = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error?.message || data.message || "Request failed");
+      const code = data.error?.code ?? "UNKNOWN_ERROR";
+      const message =
+        data.error?.message ||
+        data.message ||
+        "Request failed";
+      throw new ApiError(code, message, response.status);
     }
 
     return data;
   } catch (error) {
     if (error instanceof TypeError && error.message === "Failed to fetch") {
       throw new Error("Network error. Please check your connection.");
+    }
+    if (error instanceof ApiError) {
+      throw error;
     }
     if (error instanceof Error) {
       throw error;

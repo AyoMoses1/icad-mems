@@ -48,10 +48,7 @@ import {
   getDocumentTypes,
   type DocumentTypeDto,
 } from "@/lib/services/lookup-service";
-import {
-  getMySeafarer,
-  type SeafarerDto,
-} from "@/lib/services/seafarers";
+import { getMySeafarer, type SeafarerDto } from "@/lib/services/seafarers";
 import {
   getProfileDocuments,
   type EducationDocumentDto,
@@ -62,6 +59,12 @@ import {
   type NationalityDto,
 } from "@/lib/services/nationalities";
 import { createSeafarerProfile } from "@/lib/services/seafarer-onboarding-service";
+import {
+  getMyOnboarding,
+  type UserSeafarerOnboardingDto,
+  type ProfileDocumentDto,
+  type VoyageActivityDto,
+} from "@/lib/services/onboarding-service";
 
 interface PersonalInfoData {
   firstName: string;
@@ -92,6 +95,10 @@ interface ContactDetailsData {
   country: string;
   postalCode: string;
   address: string;
+  emergencyContactPerson: string;
+  relationship: string;
+  emergencyContactNumber: string;
+  emergencyContactAddress: string;
 }
 
 const getStorageKey = (email: string, type: "personal" | "contact") => {
@@ -185,36 +192,76 @@ export default function ProfileDocumentsPage() {
     country: "",
     postalCode: "",
     address: "",
+    emergencyContactPerson: "",
+    relationship: "",
+    emergencyContactNumber: "",
+    emergencyContactAddress: "",
   });
+
+  // SIN (Seafarer Identification Number) from onboarding
+  const [onboardingSin, setOnboardingSin] = useState<string | null>(null);
+  const [onboardingRn, setOnboardingRn] = useState<string | null>(null);
+
+  // Sea service records from onboarding (voyageActivities)
+  const [seaServiceRecords, setSeaServiceRecords] = useState<
+    {
+      id: string;
+      vessel: string;
+      company: string;
+      vesselType: string;
+      rank: string;
+      period: string;
+      isCurrent: boolean;
+      seamanBookNo?: string;
+      imoNumber?: string;
+      flagState?: string;
+      portOfEngagement?: string;
+      portOfDischarge?: string;
+      totalSeaTimeDays?: number;
+      remarks?: string;
+    }[]
+  >([]);
 
   const uploadDocument = async (uploadData: UploadDocumentFormData) => {
     // Get RN from seafarer or user
     let rn: string | null = null;
-    
+
     try {
       const seafarerResponse = await getMySeafarer();
-      const seafarerOk = seafarerResponse.success ?? (seafarerResponse as any).successful;
-      
+      const seafarerOk =
+        seafarerResponse.success ?? (seafarerResponse as any).successful;
+
       if (seafarerOk && seafarerResponse.data) {
-        rn = (seafarerResponse.data as any).rn || (seafarerResponse.data as any).registrationNumber || null;
+        rn =
+          (seafarerResponse.data as any).rn ||
+          (seafarerResponse.data as any).registrationNumber ||
+          null;
       }
-      
+
       if (!rn) {
         const currentUser = useAuthStore.getState().user;
-        rn = (currentUser as any)?.rn || (currentUser as any)?.registrationNumber || null;
+        rn =
+          (currentUser as any)?.rn ||
+          (currentUser as any)?.registrationNumber ||
+          null;
       }
-      
+
       if (!rn) {
-        throw new Error("Registration Number (RN) not found. Please complete onboarding first.");
+        throw new Error(
+          "Registration Number (RN) not found. Please complete onboarding first.",
+        );
       }
     } catch (error) {
       console.error("Error getting RN:", error);
-      throw new Error("Failed to get registration number. Please complete onboarding first.");
+      throw new Error(
+        "Failed to get registration number. Please complete onboarding first.",
+      );
     }
 
     // Use document-service uploadProfileDocument
-    const { uploadProfileDocument } = await import("@/lib/services/document-service");
-    
+    const { uploadProfileDocument } =
+      await import("@/lib/services/document-service");
+
     if (!uploadData.file || !uploadData.documentTypeId) {
       throw new Error("File and Document Type are required");
     }
@@ -234,26 +281,31 @@ export default function ProfileDocumentsPage() {
     try {
       // First get seafarer profile to get RN
       const seafarerResponse = await getMySeafarer();
-      const seafarerOk = seafarerResponse.success ?? (seafarerResponse as any).successful;
-      
+      const seafarerOk =
+        seafarerResponse.success ?? (seafarerResponse as any).successful;
+
       let rn: string | null = null;
-      
+
       if (seafarerOk && seafarerResponse.data) {
         // Try to get RN from seafarer data
         const seafarer = seafarerResponse.data;
-        rn = (seafarer as any).rn || (seafarer as any).registrationNumber || null;
+        rn =
+          (seafarer as any).rn || (seafarer as any).registrationNumber || null;
       }
-      
+
       // If no RN from seafarer, try to get from user
       if (!rn) {
         const currentUser = useAuthStore.getState().user;
-        rn = (currentUser as any)?.rn || (currentUser as any)?.registrationNumber || null;
+        rn =
+          (currentUser as any)?.rn ||
+          (currentUser as any)?.registrationNumber ||
+          null;
       }
-      
+
       if (rn) {
         const response = await getProfileDocuments(rn);
         const ok = response.success ?? (response as any).successful;
-        
+
         if (ok && response.data) {
           const items = Array.isArray(response.data) ? response.data : [];
           setDocuments(items);
@@ -287,23 +339,23 @@ export default function ProfileDocumentsPage() {
 
       const token = useAuthStore.getState().token;
 
-      // Build query parameters for /api/files/download
-      const queryParams = new URLSearchParams();
-      if (documentId) {
-        queryParams.append("id", documentId);
-      }
-      if (fileUrl) {
-        queryParams.append("url", fileUrl);
-      }
+      // Use direct file URL - filePathOrUrl is relative (e.g. /documents/profile/RN/docId.png)
+      const directUrl = fileUrl?.startsWith("http")
+        ? fileUrl
+        : fileUrl
+          ? `${API_BASE_URL.replace(/\/$/, "")}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`
+          : null;
 
-      const url = `${API_BASE_URL}/api/files/download?${queryParams.toString()}`;
+      if (!directUrl) {
+        throw new Error("Document URL is not available");
+      }
 
       const headers: Record<string, string> = {};
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await fetch(url, {
+      const response = await fetch(directUrl, {
         method: "GET",
         headers,
       });
@@ -345,24 +397,26 @@ export default function ProfileDocumentsPage() {
       }
 
       const token = useAuthStore.getState().token;
+      const fileUrl = document.fileUrl || document.filePathOrUrl;
 
-      // Build query parameters for /api/files/download
-      const queryParams = new URLSearchParams();
-      if (document.id) {
-        queryParams.append("id", document.id);
-      }
-      if (document.fileUrl) {
-        queryParams.append("url", document.fileUrl);
-      }
+      // Use direct file URL - filePathOrUrl is relative (e.g. /documents/profile/RN/docId.png)
+      const directUrl = fileUrl?.startsWith("http")
+        ? fileUrl
+        : fileUrl
+          ? `${API_BASE_URL.replace(/\/$/, "")}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`
+          : null;
 
-      const url = `${API_BASE_URL}/api/files/download?${queryParams.toString()}`;
+      if (!directUrl) {
+        toast.error("Document URL is not available for preview");
+        return;
+      }
 
       const headers: Record<string, string> = {};
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await fetch(url, {
+      const response = await fetch(directUrl, {
         method: "GET",
         headers,
       });
@@ -394,6 +448,155 @@ export default function ProfileDocumentsPage() {
       setPreviewDocument(null);
     }
   }, [isPreviewModalOpen, previewUrl]);
+  // Load onboarding data from my-onboarding API (contact, documents, sea service)
+  const loadOnboardingData = async () => {
+    try {
+      const response = await getMyOnboarding();
+      const ok = response.success ?? (response as any).successful;
+
+      if (!ok || !response.data) return;
+
+      const onboarding: UserSeafarerOnboardingDto = response.data;
+
+      // SIN and RN from onboarding
+      setOnboardingSin(onboarding.sin || null);
+      setOnboardingRn(onboarding.rn || null);
+
+      // Current Rank from onboarding - use currentRankId to look up display name from ranks
+      if ((onboarding as any).currentRankId) {
+        setPersonalInfo((prev) => ({
+          ...prev,
+          currentRankId: (onboarding as any).currentRankId,
+        }));
+      }
+
+      // Contact Details from onboarding
+      if (onboarding.contactDetails) {
+        const c = onboarding.contactDetails;
+        setContactDetails((prev) => ({
+          ...prev,
+          email: c.email || prev.email || "",
+          phone: c.phone || prev.phone || "",
+          address: c.address || prev.address || "",
+          emergencyContactPerson: c.emergencyContactPerson || "",
+          relationship: c.relationship || "",
+          emergencyContactNumber: c.emergencyContactNumber || "",
+          emergencyContactAddress: c.emergencyContactAddress || "",
+        }));
+
+        // Concatenate address data into Home Address (Personal Information)
+        const addr = (c.address || "").trim();
+        const emergAddr = (c.emergencyContactAddress || "").trim();
+        const homeAddress =
+          addr && emergAddr && addr === emergAddr
+            ? addr
+            : [addr, emergAddr].filter(Boolean).join("\n\n");
+        if (homeAddress) {
+          setPersonalInfo((prev) => ({ ...prev, homeAddress }));
+        }
+      }
+
+      // Profile Documents from onboarding
+      if (
+        onboarding.profileDocuments &&
+        onboarding.profileDocuments.length > 0
+      ) {
+        const mapped = onboarding.profileDocuments.map(
+          (doc: ProfileDocumentDto) => ({
+            id: doc.documentId,
+            documentId: doc.documentId,
+            documentTypeName: doc.documentTypeDescription || "Document",
+            documentTypeDescription: doc.documentTypeDescription,
+            fileUrl: doc.filePathOrUrl,
+            fileName:
+              doc.filePathOrUrl?.split("/").pop() ||
+              doc.documentTypeDescription ||
+              "document",
+            createdAt: doc.dateCreated,
+            dateCreated: doc.dateCreated,
+          }),
+        );
+        setDocuments(mapped);
+      } else if (onboarding.rn) {
+        // Fallback: fetch profile documents by RN when onboarding has none
+        try {
+          const docRes = await getProfileDocuments(onboarding.rn);
+          const ok = docRes.success ?? (docRes as any).successful;
+          if (ok && docRes.data && Array.isArray(docRes.data)) {
+            const mapped = docRes.data.map((d: any) => ({
+              id: d.documentId || d.id,
+              documentId: d.documentId || d.id,
+              documentTypeName:
+                d.documentTypeDescription || d.documentTypeName || "Document",
+              documentTypeDescription: d.documentTypeDescription,
+              fileUrl: d.filePathOrUrl || d.fileUrl,
+              fileName:
+                d.filePathOrUrl?.split("/").pop() || d.fileName || "document",
+              createdAt: d.dateCreated || d.createdAt,
+              dateCreated: d.dateCreated || d.createdAt,
+            }));
+            setDocuments(mapped);
+          }
+        } catch {
+          // Ignore - keep empty
+        }
+      }
+
+      // Sea Service from voyageActivities
+      if (
+        onboarding.voyageActivities &&
+        onboarding.voyageActivities.length > 0
+      ) {
+        const records = onboarding.voyageActivities.map(
+          (v: VoyageActivityDto) => {
+            const dateJoined = v.dateJoined
+              ? new Date(v.dateJoined).toLocaleDateString("en-GB", {
+                  month: "short",
+                  year: "numeric",
+                  day: "numeric",
+                })
+              : "";
+            const dateLeft = v.dateLeft
+              ? new Date(v.dateLeft).toLocaleDateString("en-GB", {
+                  month: "short",
+                  year: "numeric",
+                  day: "numeric",
+                })
+              : "";
+            const period =
+              dateJoined && dateLeft ? `${dateJoined} - ${dateLeft}` : "";
+            const isCurrent = v.dateLeft
+              ? new Date(v.dateLeft) >= new Date()
+              : false;
+            return {
+              id:
+                (v as any).logId ||
+                v.voyageActivityId ||
+                (v as any).voyageActivityId ||
+                String(Math.random()),
+              vessel: v.vesselName || "",
+              company: v.operatorCompany || "",
+              vesselType: v.flagState || "",
+              rank: "",
+              period,
+              isCurrent,
+              seamanBookNo: v.seamanBookNo ?? undefined,
+              imoNumber: v.imoNumber ?? undefined,
+              flagState: v.flagState ?? undefined,
+              portOfEngagement: v.portOfEngagement ?? undefined,
+              portOfDischarge: v.portOfDischarge ?? undefined,
+              totalSeaTimeDays: v.totalSeaTimeDays ?? undefined,
+              remarks: v.remarks ?? undefined,
+            };
+          },
+        );
+        setSeaServiceRecords(records);
+      }
+    } catch (error) {
+      console.error("Error loading onboarding data:", error);
+    }
+  };
+
   // Load seafarer profile from API
   const loadSeafarerProfile = async () => {
     try {
@@ -422,48 +625,38 @@ export default function ProfileDocumentsPage() {
         const normalizedGender = normalizeGender(seafarer.gender);
         console.log("Normalized gender:", normalizedGender);
 
-        // Update Personal Information from API
-        const personalData: PersonalInfoData = {
-          firstName: seafarer.firstName || "",
-          lastName: seafarer.lastName || "",
-          dateOfBirth: seafarer.dateOfBirth || "",
-          gender: normalizedGender,
-          nationality: seafarer.nationality || "",
-          ninNumber: seafarer.ninNumber || "",
-          sidNumber: seafarer.sidNumber || "",
-          dischargeBookNo: seafarer.dischargeBookNo || "",
-          currentRankId: seafarer.currentRankId || "",
-          email: seafarer.email || userEmail || "",
-          phoneNumber: seafarer.phoneNumber || "",
-          homeAddress: seafarer.homeAddress || "",
-          walletAddress: seafarer.walletAddress || "",
-          nationalityId: seafarer.nationalityId || "",
-          profilePictureUrl: seafarer.profilePictureUrl || "",
-          profilePictureFile: null,
-        };
+        // Update Personal Information from API (dateOfBirth from IMS userInfo, not seafarer)
+        // currentRankId: prefer seafarer, fallback to existing (e.g. from onboarding)
+        setPersonalInfo((prev) => {
+          const personalData: PersonalInfoData = {
+            firstName: seafarer.firstName || "",
+            lastName: seafarer.lastName || "",
+            dateOfBirth: (user as any)?.dateOfBirth || seafarer.dateOfBirth || "",
+            gender: normalizedGender,
+            nationality: seafarer.nationality || "",
+            ninNumber: seafarer.ninNumber || "",
+            sidNumber: seafarer.sidNumber || "",
+            dischargeBookNo: seafarer.dischargeBookNo || "",
+            currentRankId: seafarer.currentRankId || prev.currentRankId || "",
+            email: seafarer.email || userEmail || "",
+            phoneNumber: seafarer.phoneNumber || "",
+            homeAddress: seafarer.homeAddress || "",
+            walletAddress: seafarer.walletAddress || "",
+            nationalityId: seafarer.nationalityId || "",
+            profilePictureUrl: seafarer.profilePictureUrl || "",
+            profilePictureFile: null,
+          };
 
-        console.log("Setting personal info with gender:", personalData.gender);
-        setPersonalInfo(personalData);
+          console.log("Setting personal info with gender:", personalData.gender);
+          return personalData;
+        });
 
         // Set profile picture preview if URL exists
         if (seafarer.profilePictureUrl) {
           setProfilePicturePreview(seafarer.profilePictureUrl);
         }
 
-        // Update Contact Details from API
-        const contactData: ContactDetailsData = {
-          email: seafarer.email || userEmail || "",
-          phone: seafarer.phoneNumber || "",
-          altPhone: "",
-          whatsapp: "",
-          city: "",
-          state: "",
-          country: seafarer.nationality || "",
-          postalCode: "",
-          address: seafarer.homeAddress || "",
-        };
-        setContactDetails(contactData);
-
+        // Contact details come from my-onboarding (loadOnboardingData), not from seafarer profile
         console.log("Loaded seafarer profile:", seafarer);
       } else {
         console.log(
@@ -501,7 +694,7 @@ export default function ProfileDocumentsPage() {
       const personalData: PersonalInfoData = {
         firstName: user.firstName || "",
         lastName: user.lastName || "",
-        dateOfBirth: "",
+        dateOfBirth: (user as any).dateOfBirth || "",
         gender: "Male", // Default value
         nationality: "",
         ninNumber: "",
@@ -536,51 +729,26 @@ export default function ProfileDocumentsPage() {
         country: user.country || "",
         postalCode: "",
         address: "",
+        emergencyContactPerson: "",
+        relationship: "",
+        emergencyContactNumber: "",
+        emergencyContactAddress: "",
       };
       setContactDetails(contactData);
     }
   };
 
-  // Load profile data on mount
+  // Load profile data on mount - use my-onboarding as primary source for contact, documents, sea service
   useEffect(() => {
     if (!userEmail) {
       console.log("No user email available");
       return;
     }
 
-    // Try to load from API first, fallback to localStorage
+    loadOnboardingData();
     loadSeafarerProfile();
-    loadContactDetailsFromAPI();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userEmail, user]);
-
-  // Load contact details from API
-  const loadContactDetailsFromAPI = async () => {
-    try {
-      const { getContactDetails } = await import("@/lib/services/profile-service");
-      const response = await getContactDetails();
-      const ok = response.success ?? (response as any).successful;
-      
-      if (ok && response.data) {
-        const contact = response.data;
-        const contactAny = contact as any;
-        setContactDetails({
-          email: contact.email || contactDetails.email || "",
-          phone: contact.phone || contactDetails.phone || "",
-          altPhone: contactAny.altPhone || (contactDetails as any).altPhone || "",
-          whatsapp: contactAny.whatsapp || (contactDetails as any).whatsapp || "",
-          city: contactAny.city || (contactDetails as any).city || "",
-          state: contactAny.state || (contactDetails as any).state || "",
-          country: contactAny.country || (contactDetails as any).country || "",
-          postalCode: contactAny.postalCode || (contactDetails as any).postalCode || "",
-          address: contact.address || contactDetails.address || "",
-        });
-      }
-    } catch (error: any) {
-      // Don't show error if contact details don't exist yet
-      console.log("Contact details not found, using defaults");
-    }
-  };
 
   useEffect(() => {
     const fetchDocumentTypes = async () => {
@@ -621,7 +789,6 @@ export default function ProfileDocumentsPage() {
     fetchDocumentTypes();
     fetchRanks();
     fetchNationalities();
-    getUserDocuments();
   }, []);
 
   // Save Personal Information
@@ -691,15 +858,21 @@ export default function ProfileDocumentsPage() {
 
     setIsSubmitting(true);
     try {
-      const { createOrUpdateContactDetails } = await import("@/lib/services/profile-service");
+      const { createOrUpdateContactDetails } =
+        await import("@/lib/services/profile-service");
       const response = await createOrUpdateContactDetails({
         email: contactDetails.email || undefined,
         phone: contactDetails.phone || undefined,
         address: contactDetails.address || undefined,
-        // Note: altPhone, whatsapp, city, state, country, postalCode are not part of the API
-        // They are stored in local state but not sent to the backend
+        emergencyContactPerson:
+          contactDetails.emergencyContactPerson || undefined,
+        relationship: contactDetails.relationship || undefined,
+        emergencyContactNumber:
+          contactDetails.emergencyContactNumber || undefined,
+        emergencyContactAddress:
+          contactDetails.emergencyContactAddress || undefined,
       } as any);
-      
+
       const ok = response.success ?? (response as any).successful;
       if (ok) {
         toast.success("Contact details saved successfully!");
@@ -763,8 +936,8 @@ export default function ProfileDocumentsPage() {
         setFileName("");
         setIsUploadModalOpen(false);
 
-        // Refresh documents list
-        await getUserDocuments();
+        // Refresh data from my-onboarding
+        await loadOnboardingData();
       } else {
         throw new Error(response.message || "Failed to upload document");
       }
@@ -809,45 +982,6 @@ export default function ProfileDocumentsPage() {
   //   },
   // ];
 
-  const seaServiceRecords = [
-    {
-      id: "1",
-      vessel: "MV Pacific Trader",
-      company: "Pacific Shipping Ltd",
-      vesselType: "Container Ship",
-      rank: "Master",
-      period: "Jun 2023 - Present",
-      isCurrent: true,
-    },
-    {
-      id: "2",
-      vessel: "MV Pacific Trader",
-      company: "Pacific Shipping Ltd",
-      vesselType: "Container Ship",
-      rank: "Chief Officer",
-      period: "Sept 2021 - May 2023",
-      isCurrent: false,
-    },
-    {
-      id: "3",
-      vessel: "MV Pacific Trader",
-      company: "Pacific Shipping Ltd",
-      vesselType: "Container Ship",
-      rank: "Second Officer",
-      period: "Mar 2019 - Aug 2021",
-      isCurrent: false,
-    },
-    {
-      id: "4",
-      vessel: "MV Pacific Trader",
-      company: "Pacific Shipping Ltd",
-      vesselType: "Container Ship",
-      rank: "Second Officer",
-      period: "Jan 2017 - Feb 2019",
-      isCurrent: false,
-    },
-  ];
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -868,7 +1002,16 @@ export default function ProfileDocumentsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Personal Information</CardTitle>
+                <div>
+                  <CardTitle>Personal Information</CardTitle>
+                  {(onboardingRn || onboardingSin) && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {onboardingRn && <span>RN: {onboardingRn}</span>}
+                      {onboardingRn && onboardingSin && " · "}
+                      {onboardingSin && <span>SIN: {onboardingSin}</span>}
+                    </p>
+                  )}
+                </div>
                 <Button variant="outline">
                   <Edit className="mr-2 h-4 w-4" />
                   Edit
@@ -989,7 +1132,7 @@ export default function ProfileDocumentsPage() {
                     <Label htmlFor="nationality">Nationality</Label>
                     <Input
                       id="nationality"
-                      value={personalInfo.nationality}
+                      value={"Nigeria"}
                       onChange={(e) =>
                         setPersonalInfo({
                           ...personalInfo,
@@ -998,30 +1141,8 @@ export default function ProfileDocumentsPage() {
                       }
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="nationalityId">Nationality *</Label>
-                    <Select
-                      value={personalInfo.nationalityId}
-                      onValueChange={(value) =>
-                        setPersonalInfo({
-                          ...personalInfo,
-                          nationalityId: value,
-                        })
-                      }
-                    >
-                      <SelectTrigger id="nationalityId">
-                        <SelectValue placeholder="Select nationality" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {nationalities.map((nat) => (
-                          <SelectItem key={nat.id} value={nat.id}>
-                            {nat.countryName || nat.isoCode3 || nat.id}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
+
+                  {/* <div className="space-y-2">
                     <Label htmlFor="ninNumber">NIN Number</Label>
                     <Input
                       id="ninNumber"
@@ -1033,21 +1154,9 @@ export default function ProfileDocumentsPage() {
                         })
                       }
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sidNumber">SID Number</Label>
-                    <Input
-                      id="sidNumber"
-                      value={personalInfo.sidNumber}
-                      onChange={(e) =>
-                        setPersonalInfo({
-                          ...personalInfo,
-                          sidNumber: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
+                  </div> */}
+
+                  {/* <div className="space-y-2">
                     <Label htmlFor="dischargeBookNo">Discharge Book No</Label>
                     <Input
                       id="dischargeBookNo"
@@ -1059,7 +1168,7 @@ export default function ProfileDocumentsPage() {
                         })
                       }
                     />
-                  </div>
+                  </div> */}
                   <div className="space-y-2">
                     <Label htmlFor="currentRankId">Current Rank *</Label>
                     <Select
@@ -1122,19 +1231,6 @@ export default function ProfileDocumentsPage() {
                         })
                       }
                       rows={3}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="walletAddress">Wallet Address</Label>
-                    <Input
-                      id="walletAddress"
-                      value={personalInfo.walletAddress}
-                      onChange={(e) =>
-                        setPersonalInfo({
-                          ...personalInfo,
-                          walletAddress: e.target.value,
-                        })
-                      }
                     />
                   </div>
                 </div>
@@ -1284,6 +1380,74 @@ export default function ProfileDocumentsPage() {
                     />
                   </div>
                 </div>
+                <div className="border-t pt-6 space-y-4">
+                  <h4 className="font-medium">Emergency Contact</h4>
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="emergencyContactPerson">
+                        Emergency Contact Person
+                      </Label>
+                      <Input
+                        id="emergencyContactPerson"
+                        value={contactDetails.emergencyContactPerson}
+                        onChange={(e) =>
+                          setContactDetails({
+                            ...contactDetails,
+                            emergencyContactPerson: e.target.value,
+                          })
+                        }
+                        placeholder="Full name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="relationship">Relationship</Label>
+                      <Input
+                        id="relationship"
+                        value={contactDetails.relationship}
+                        onChange={(e) =>
+                          setContactDetails({
+                            ...contactDetails,
+                            relationship: e.target.value,
+                          })
+                        }
+                        placeholder="e.g. Spouse, Parent"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="emergencyContactNumber">
+                        Emergency Contact Number
+                      </Label>
+                      <Input
+                        id="emergencyContactNumber"
+                        value={contactDetails.emergencyContactNumber}
+                        onChange={(e) =>
+                          setContactDetails({
+                            ...contactDetails,
+                            emergencyContactNumber: e.target.value,
+                          })
+                        }
+                        placeholder="Phone number"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="emergencyContactAddress">
+                        Emergency Contact Address
+                      </Label>
+                      <Textarea
+                        id="emergencyContactAddress"
+                        value={contactDetails.emergencyContactAddress}
+                        onChange={(e) =>
+                          setContactDetails({
+                            ...contactDetails,
+                            emergencyContactAddress: e.target.value,
+                          })
+                        }
+                        placeholder="Full address"
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+                </div>
                 <div className="flex justify-end">
                   <Button
                     className="bg-[#3EADC0] hover:bg-[#35a0b3]"
@@ -1395,38 +1559,73 @@ export default function ProfileDocumentsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {seaServiceRecords.map((record) => (
-                  <div
-                    key={record.id}
-                    className="flex items-center justify-between p-4 rounded-lg border"
-                  >
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
-                        <Ship className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold">{record.vessel}</h3>
-                          {record.isCurrent && (
-                            <Badge variant="success">Current</Badge>
+                {seaServiceRecords.length > 0 ? (
+                  seaServiceRecords.map((record) => (
+                    <div
+                      key={record.id}
+                      className="flex items-center justify-between p-4 rounded-lg border"
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
+                          <Ship className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold">
+                              {record.vessel || "Vessel"}
+                            </h3>
+                            {record.isCurrent && (
+                              <Badge variant="success">Current</Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {record.company}
+                          </p>
+                          {record.flagState && (
+                            <p className="text-sm text-muted-foreground">
+                              Flag: {record.flagState}
+                              {record.imoNumber &&
+                                ` • IMO: ${record.imoNumber}`}
+                            </p>
+                          )}
+                          {(record.portOfEngagement ||
+                            record.portOfDischarge) && (
+                            <p className="text-sm text-muted-foreground">
+                              {record.portOfEngagement &&
+                                `From: ${record.portOfEngagement}`}
+                              {record.portOfEngagement &&
+                                record.portOfDischarge &&
+                                " → "}
+                              {record.portOfDischarge &&
+                                `To: ${record.portOfDischarge}`}
+                            </p>
+                          )}
+                          {record.totalSeaTimeDays != null && (
+                            <p className="text-sm text-muted-foreground">
+                              Sea time: {record.totalSeaTimeDays} days
+                            </p>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {record.company}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {record.vesselType}
-                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">{record.period}</p>
+                        {record.seamanBookNo && (
+                          <p className="text-sm text-muted-foreground">
+                            Seaman Book: {record.seamanBookNo}
+                          </p>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">{record.rank}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {record.period}
-                      </p>
-                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Ship className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No sea service records yet</p>
+                    <p className="text-sm mt-2">
+                      Sea service records from your onboarding will appear here
+                    </p>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1459,7 +1658,10 @@ export default function ProfileDocumentsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {documentTypes.map((type: DocumentTypeDto) => (
-                    <SelectItem key={type.documentTypesId} value={type.documentTypesId}>
+                    <SelectItem
+                      key={type.documentTypesId}
+                      value={type.documentTypesId}
+                    >
                       {type.description || "Unnamed Document"}
                     </SelectItem>
                   ))}

@@ -13,6 +13,8 @@ export interface ServiceDto {
   description?: string;
   serviceTypeId: string;
   serviceTypeDescription: string;
+  amount?: number;
+  currencyId?: string;
   isActive: boolean;
   requirements: ServiceRequirementDto[];
 }
@@ -41,6 +43,7 @@ export interface ServiceRequirementDto {
 export interface CreateServiceRequest {
   serviceTypeId: string;
   currencyId: string;
+  amount: number;
   description?: string | null;
   requirements?: CreateServiceRequirementRequest[];
 }
@@ -49,6 +52,7 @@ export interface UpdateServiceRequest {
   description?: string | null;
   serviceTypeId: string;
   currencyId: string;
+  amount: number;
   isActive: boolean;
 }
 

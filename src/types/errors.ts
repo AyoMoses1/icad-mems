@@ -8,6 +8,8 @@ export enum OnboardingErrorCodes {
   DRAFT_ONBOARDING_EXISTS = "DRAFT_ONBOARDING_EXISTS",
   ACTIVE_ONBOARDING_EXISTS = "ACTIVE_ONBOARDING_EXISTS",
   ONBOARDING_NOT_FOUND = "ONBOARDING_NOT_FOUND",
+  /** Comprehensive onboarding submit with missing compulsory documents */
+  MISSING_ONBOARDING_DOCUMENTS = "MISSING_ONBOARDING_DOCUMENTS",
 }
 
 export enum RequirementListErrorCodes {

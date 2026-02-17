@@ -2,14 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  Search,
-  AlertCircle,
-} from "lucide-react";
+import { Plus, Edit, Trash2, Eye, Search, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared";
@@ -37,7 +30,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { LoadingSpinner, EmptyState, ErrorState } from "@/components/shared";
 import { useCanManageServices } from "@/utils/permissions";
-import { servicesApi, serviceManagementApi } from "@/lib/services/service-management-api";
+import {
+  servicesApi,
+  serviceManagementApi,
+} from "@/lib/services/service-management-api";
 import type { ServiceDto } from "@/types/service-management";
 
 export default function ServicesManagementPage() {
@@ -49,7 +45,9 @@ export default function ServicesManagementPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [serviceToDelete, setServiceToDelete] = useState<ServiceDto | null>(null);
+  const [serviceToDelete, setServiceToDelete] = useState<ServiceDto | null>(
+    null,
+  );
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
@@ -153,10 +151,7 @@ export default function ServicesManagementPage() {
           title="Service Management"
           description="Manage services and their requirements"
         />
-        <ErrorState
-          message={error}
-          onRetry={loadServices}
-        />
+        <ErrorState message={error} onRetry={loadServices} />
       </div>
     );
   }
@@ -216,6 +211,7 @@ export default function ServicesManagementPage() {
                 <TableRow>
                   <TableHead>Service Name</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Requirements</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -228,6 +224,7 @@ export default function ServicesManagementPage() {
                       {service.serviceName}
                     </TableCell>
                     <TableCell>{service.serviceTypeDescription}</TableCell>
+                    <TableCell>{service.amount}</TableCell>
                     <TableCell>
                       <Badge
                         variant={service.isActive ? "default" : "secondary"}
@@ -255,7 +252,7 @@ export default function ServicesManagementPage() {
                           size="sm"
                           onClick={() =>
                             router.push(
-                              `/admin/services/${service.serviceId}/edit`
+                              `/admin/services/${service.serviceId}/edit`,
                             )
                           }
                         >

@@ -756,6 +756,193 @@
         }
       }
     },
+    "/seafarer/api/v1/Applications/admin": {
+      "get": {
+        "tags": [
+          "Applications"
+        ],
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statusId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "rn",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fromDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "toDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.PagedApplicationsDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.PagedApplicationsDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.PagedApplicationsDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seafarer/api/v1/Applications/{id}/approve": {
+      "post": {
+        "tags": [
+          "Applications"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ApplicationDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ApplicationDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ApplicationDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seafarer/api/v1/Applications/{id}/reject": {
+      "post": {
+        "tags": [
+          "Applications"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.RejectApplicationRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.RejectApplicationRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.RejectApplicationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ApplicationDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ApplicationDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.ApplicationDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/seafarer/api/v1/Applications/dashboard": {
       "get": {
         "tags": [
@@ -2251,6 +2438,54 @@
         }
       }
     },
+    "/seafarer/api/v1/Identity/verify": {
+      "post": {
+        "tags": [
+          "Identity"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.IdentityVerifyRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.IdentityVerifyRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.IdentityVerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/seafarer/api/v1/Inspection/schedules": {
       "post": {
         "tags": [
@@ -3445,6 +3680,10 @@
                   "SIN": {
                     "type": "string"
                   },
+                  "RankId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
                   "Department": {
                     "type": "string"
                   },
@@ -3540,6 +3779,9 @@
                   "style": "form"
                 },
                 "SIN": {
+                  "style": "form"
+                },
+                "RankId": {
                   "style": "form"
                 },
                 "Department": {
@@ -3871,6 +4113,227 @@
         }
       }
     },
+    "/seafarer/api/v1/onboarding-requirements": {
+      "get": {
+        "tags": [
+          "OnboardingRequirement"
+        ],
+        "parameters": [
+          {
+            "name": "role",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "SEAFARER"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "OnboardingRequirement"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.CreateOnboardingRequirementRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.CreateOnboardingRequirementRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.CreateOnboardingRequirementRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seafarer/api/v1/onboarding-requirements/for-role": {
+      "get": {
+        "tags": [
+          "OnboardingRequirement"
+        ],
+        "parameters": [
+          {
+            "name": "role",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "SEAFARER"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seafarer/api/v1/onboarding-requirements/{id}": {
+      "patch": {
+        "tags": [
+          "OnboardingRequirement"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateOnboardingRequirementRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateOnboardingRequirementRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateOnboardingRequirementRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "OnboardingRequirement"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/seafarer/api/v1/Payment/applications/{id}/payment/initiate": {
       "post": {
         "tags": [
@@ -4090,6 +4553,81 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Object, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seafarer/api/v1/profile/me": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.UserProfileDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.UserProfileDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.UserProfileDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateUserProfileRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateUserProfileRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.UpdateUserProfileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.UserProfileDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.UserProfileDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.UserProfileDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
                 }
               }
             }
@@ -5683,6 +6221,68 @@
         },
         "additionalProperties": false
       },
+      "MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto"
+          },
+          "error": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiError"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.PagedApplicationsDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.PagedApplicationsDto"
+          },
+          "error": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiError"
+          }
+        },
+        "additionalProperties": false
+      },
       "MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.RequirementListDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
         "type": "object",
         "properties": {
@@ -5800,6 +6400,37 @@
           },
           "data": {
             "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.StatisticsDto"
+          },
+          "error": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiError"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Core.Responses.ApiResponse`1[[MEMS.Seafarer.Models.DTOs.UserProfileDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.UserProfileDto"
           },
           "error": {
             "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiError"
@@ -6591,6 +7222,41 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.NationalityDto"
+            },
+            "nullable": true
+          },
+          "error": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Core.Responses.ApiError"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Core.Responses.ApiResponse`1[[System.Collections.Generic.List`1[[MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto, MEMS.Seafarer.Models, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto"
             },
             "nullable": true
           },
@@ -7444,6 +8110,20 @@
             "nullable": true
           },
           "remarks": {
+            "type": "string",
+            "nullable": true
+          },
+          "approvedBy": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "approvedDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "rejectionReason": {
             "type": "string",
             "nullable": true
           },
@@ -8775,6 +9455,56 @@
         },
         "additionalProperties": false
       },
+      "MEMS.Seafarer.Models.DTOs.OnboardingRequirementDocumentTypeItemDto": {
+        "type": "object",
+        "properties": {
+          "documentTypesId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Models.DTOs.OnboardingRequirementDto": {
+        "type": "object",
+        "properties": {
+          "onboardingRequirementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "requirementKind": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Models.Enums.DocumentRequirementKind"
+          },
+          "documentTypeIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "documentTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.OnboardingRequirementDocumentTypeItemDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "MEMS.Seafarer.Models.DTOs.OnboardingSummaryDto": {
         "type": "object",
         "properties": {
@@ -8839,6 +9569,35 @@
           "description": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Models.DTOs.PagedApplicationsDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MEMS.Seafarer.Models.DTOs.ApplicationHistoryDto"
+            },
+            "nullable": true
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -9139,6 +9898,10 @@
           "serviceTypeDescription": {
             "type": "string",
             "nullable": true
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
           },
           "isActive": {
             "type": "boolean"
@@ -9469,6 +10232,96 @@
         },
         "additionalProperties": false
       },
+      "MEMS.Seafarer.Models.DTOs.UserProfileDto": {
+        "type": "object",
+        "properties": {
+          "rn": {
+            "type": "string",
+            "nullable": true
+          },
+          "userAccountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "sin": {
+            "type": "string",
+            "nullable": true
+          },
+          "firstName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastName": {
+            "type": "string",
+            "nullable": true
+          },
+          "middleName": {
+            "type": "string",
+            "nullable": true
+          },
+          "dob": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "isApprove": {
+            "type": "boolean"
+          },
+          "userTypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userTypeDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "nationalityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nationalityDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "genderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "genderDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "civilStatusId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "civilStatusDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "currentRankId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currentRankDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "userStatus": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userStatusDescription": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "MEMS.Seafarer.Models.DTOs.UserSeafarerOnboardingDto": {
         "type": "object",
         "properties": {
@@ -9581,6 +10434,15 @@
             "nullable": true
           },
           "activeOnboardingStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "currentRankId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "currentRankDescription": {
             "type": "string",
             "nullable": true
           },
@@ -9724,6 +10586,15 @@
           },
           "isOnboardingComplete": {
             "type": "boolean"
+          },
+          "currentRankId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "currentRankDescription": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9932,6 +10803,13 @@
           }
         },
         "additionalProperties": false
+      },
+      "MEMS.Seafarer.Models.Enums.DocumentRequirementKind": {
+        "enum": [
+          "Compulsory",
+          "Optional"
+        ],
+        "type": "string"
       },
       "MEMS.Seafarer.Models.Enums.OnboardingStatus": {
         "enum": [
@@ -10180,6 +11058,30 @@
         },
         "additionalProperties": false
       },
+      "MEMS.Seafarer.Models.Requests.CreateOnboardingRequirementRequest": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "documentTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.OnboardingRequirementDocumentTypeInput"
+            },
+            "nullable": true
+          },
+          "requirementKind": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Models.Enums.DocumentRequirementKind"
+          }
+        },
+        "additionalProperties": false
+      },
       "MEMS.Seafarer.Models.Requests.CreateRequirementListRequest": {
         "type": "object",
         "properties": {
@@ -10217,6 +11119,10 @@
           "currencyId": {
             "type": "string",
             "format": "uuid"
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
           },
           "description": {
             "type": "string",
@@ -10271,6 +11177,11 @@
           },
           "sin": {
             "type": "string",
+            "nullable": true
+          },
+          "rankId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           },
           "department": {
@@ -10361,6 +11272,20 @@
         },
         "additionalProperties": false
       },
+      "MEMS.Seafarer.Models.Requests.IdentityVerifyRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "MEMS.Seafarer.Models.Requests.InstitutionDocumentUploadRequest": {
         "type": "object",
         "properties": {
@@ -10390,6 +11315,16 @@
           "issuingAuthority": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Models.Requests.OnboardingRequirementDocumentTypeInput": {
+        "type": "object",
+        "properties": {
+          "documentTypesId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "additionalProperties": false
@@ -10438,6 +11373,16 @@
             "nullable": true
           },
           "issuingAuthority": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Models.Requests.RejectApplicationRequest": {
+        "type": "object",
+        "properties": {
+          "rejectionReason": {
             "type": "string",
             "nullable": true
           }
@@ -10704,6 +11649,26 @@
         },
         "additionalProperties": false
       },
+      "MEMS.Seafarer.Models.Requests.UpdateOnboardingRequirementRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "requirementKind": {
+            "$ref": "#/components/schemas/MEMS.Seafarer.Models.Enums.DocumentRequirementKind"
+          },
+          "documentTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MEMS.Seafarer.Models.Requests.OnboardingRequirementDocumentTypeInput"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "MEMS.Seafarer.Models.Requests.UpdateRequirementListRequest": {
         "type": "object",
         "properties": {
@@ -10776,6 +11741,10 @@
             "type": "string",
             "format": "uuid"
           },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
           "isActive": {
             "type": "boolean"
           }
@@ -10795,6 +11764,53 @@
           },
           "requiredValue": {
             "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MEMS.Seafarer.Models.Requests.UpdateUserProfileRequest": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastName": {
+            "type": "string",
+            "nullable": true
+          },
+          "middleName": {
+            "type": "string",
+            "nullable": true
+          },
+          "dob": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "sin": {
+            "type": "string",
+            "nullable": true
+          },
+          "currentRankId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "nationalityId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "genderId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "civilStatusId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         },

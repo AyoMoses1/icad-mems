@@ -166,16 +166,42 @@ export interface ApplicationDashboardDto {
   totalSeaTimeYears?: number | null;
 }
 
+/**
+ * ApplicationHistoryDto - matches swagger GET /Applications/history response.
+ * API returns flat structure with applicationId, rn, serviceName, etc.
+ * documents array contains ApplicationDocumentDto for attachments.
+ */
 export interface ApplicationHistoryDto {
-  application: ApplicationDto;
+  application?: ApplicationDto;
+  applicationId?: string;
+  rn?: string | null;
+  serviceId?: string;
+  serviceName?: string | null;
+  serviceType?: string | null;
+  applicationStatusId?: string;
+  applicationStatus?: string | null;
+  applicationDate?: string | null;
+  remarks?: string | null;
+  dateCreated?: string | null;
+  dateSubmitted?: string | null;
   requirements?: ApplicationRequirementDto[] | null;
-  documents?: unknown[] | null;
-  invoices?: unknown[] | null;
-  payments?: unknown[] | null;
-  statusHistory?: unknown[] | null;
+  documents?: Array<{
+    documentId?: string;
+    documentTypeDescription?: string | null;
+    documentNumber?: string | null;
+    issueDate?: string | null;
+    expiryDate?: string | null;
+    filePathOrUrl?: string | null;
+  }> | null;
   totalRequirements?: number;
   completedRequirements?: number;
   pendingRequirements?: number;
+  hasInvoice?: boolean;
+  hasPayment?: boolean;
+  invoice?: unknown;
+  payment?: unknown;
+  paymentStatus?: string | null;
+  statusHistory?: unknown[];
 }
 
 export interface ApplicationHistoryFilters {
@@ -185,6 +211,15 @@ export interface ApplicationHistoryFilters {
   toDate?: string;
   pageNumber?: number;
   pageSize?: number;
+}
+
+/** Paginated response from GET /Applications/history */
+export interface PaginatedApplicationHistory {
+  items: ApplicationHistoryDto[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 export interface ApplicationFilters {
@@ -308,10 +343,11 @@ export async function getApplicationHistory(
 /**
  * Get applications with history (filtered)
  * GET /seafarer/api/v1/Applications/history
+ * Response: { data: { items, totalCount, pageNumber, pageSize, totalPages } }
  */
 export async function getApplicationsWithHistory(
   filters: ApplicationHistoryFilters = {}
-): Promise<ApiResponse<ApplicationHistoryDto[]>> {
+): Promise<ApiResponse<PaginatedApplicationHistory>> {
   const { pageNumber = 1, pageSize = 10, serviceId, statusId, fromDate, toDate } = filters;
 
   const params = new URLSearchParams({
@@ -324,7 +360,9 @@ export async function getApplicationsWithHistory(
   if (fromDate) params.append("fromDate", fromDate);
   if (toDate) params.append("toDate", toDate);
 
-  return apiGetMain<ApplicationHistoryDto[]>(`${API_BASE}/history?${params.toString()}`);
+  return apiGetMain<PaginatedApplicationHistory>(
+    `${API_BASE}/admin?${params.toString()}`
+  );
 }
 
 // ============================================================================
@@ -349,6 +387,28 @@ export async function getApplicationInvoice(
   applicationId: string
 ): Promise<ApiResponse<ApplicationInvoiceDto>> {
   return apiGetMain<ApplicationInvoiceDto>(`${API_BASE}/${applicationId}/invoice`);
+}
+
+/**
+ * Approve application
+ * POST /seafarer/api/v1/Applications/{id}/approve
+ */
+export async function approveApplication(
+  applicationId: string
+): Promise<ApiResponse<ApplicationDto>> {
+  return apiPostMain<ApplicationDto>(`${API_BASE}/${applicationId}/approve`, {});
+}
+
+/**
+ * Reject application
+ * POST /seafarer/api/v1/Applications/{id}/reject
+ * Body: { rejectionReason?: string }
+ */
+export async function rejectApplication(
+  applicationId: string,
+  data: { rejectionReason?: string | null }
+): Promise<ApiResponse<ApplicationDto>> {
+  return apiPostMain<ApplicationDto>(`${API_BASE}/${applicationId}/reject`, data);
 }
 
 // ============================================================================
@@ -435,6 +495,11 @@ export interface ApplicationAttachmentDto {
   applicationId?: string;
   heldDocumentId?: string;
   wasValidAtSubmission?: boolean | null;
+  documentName?: string | null;
+  documentNumber?: string | null;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  fileUrl?: string | null;
 }
 
 export interface GenerateInvoiceRequest {
@@ -541,42 +606,6 @@ export async function generateApplicationInvoiceWithFee(
 // ============================================================================
 // Admin/Officer Functions
 // ============================================================================
-
-/**
- * Approve application (Officer/Admin only)
- * ⚠️ DEPRECATED: The /seafarer/api/v1/Applications/{id}/approve endpoint does not exist in swagger.json
- * 
- * @deprecated This endpoint does not exist in the API
- */
-export async function approveApplication(
-  applicationId: string,
-  approvalData?: { comments?: string }
-): Promise<ApiResponse<ApplicationDto>> {
-  // Endpoint /seafarer/api/v1/Applications/{id}/approve does not exist in swagger.json
-  return {
-    success: false,
-    error: { message: "Endpoint /seafarer/api/v1/Applications/{id}/approve does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: undefined,
-  };
-}
-
-/**
- * Reject application (Officer/Admin only)
- * ⚠️ DEPRECATED: The /seafarer/api/v1/Applications/{id}/reject endpoint does not exist in swagger.json
- * 
- * @deprecated This endpoint does not exist in the API
- */
-export async function rejectApplication(
-  applicationId: string,
-  rejectionData: { reason?: string; comments?: string }
-): Promise<ApiResponse<ApplicationDto>> {
-  // Endpoint /seafarer/api/v1/Applications/{id}/reject does not exist in swagger.json
-  return {
-    success: false,
-    error: { message: "Endpoint /seafarer/api/v1/Applications/{id}/reject does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: undefined,
-  };
-}
 
 /**
  * Get paginated list of applications with optional filtering

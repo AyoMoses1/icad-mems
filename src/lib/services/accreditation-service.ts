@@ -304,8 +304,11 @@ export async function getAllAccreditations(params?: {
 // ============================================================================
 
 export interface StcwStandardDto {
-  id: string;
+  id?: string;
   stcwRef: string;
+  regulationCode?: string;
+  competenceArea?: string;
+  level?: string;
   description?: string;
   isActive?: boolean;
 }

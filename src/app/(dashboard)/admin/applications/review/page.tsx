@@ -14,12 +14,19 @@ import {
   DataTable,
 } from "@/components/shared";
 import {
-  getPendingApplications,
+  getApplicationsWithHistory,
   approveApplication,
   rejectApplication,
-  type ApplicationDto,
+  type ApplicationHistoryDto,
   type ApplicationAttachmentDto,
-} from "@/lib/services/admin-review-service";
+} from "@/lib/services/application-service";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -36,9 +43,9 @@ export default function AdminApplicationsReviewPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [applications, setApplications] = useState<ApplicationDto[]>([]);
+  const [applications, setApplications] = useState<ApplicationHistoryDto[]>([]);
   const [selectedApplication, setSelectedApplication] =
-    useState<ApplicationDto | null>(null);
+    useState<ApplicationHistoryDto | null>(null);
   const [attachments, setAttachments] = useState<ApplicationAttachmentDto[]>(
     [],
   );
@@ -50,21 +57,26 @@ export default function AdminApplicationsReviewPage() {
   const [previewDocument, setPreviewDocument] =
     useState<ApplicationAttachmentDto | null>(null);
   const [remarks, setRemarks] = useState("");
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   const loadApplications = async () => {
     setIsLoading(true);
     try {
-      const res = await getPendingApplications({
-        pageNumber: 1,
-        pageSize: 100,
-        sortDirection: "asc",
+      const res = await getApplicationsWithHistory({
+        pageNumber,
+        pageSize,
       });
       const ok = res.success ?? (res as any).successful;
       if (!ok) throw new Error(res.message || "Failed to load applications");
 
-      // Response structure: data is a direct array
-      const applicationsData = Array.isArray(res.data) ? res.data : [];
+      const paginated = res.data;
+      const applicationsData = paginated?.items ?? [];
       setApplications(applicationsData);
+      setTotalCount(paginated?.totalCount ?? 0);
+      setTotalPages(paginated?.totalPages ?? 1);
     } catch (err: any) {
       console.error(err);
       toast.error(err?.message || "Failed to load applications");
@@ -75,27 +87,27 @@ export default function AdminApplicationsReviewPage() {
 
   useEffect(() => {
     loadApplications();
-  }, []);
+  }, [pageNumber, pageSize]);
 
   // Note: loadAttachments is no longer used since documents are extracted
   // directly from the onboarding record in handleViewAttachments
 
-  const handleViewAttachments = async (application: ApplicationDto) => {
+  const handleViewAttachments = async (application: ApplicationHistoryDto) => {
     setSelectedApplication(application);
     setIsAttachmentsDialogOpen(true);
-    
-    // Extract documents from the onboarding record directly
-    // The onboarding response includes all documents in various arrays
-    const onboardingData = application as any;
+
+    // Extract documents from ApplicationHistoryDto (Applications/history response)
+    const appData = application as any;
     const allDocuments: ApplicationAttachmentDto[] = [];
-    
-    // Extract institution documents
-    if (onboardingData.institutionDocuments && Array.isArray(onboardingData.institutionDocuments)) {
-      onboardingData.institutionDocuments.forEach((doc: any) => {
+
+    // Documents array from Applications API (ApplicationDocumentDto[])
+    if (appData.documents && Array.isArray(appData.documents)) {
+      appData.documents.forEach((doc: any) => {
         allDocuments.push({
           id: doc.documentId,
-          applicationId: onboardingData.userSeafarerOnboardingId || onboardingData.id,
-          documentName: doc.documentTypeDescription || "Institution Document",
+          heldDocumentId: doc.documentId,
+          applicationId: appData.applicationId || appData.application?.applicationId,
+          documentName: doc.documentTypeDescription || "Document",
           documentNumber: doc.documentNumber,
           issueDate: doc.issueDate,
           expiryDate: doc.expiryDate,
@@ -103,14 +115,16 @@ export default function AdminApplicationsReviewPage() {
         });
       });
     }
-    
-    // Extract profile documents
-    if (onboardingData.profileDocuments && Array.isArray(onboardingData.profileDocuments)) {
-      onboardingData.profileDocuments.forEach((doc: any) => {
+
+    // Fallback: nested application.documents or application.requirements with document refs
+    const nestedApp = appData.application;
+    if (allDocuments.length === 0 && nestedApp?.documents && Array.isArray(nestedApp.documents)) {
+      nestedApp.documents.forEach((doc: any) => {
         allDocuments.push({
           id: doc.documentId,
-          applicationId: onboardingData.userSeafarerOnboardingId || onboardingData.id,
-          documentName: doc.documentTypeDescription || "Profile Document",
+          heldDocumentId: doc.documentId,
+          applicationId: nestedApp.applicationId,
+          documentName: doc.documentTypeDescription || "Document",
           documentNumber: doc.documentNumber,
           issueDate: doc.issueDate,
           expiryDate: doc.expiryDate,
@@ -118,75 +132,29 @@ export default function AdminApplicationsReviewPage() {
         });
       });
     }
-    
-    // Extract education documents
-    if (onboardingData.educationDetails && Array.isArray(onboardingData.educationDetails)) {
-      onboardingData.educationDetails.forEach((edu: any) => {
-        if (edu.documents && Array.isArray(edu.documents)) {
-          edu.documents.forEach((doc: any) => {
-            allDocuments.push({
-              id: doc.documentId,
-              applicationId: onboardingData.userSeafarerOnboardingId || onboardingData.id,
-              documentName: doc.documentTypeDescription || "Education Document",
-              documentNumber: doc.documentNumber,
-              issueDate: doc.issueDate,
-              expiryDate: doc.expiryDate,
-              fileUrl: doc.filePathOrUrl,
-            });
-          });
-        }
-      });
-    }
-    
-    // Extract voyage documents
-    if (onboardingData.voyageActivities && Array.isArray(onboardingData.voyageActivities)) {
-      onboardingData.voyageActivities.forEach((voyage: any) => {
-        if (voyage.documents && Array.isArray(voyage.documents)) {
-          voyage.documents.forEach((doc: any) => {
-            allDocuments.push({
-              id: doc.documentId,
-              applicationId: onboardingData.userSeafarerOnboardingId || onboardingData.id,
-              documentName: doc.documentTypeDescription || "Voyage Document",
-              documentNumber: doc.documentNumber,
-              issueDate: doc.issueDate,
-              expiryDate: doc.expiryDate,
-              fileUrl: doc.filePathOrUrl,
-            });
-          });
-        }
-      });
-    }
-    
+
     setAttachments(allDocuments);
   };
 
   const handleApprove = async () => {
     if (!selectedApplication) return;
-    setIsSubmitting(true);
+    const appId = (selectedApplication as any).applicationId;
+    if (!appId) {
+      toast.error("Application ID is missing");
+      return;
+    }
     try {
-      // Use userSeafarerOnboardingId if available, otherwise fall back to id
-      const applicationId = (selectedApplication as any).userSeafarerOnboardingId || selectedApplication.id;
-      if (!applicationId) {
-        toast.error("Application ID not found");
-        setIsSubmitting(false);
-        return;
-      }
-      
-      const res = await approveApplication(applicationId, {
-        remarks: remarks || null,
-      });
+      setIsSubmitting(true);
+      const res = await approveApplication(appId);
       const ok = res.success ?? (res as any).successful;
-      if (ok) {
-        toast.success("Application approved");
-        setIsApproveDialogOpen(false);
-        setRemarks("");
-        setSelectedApplication(null);
-        await loadApplications();
-      } else {
-        toast.error(res.message || "Approval failed");
-      }
+      if (!ok) throw new Error(res.message || res.error?.message || "Failed to approve");
+      toast.success("Application approved");
+      setIsApproveDialogOpen(false);
+      setRemarks("");
+      setSelectedApplication(null);
+      loadApplications();
     } catch (err: any) {
-      toast.error(err?.message || "Approval failed");
+      toast.error(err?.message || "Failed to approve application");
     } finally {
       setIsSubmitting(false);
     }
@@ -194,31 +162,25 @@ export default function AdminApplicationsReviewPage() {
 
   const handleReject = async () => {
     if (!selectedApplication) return;
-    setIsSubmitting(true);
+    const appId = (selectedApplication as any).applicationId;
+    if (!appId) {
+      toast.error("Application ID is missing");
+      return;
+    }
     try {
-      // Use userSeafarerOnboardingId if available, otherwise fall back to id
-      const applicationId = (selectedApplication as any).userSeafarerOnboardingId || selectedApplication.id;
-      if (!applicationId) {
-        toast.error("Application ID not found");
-        setIsSubmitting(false);
-        return;
-      }
-      
-      const res = await rejectApplication(applicationId, {
-        remarks: remarks || null,
+      setIsSubmitting(true);
+      const res = await rejectApplication(appId, {
+        rejectionReason: remarks.trim() || undefined,
       });
       const ok = res.success ?? (res as any).successful;
-      if (ok) {
-        toast.success("Application rejected");
-        setIsRejectDialogOpen(false);
-        setRemarks("");
-        setSelectedApplication(null);
-        await loadApplications();
-      } else {
-        toast.error(res.message || "Rejection failed");
-      }
+      if (!ok) throw new Error(res.message || res.error?.message || "Failed to reject");
+      toast.success("Application rejected");
+      setIsRejectDialogOpen(false);
+      setRemarks("");
+      setSelectedApplication(null);
+      loadApplications();
     } catch (err: any) {
-      toast.error(err?.message || "Rejection failed");
+      toast.error(err?.message || "Failed to reject application");
     } finally {
       setIsSubmitting(false);
     }
@@ -234,29 +196,26 @@ export default function AdminApplicationsReviewPage() {
       }
 
       const token = useAuthStore.getState().token;
+      const fileUrl = attachment.fileUrl;
 
-      // Build query parameters for /api/files/download
-      const queryParams = new URLSearchParams();
-      if (attachment.heldDocumentId) {
-        queryParams.append("id", attachment.heldDocumentId);
-      }
-      if (attachment.fileUrl) {
-        queryParams.append("url", attachment.fileUrl);
-      }
+      // Use direct file URL (same as profile-documents): API_BASE + filePathOrUrl
+      const directUrl = fileUrl?.startsWith("http")
+        ? fileUrl
+        : fileUrl
+          ? `${API_BASE_URL.replace(/\/$/, "")}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`
+          : null;
 
-      if (!attachment.heldDocumentId && !attachment.fileUrl) {
-        toast.error("Document ID or URL is required for preview");
+      if (!directUrl) {
+        toast.error("Document URL is not available for preview");
         return;
       }
-
-      const url = `${API_BASE_URL}/api/files/download?${queryParams.toString()}`;
 
       const headers: Record<string, string> = {};
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await fetch(url, {
+      const response = await fetch(directUrl, {
         method: "GET",
         headers,
       });
@@ -290,29 +249,26 @@ export default function AdminApplicationsReviewPage() {
       }
 
       const token = useAuthStore.getState().token;
+      const fileUrl = attachment.fileUrl;
 
-      // Build query parameters for /api/files/download
-      const queryParams = new URLSearchParams();
-      if (attachment.heldDocumentId) {
-        queryParams.append("id", attachment.heldDocumentId);
-      }
-      if (attachment.fileUrl) {
-        queryParams.append("url", attachment.fileUrl);
-      }
+      // Use direct file URL (same as profile-documents): API_BASE + filePathOrUrl
+      const directUrl = fileUrl?.startsWith("http")
+        ? fileUrl
+        : fileUrl
+          ? `${API_BASE_URL.replace(/\/$/, "")}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`
+          : null;
 
-      if (!attachment.heldDocumentId && !attachment.fileUrl) {
-        toast.error("Document ID or URL is required for download");
+      if (!directUrl) {
+        toast.error("Document URL is not available for download");
         return;
       }
-
-      const url = `${API_BASE_URL}/api/files/download?${queryParams.toString()}`;
 
       const headers: Record<string, string> = {};
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await fetch(url, {
+      const response = await fetch(directUrl, {
         method: "GET",
         headers,
       });
@@ -351,9 +307,8 @@ export default function AdminApplicationsReviewPage() {
     {
       id: "applicantId",
       header: "Applicant ID",
-      cell: ({ row }: { row: ApplicationDto }) => {
-        // Use rn (reference number) as Applicant ID, fallback to other fields
-        const applicantId = (row as any).rn || row.applicantId || row.seafarerId || row.seafarerName;
+      cell: ({ row }: { row: ApplicationHistoryDto }) => {
+        const applicantId = (row as any).rn || (row as any).application?.rn;
         return (
           <div className="font-medium font-mono text-sm">
             {applicantId || "N/A"}
@@ -362,32 +317,25 @@ export default function AdminApplicationsReviewPage() {
       },
     },
     {
-      id: "targetDocument",
-      header: "Target Document",
-      cell: ({ row }: { row: ApplicationDto }) => {
-        // Use roleDescription or role as Target Document
-        const targetDoc = (row as any).roleDescription || (row as any).role || 
-                         row.targetDocumentMasterId ||
-                         row.certificateId ||
-                         row.documentId ||
-                         row.certificateName ||
-                         row.documentName;
+      id: "serviceName",
+      header: "Service",
+      cell: ({ row }: { row: ApplicationHistoryDto }) => {
+        const serviceName =
+          (row as any).serviceName || (row as any).application?.serviceName;
         return (
-          <div className="font-mono text-sm">
-            {targetDoc || "N/A"}
-          </div>
+          <div className="font-mono text-sm">{serviceName || "N/A"}</div>
         );
       },
     },
     {
       id: "status",
       header: "Status",
-      cell: ({ row }: { row: ApplicationDto }) => {
-        // Use status or statusDescription from onboarding, fallback to applicationStatus
-        const status = (row as any).status || 
-                      (row as any).statusDescription || 
-                      row.applicationStatus || 
-                      "Pending";
+      cell: ({ row }: { row: ApplicationHistoryDto }) => {
+        const status =
+          (row as any).applicationStatus ||
+          (row as any).application?.applicationStatus ||
+          (row as any).application?.status ||
+          "Pending";
         const statusVariant = status.toLowerCase().includes("approved")
           ? "default"
           : status.toLowerCase().includes("rejected")
@@ -395,27 +343,37 @@ export default function AdminApplicationsReviewPage() {
             : status.toLowerCase().includes("pending")
               ? "secondary"
               : "outline";
-        return <Badge variant={statusVariant}>{status.toUpperCase()}</Badge>;
+        return <Badge variant={statusVariant}>{String(status).toUpperCase()}</Badge>;
       },
     },
     {
       id: "paymentStatus",
       header: "Payment",
-      cell: ({ row }: { row: ApplicationDto }) => (
-        <Badge variant={row.isPaid ? "default" : "secondary"}>
-          {row.isPaid ? "Paid" : "Unpaid"}
-        </Badge>
-      ),
+      cell: ({ row }: { row: ApplicationHistoryDto }) => {
+        const paymentStatus =
+          (row as any).paymentStatus ??
+          ((row as any).hasPayment ? "PAID" : null) ??
+          ((row as any).application?.hasPayment ? "PAID" : null);
+        const label = paymentStatus || "Unpaid";
+        const variant =
+          paymentStatus === "PAID"
+            ? "default"
+            : paymentStatus === "FAILED"
+              ? "destructive"
+              : "secondary";
+        return <Badge variant={variant}>{String(label).toUpperCase()}</Badge>;
+      },
     },
     {
       id: "submittedAt",
       header: "Submitted",
-      cell: ({ row }: { row: ApplicationDto }) => {
-        // Use dateCreated from onboarding, fallback to other date fields
-        const submittedDate = (row as any).dateCreated || 
-                             row.submissionDate ||
-                             row.submittedAt ||
-                             row.createdAt;
+      cell: ({ row }: { row: ApplicationHistoryDto }) => {
+        const submittedDate =
+          (row as any).applicationDate ||
+          (row as any).dateSubmitted ||
+          (row as any).dateCreated ||
+          (row as any).application?.applicationDate ||
+          (row as any).application?.dateCreated;
         return (
           <div className="text-sm text-muted-foreground">
             {submittedDate
@@ -428,7 +386,7 @@ export default function AdminApplicationsReviewPage() {
     {
       id: "actions",
       header: "Actions",
-      cell: ({ row }: { row: ApplicationDto }) => (
+      cell: ({ row }: { row: ApplicationHistoryDto }) => (
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -468,18 +426,48 @@ export default function AdminApplicationsReviewPage() {
     <div className="space-y-6">
       <PageHeader
         title="Applications Review"
-        description="Review and approve/reject certificate applications"
+        description="Review service applications (certificates, licenses, etc.)"
       />
 
       <Card>
-        <CardHeader>
-          <CardTitle>Pending Applications</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <CardTitle>Service Applications</CardTitle>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Rows per page:</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(v) => {
+                setPageSize(Number(v));
+                setPageNumber(1);
+              }}
+            >
+              <SelectTrigger className="w-[72px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
-          {applications.length === 0 ? (
-            <EmptyState title="No pending applications" />
+          {applications.length === 0 && !isLoading ? (
+            <EmptyState title="No service applications found" />
           ) : (
-            <DataTable columns={columns} data={applications} />
+            <DataTable
+              columns={columns}
+              data={applications}
+              getRowId={(row) =>
+                (row as any).applicationId || (row as any).application?.applicationId || ""
+              }
+              pageSize={pageSize}
+              totalCount={totalCount}
+              currentPage={pageNumber}
+              onPageChange={(p) => setPageNumber(Math.max(1, p))}
+            />
           )}
         </CardContent>
       </Card>
@@ -534,7 +522,7 @@ export default function AdminApplicationsReviewPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="reject-remarks">Remarks (Optional)</Label>
+              <Label htmlFor="reject-remarks">Remarks (required)</Label>
               <Textarea
                 id="reject-remarks"
                 value={remarks}
@@ -611,7 +599,7 @@ export default function AdminApplicationsReviewPage() {
                           {new Date(attachment.expiryDate).toLocaleDateString()}
                         </div>
                       )}
-                      {attachment.wasValidAtSubmission !== null && (
+                      {typeof attachment.wasValidAtSubmission === "boolean" && (
                         <Badge
                           variant={
                             attachment.wasValidAtSubmission

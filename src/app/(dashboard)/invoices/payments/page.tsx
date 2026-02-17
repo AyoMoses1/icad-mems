@@ -78,7 +78,7 @@ export default function PaymentsPage() {
   const [isManualPaymentDialogOpen, setIsManualPaymentDialogOpen] =
     useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentDto | null>(
-    null
+    null,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -191,7 +191,7 @@ export default function PaymentsPage() {
         setSelectedPayment(response.data);
         // Could open a detail dialog here
         toast.info(
-          `Payment ${response.data.paymentReference || payment.id} details loaded`
+          `Payment ${response.data.paymentReference || payment.id} details loaded`,
         );
       }
     } catch (error) {
@@ -349,16 +349,6 @@ export default function PaymentsPage() {
               <SelectItem value="Cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setIsVerifyDialogOpen(true)}>
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            Verify Payment
-          </Button>
-          <Button onClick={() => setIsManualPaymentDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Record Manual Payment
-          </Button>
         </div>
       </div>
 
@@ -530,4 +520,3 @@ export default function PaymentsPage() {
     </div>
   );
 }
-

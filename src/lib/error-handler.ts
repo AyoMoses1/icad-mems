@@ -21,6 +21,11 @@ export function handleApiError(error: unknown): string {
         return "You have an active approved onboarding. Please complete it first.";
       case OnboardingErrorCodes.ONBOARDING_NOT_FOUND:
         return "Onboarding record not found.";
+      case OnboardingErrorCodes.MISSING_ONBOARDING_DOCUMENTS:
+        return (
+          error.message ||
+          "Missing required document(s). Please upload all compulsory documents and try again."
+        );
       case RequirementListErrorCodes.DUPLICATE_DOCUMENT_TYPE_IDS:
         return "Duplicate document type IDs are not allowed.";
       case RequirementListErrorCodes.DOCUMENT_TYPE_ASSOCIATION_FAILED:

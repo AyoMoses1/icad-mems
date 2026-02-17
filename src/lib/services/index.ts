@@ -206,6 +206,7 @@ export {
   getOnboardingById,
   updateOnboardingStatus,
   getMyOnboarding,
+  getSeafarerIdentificationNumber,
 } from "./onboarding-service";
 
 // Onboarding requirements

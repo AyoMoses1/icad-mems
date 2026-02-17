@@ -287,6 +287,8 @@ export interface UserSeafarerOnboardingDto {
   blockingReason?: string | null;
   activeOnboardingRole?: string | null;
   activeOnboardingStatus?: string | null;
+  currentRankId?: string | null;
+  currentRankDescription?: string | null;
 }
 
 /**
@@ -407,5 +409,18 @@ export async function updateOnboardingStatus(
   return apiPatchMain<UserSeafarerOnboardingDto>(
     `${API_BASE}/${id}/status`,
     data,
+  );
+}
+
+/**
+ * Fetch the generated Seafarer Identification Number (SIN) for an onboarding record.
+ * Call this when opening the Approve dialog to show the backend-generated SIN.
+ * Replace the endpoint path below with the actual backend route when provided.
+ */
+export async function getSeafarerIdentificationNumber(
+  onboardingId: string
+): Promise<ApiResponse<{ sin: string }>> {
+  return apiGetMain<{ sin: string }>(
+    `${API_BASE}/${onboardingId}/seafarer-identification-number`
   );
 }

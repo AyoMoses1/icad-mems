@@ -42,8 +42,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { LoadingSpinner, PageHeader } from "@/components/shared";
 import {
   getAllOnboardings,
-  getPendingOnboardings,
   updateOnboardingStatus,
+  getSeafarerIdentificationNumber,
   type UserSeafarerOnboardingDto,
   OnboardingStatus,
 } from "@/lib/services/onboarding-service";
@@ -97,7 +97,8 @@ export default function OnboardingAdminPage() {
   const [selectedOnboarding, setSelectedOnboarding] = useState<OnboardingDto | null>(null);
   const [reviewAction, setReviewAction] = useState<"APPROVED" | "REJECTED" | "SUSPENDED">("APPROVED");
   const [reviewNotes, setReviewNotes] = useState("");
-  const [registrationNumber, setRegistrationNumber] = useState("");
+  const [seafarerIdNumber, setSeafarerIdNumber] = useState("");
+  const [isLoadingSin, setIsLoadingSin] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -132,11 +133,6 @@ export default function OnboardingAdminPage() {
 
   const handleReviewOnboarding = async () => {
     if (!selectedOnboarding) return;
-    
-    if (reviewAction === "APPROVED" && !registrationNumber.trim()) {
-      toast.error("Please enter a registration number for approval");
-      return;
-    }
 
     if (reviewAction === "REJECTED" && !reviewNotes.trim()) {
       toast.error("Please provide a rejection reason");
@@ -147,17 +143,17 @@ export default function OnboardingAdminPage() {
       setIsSubmitting(true);
       const response = await updateOnboardingStatus(selectedOnboarding.id, {
         status: reviewAction as OnboardingStatus,
-        rn: reviewAction === "APPROVED" ? registrationNumber : undefined,
+        rn: reviewAction === "APPROVED" ? selectedOnboarding.rn ?? undefined : undefined,
         rejectionReason: reviewAction === "REJECTED" ? reviewNotes : undefined,
         notes: reviewNotes || undefined,
       });
-      
+
       if (response.success) {
         toast.success(`Onboarding ${reviewAction.toLowerCase()} successfully`);
         setIsReviewDialogOpen(false);
         setSelectedOnboarding(null);
         setReviewNotes("");
-        setRegistrationNumber("");
+        setSeafarerIdNumber("");
         loadOnboardings();
       } else {
         toast.error(response.message || "Failed to update onboarding");
@@ -170,12 +166,23 @@ export default function OnboardingAdminPage() {
     }
   };
 
-  const openReviewDialog = (onboarding: OnboardingDto, action: "APPROVED" | "REJECTED" | "SUSPENDED") => {
+  const openReviewDialog = async (onboarding: OnboardingDto, action: "APPROVED" | "REJECTED" | "SUSPENDED") => {
     setSelectedOnboarding(onboarding);
     setReviewAction(action);
     setReviewNotes("");
-    setRegistrationNumber("");
+    setSeafarerIdNumber(onboarding.sin ?? "");
     setIsReviewDialogOpen(true);
+    if (action === "APPROVED" && onboarding.id) {
+      setIsLoadingSin(true);
+      try {
+        const res = await getSeafarerIdentificationNumber(onboarding.id);
+        if (res.success && res.data?.sin) setSeafarerIdNumber(res.data.sin);
+      } catch {
+        // Keep existing onboarding.sin if any
+      } finally {
+        setIsLoadingSin(false);
+      }
+    }
   };
 
   const viewOnboardingDetails = (id: string) => {
@@ -304,30 +311,37 @@ export default function OnboardingAdminPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             {selectedOnboarding && (
-              <div className="p-3 bg-muted rounded-lg space-y-2">
+              <div className="p-3 bg-muted rounded-lg">
                 <div className="flex items-center gap-2">
                   <Badge className={ROLE_COLORS[selectedOnboarding.role] || "bg-gray-100"}>
                     {ROLE_ICONS[selectedOnboarding.role]}
                     <span className="ml-1">{selectedOnboarding.role}</span>
                   </Badge>
                 </div>
-                {selectedOnboarding.sin && (
-                  <p className="text-sm">
-                    <span className="text-muted-foreground">SIN:</span> {selectedOnboarding.sin}
-                  </p>
-                )}
               </div>
             )}
             {reviewAction === "APPROVED" && (
-              <div className="space-y-2">
-                <Label htmlFor="rn">Registration Number (RN) *</Label>
-                <Input
-                  id="rn"
-                  placeholder="e.g., SEAF001234"
-                  value={registrationNumber}
-                  onChange={(e) => setRegistrationNumber(e.target.value)}
-                />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="rn">Registration Number (RN)</Label>
+                  <Input
+                    id="rn"
+                    value={selectedOnboarding?.rn ?? ""}
+                    readOnly
+                    className="bg-muted"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sin">Seafarer Identification Number (SIN)</Label>
+                  <Input
+                    id="sin"
+                    placeholder={isLoadingSin ? "Loading..." : "—"}
+                    value={seafarerIdNumber}
+                    readOnly
+                    className="bg-muted"
+                  />
+                </div>
+              </>
             )}
             <div className="space-y-2">
               <Label htmlFor="notes">

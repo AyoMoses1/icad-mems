@@ -67,6 +67,8 @@ interface UserInfo {
   lastName?: string;
   middleName?: string;
   fullName?: string;
+  dateOfBirth?: string;
+  date_of_birth?: string;
   country?: string;
   status?: string;
   createdAt?: string;
@@ -412,6 +414,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         middleName: userInfo.middleName || user?.middleName,
         lastName:
           userInfo.lastName || userInfo.family_name || user?.lastName || "",
+        dateOfBirth:
+          userInfo.dateOfBirth || userInfo.date_of_birth || user?.dateOfBirth || undefined,
         fullName:
           userInfo.fullName ||
           userInfo.name ||
@@ -692,7 +696,11 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   // Reset redirect flag when pathname changes to onboarding
   useEffect(() => {
-    if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) {
+    if (
+      pathname === "/onboarding" ||
+      pathname.startsWith("/onboarding/") ||
+      pathname === "/onboarding/welcome"
+    ) {
       setHasRedirectedToOnboarding(false);
     }
   }, [pathname]);
@@ -763,7 +771,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         // Redirect to onboarding if not already on onboarding page
         if (!isOnboardingPage) {
           setHasRedirectedToOnboarding(true);
-          router.replace("/onboarding");
+          router.replace("/onboarding/welcome");
         }
       }
     }
@@ -921,7 +929,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     if (!isOnboardingPage) {
       if (typeof window !== "undefined" && !hasRedirectedToOnboarding) {
         setHasRedirectedToOnboarding(true);
-        router.replace("/onboarding");
+        router.replace("/onboarding/welcome");
       }
       return <LoadingPage message="Redirecting to onboarding..." />;
     }

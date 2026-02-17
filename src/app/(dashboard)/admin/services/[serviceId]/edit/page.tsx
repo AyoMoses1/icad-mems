@@ -11,6 +11,7 @@ import * as z from "zod";
 import { PageHeader } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -31,6 +32,7 @@ import type { UpdateServiceRequest } from "@/types/service-management";
 const formSchema = z.object({
   serviceTypeId: z.string().min(1, "Service type is required"),
   currencyId: z.string().min(1, "Currency is required"),
+  amount: z.coerce.number().min(0, "Amount must be 0 or greater"),
   description: z.string().optional().nullable(),
   isActive: z.boolean(),
 });
@@ -60,6 +62,7 @@ export default function EditServicePage() {
     defaultValues: {
       serviceTypeId: "",
       currencyId: "",
+      amount: 0,
       description: "",
       isActive: true,
     },
@@ -97,10 +100,12 @@ export default function EditServicePage() {
       
       // Set form values
       setValue("serviceTypeId", service.serviceTypeId);
+      setValue("currencyId", service.currencyId || "");
+      setValue("amount", service.amount ?? 0);
       setValue("description", service.description || null);
       setValue("isActive", service.isActive);
       
-      // Note: ServiceDto doesn't include currencyId in the response
+      // Note: currencyId may not be in response; user selects if empty
       // We'll need to set it from the service if available, or leave it empty
       // The user will need to select a currency if not set
       // For now, we'll leave it empty and let the user select
@@ -120,6 +125,7 @@ export default function EditServicePage() {
       const request: UpdateServiceRequest = {
         serviceTypeId: data.serviceTypeId,
         currencyId: data.currencyId,
+        amount: data.amount,
         description: data.description?.trim() || null,
         isActive: data.isActive,
       };
@@ -216,6 +222,26 @@ export default function EditServicePage() {
               {errors.currencyId && (
                 <p className="text-sm text-destructive">
                   {errors.currencyId.message}
+                </p>
+              )}
+            </div>
+
+            {/* Amount */}
+            <div className="space-y-2">
+              <Label htmlFor="amount">
+                Amount <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="amount"
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="0"
+                {...register("amount")}
+              />
+              {errors.amount && (
+                <p className="text-sm text-destructive">
+                  {errors.amount.message}
                 </p>
               )}
             </div>

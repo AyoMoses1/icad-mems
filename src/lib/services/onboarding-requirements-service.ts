@@ -1,104 +1,107 @@
 /**
- * Onboarding Requirements Service - API integration for onboarding requirements management
- * Based on swagger.txt - /api/OnboardingRequirements endpoints
+ * Onboarding Requirements Service
+ * Integrates with seafarer/api/v1/onboarding-requirements as per onboarding-requirements-frontend-guide.md
  */
 
 import {
-  apiGetMain,
-  apiPostMain,
-  apiPutMain,
-  apiDeleteMain,
+  apiGet,
+  apiPost,
+  apiPatch,
+  apiDelete,
   type ApiResponse,
 } from "@/lib/api-client";
 
-const API_BASE = "/api/OnboardingRequirements";
+const API_BASE = "/seafarer/api/v1/onboarding-requirements";
 
 // ============================================================================
-// Types
+// Types (from guide)
 // ============================================================================
 
+/** 0 = Compulsory, 1 = Optional */
+export type RequirementKind = 0 | 1;
+
+export interface OnboardingRequirementDocumentTypeItemDto {
+  documentTypesId: string;
+  description: string;
+}
+
+/** API may return requirementKind as 0|1 or "Compulsory"|"Optional" */
 export interface OnboardingRequirementDto {
-  id: string;
-  userType?: string | null;
-  documentMasterId: string;
-  isMandatory?: boolean | null;
-  categoryType?: string | null;
-  name?: string | null;
+  onboardingRequirementId: string;
+  role: string;
+  description: string;
+  requirementKind: RequirementKind | "Compulsory" | "Optional";
+  documentTypeIds?: string[];
+  documentTypes?: OnboardingRequirementDocumentTypeItemDto[];
+}
+
+/** Normalize requirementKind from API (string or number) to 0 | 1 for UI */
+export function normalizeRequirementKind(
+  v: RequirementKind | "Compulsory" | "Optional" | string | number
+): RequirementKind {
+  if (v === 0 || v === 1) return v;
+  if (typeof v === "string") {
+    if (v === "Compulsory") return 0;
+    if (v === "Optional") return 1;
+  }
+  return 0;
 }
 
 export interface CreateOnboardingRequirementRequest {
-  userType?: string | null;
-  documentMasterId: string;
-  isMandatory?: boolean | null;
+  role: string;
+  description: string;
+  requirementKind: RequirementKind;
+  documentTypes: Array<{ documentTypesId: string }>;
 }
 
 export interface UpdateOnboardingRequirementRequest {
-  userType?: string | null;
-  documentMasterId: string;
-  isMandatory?: boolean | null;
+  description?: string;
+  requirementKind?: RequirementKind;
+  documentTypes?: Array<{ documentTypesId: string }>;
 }
 
 // ============================================================================
-// CRUD Operations
+// API
 // ============================================================================
 
 /**
- * Get all onboarding requirements
- * GET /api/OnboardingRequirements?userType={userType}
+ * List onboarding requirements by role (for checklist and admin).
+ * GET ?role=SEAFARER or GET for-role?role=SEAFARER
  */
-export async function getOnboardingRequirements(params?: {
-  userType?: string;
-}): Promise<ApiResponse<OnboardingRequirementDto[]>> {
-  const queryParams = new URLSearchParams();
-  if (params?.userType) {
-    queryParams.append("userType", params.userType);
-  }
-
-  const url = queryParams.toString()
-    ? `${API_BASE}?${queryParams.toString()}`
-    : API_BASE;
-
-  return apiGetMain<OnboardingRequirementDto[]>(url);
+export async function getOnboardingRequirementsByRole(
+  role: string = "SEAFARER"
+): Promise<ApiResponse<OnboardingRequirementDto[]>> {
+  const q = new URLSearchParams({ role: role.toUpperCase() });
+  return apiGet<OnboardingRequirementDto[]>(`${API_BASE}?${q.toString()}`);
 }
 
 /**
- * Get onboarding requirement by ID
- * GET /api/OnboardingRequirements/{id}
- */
-export async function getOnboardingRequirementById(
-  id: string
-): Promise<ApiResponse<OnboardingRequirementDto>> {
-  return apiGetMain<OnboardingRequirementDto>(`${API_BASE}/${id}`);
-}
-
-/**
- * Create a new onboarding requirement
- * POST /api/OnboardingRequirements
+ * Create onboarding requirement (admin).
+ * POST with body: role, description, requirementKind, documentTypes
  */
 export async function createOnboardingRequirement(
   data: CreateOnboardingRequirementRequest
 ): Promise<ApiResponse<OnboardingRequirementDto>> {
-  return apiPostMain<OnboardingRequirementDto>(API_BASE, data);
+  return apiPost<OnboardingRequirementDto>(API_BASE, data);
 }
 
 /**
- * Update an onboarding requirement
- * PUT /api/OnboardingRequirements/{id}
+ * Update onboarding requirement (admin).
+ * PATCH {id} with optional description, requirementKind, documentTypes
  */
 export async function updateOnboardingRequirement(
   id: string,
   data: UpdateOnboardingRequirementRequest
-): Promise<ApiResponse<boolean>> {
-  return apiPutMain<boolean>(`${API_BASE}/${id}`, data);
+): Promise<ApiResponse<OnboardingRequirementDto>> {
+  return apiPatch<OnboardingRequirementDto>(`${API_BASE}/${id}`, data);
 }
 
 /**
- * Delete an onboarding requirement
- * DELETE /api/OnboardingRequirements/{id}
+ * Remove onboarding requirement (admin).
+ * DELETE {id}
  */
 export async function deleteOnboardingRequirement(
   id: string
-): Promise<ApiResponse<void>> {
-  return apiDeleteMain<void>(`${API_BASE}/${id}`);
+): Promise<ApiResponse<boolean>> {
+  return apiDelete<boolean>(`${API_BASE}/${id}`);
 }
-

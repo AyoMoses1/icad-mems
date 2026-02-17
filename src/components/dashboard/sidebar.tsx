@@ -624,7 +624,7 @@ const adminMenuItems: MenuItem[] = [
       { title: "Documents Master", href: "/documents" },
       { title: "Ranks", href: "/ranks" },
       { title: "Nationalities", href: "/nationalities" },
-      { title: "Onboarding Requirements", href: "/onboarding-requirements" },
+      { title: "Onboarding Requirements", href: "/admin/onboarding-requirements" },
       { title: "Audit Logs", href: "/admin/audit-logs" },
     ],
   },
