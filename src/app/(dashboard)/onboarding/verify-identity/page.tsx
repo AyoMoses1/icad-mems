@@ -19,24 +19,11 @@ import {
   getOnboardingRoleOptions,
   getOnboardingRoleForRoleName,
 } from "@/lib/services/domain-roles-service";
-
-/**
- * Placeholder: Verify certificate/registration ID for employer or training institution.
- * Replace verifyCertificateId() body with the actual API call when the endpoint is provided.
- */
-async function verifyCertificateId(
-  _certificateId: string,
-  _role: "AGENT" | "TRAINING_INSTITUTION"
-): Promise<{ success: boolean; message?: string }> {
-  // TODO: Call the verification endpoint when provided.
-  // Example: return apiPost("/api/verify-certificate", { certificateId, role });
-  await new Promise((r) => setTimeout(r, 800));
-  const trimmed = _certificateId.trim();
-  if (!trimmed) {
-    return { success: false, message: "Please enter your certificate ID." };
-  }
-  return { success: true };
-}
+import {
+  validatePermit,
+  PERMIT_VALIDATION_STORAGE_KEY,
+  type PermitValidationResult,
+} from "@/lib/services/permit-validation-service";
 
 export default function VerifyIdentityPage() {
   const router = useRouter();
@@ -46,7 +33,7 @@ export default function VerifyIdentityPage() {
     | "TRAINING_INSTITUTION";
   const role = roleParam === "TRAINING_INSTITUTION" ? "TRAINING_INSTITUTION" : "AGENT";
 
-  const [certificateId, setCertificateId] = useState("");
+  const [permitNumber, setPermitNumber] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,8 +41,25 @@ export default function VerifyIdentityPage() {
     setError(null);
     setIsVerifying(true);
     try {
-      const result = await verifyCertificateId(certificateId, role);
-      if (result.success) {
+      const result: PermitValidationResult = await validatePermit(permitNumber, role);
+      if (result.valid) {
+        try {
+          sessionStorage.setItem(
+            PERMIT_VALIDATION_STORAGE_KEY,
+            JSON.stringify({
+              permitNumber: result.permitNumber,
+              company: result.company,
+              companyOwnerEmail: result.companyOwnerEmail,
+              validTo: result.validTo,
+              validFrom: result.validFrom,
+              status: result.status,
+              message: result.message,
+              serviceTypeCode: result.serviceTypeCode,
+            })
+          );
+        } catch {
+          // sessionStorage may be unavailable; continue without prefilling
+        }
         const workspaceRoles = await getDomainRoles(SEA_FARER_WORKSPACE_ID);
         const options = getOnboardingRoleOptions(workspaceRoles);
         const onboardingRole = role === "AGENT" ? "AGENT" : "TRAINING_INSTITUTION";
@@ -64,13 +68,13 @@ export default function VerifyIdentityPage() {
         );
         if (option) {
           router.push(
-            `/onboarding?role=${onboardingRole}&workspaceRoleId=${encodeURIComponent(option.workspaceRoleId)}`
+            `/onboarding/verify-success?role=${onboardingRole}&workspaceRoleId=${encodeURIComponent(option.workspaceRoleId)}`
           );
         } else {
           setError("This role is not configured for onboarding. Please contact support.");
         }
       } else {
-        setError(result.message ?? "Verification failed. Please check your certificate ID.");
+        setError(result.message ?? "This permit cannot be used for onboarding. Please check the permit number and try again.");
       }
     } catch (e) {
       setError(
@@ -83,12 +87,12 @@ export default function VerifyIdentityPage() {
 
   const title =
     role === "AGENT"
-      ? "Seafarer Employer – Verify identity"
-      : "Training Institution – Verify identity";
+      ? "Seafarer Employer – Verify permit"
+      : "Training Institution – Verify permit";
   const subtitle =
     role === "AGENT"
-      ? "Enter your certificate or registration ID to verify your identity."
-      : "Enter your institution certificate ID to verify your identity.";
+      ? "Enter your NIMASA permit number to verify your registration as a Seafarer Employer."
+      : "Enter your NIMASA permit number to verify your registration as a Training Institution.";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
@@ -106,14 +110,14 @@ export default function VerifyIdentityPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="certificateId">
-              Certificate / Registration ID <span className="text-destructive">*</span>
+            <Label htmlFor="permitNumber">
+              Permit number <span className="text-destructive">*</span>
             </Label>
             <Input
-              id="certificateId"
-              value={certificateId}
-              onChange={(e) => setCertificateId(e.target.value)}
-              placeholder="Enter your certificate or registration ID"
+              id="permitNumber"
+              value={permitNumber}
+              onChange={(e) => setPermitNumber(e.target.value)}
+              placeholder="e.g. PERMIT-SEAFARER_EMPLOYER-2026-000001"
               disabled={isVerifying}
               className="font-mono"
             />
@@ -125,8 +129,8 @@ export default function VerifyIdentityPage() {
             </div>
           )}
           <p className="text-xs text-muted-foreground">
-            We will verify your details with the registry. The verification
-            endpoint will be connected when provided.
+            Enter the permit number exactly as shown on your NIMASA Service Type
+            Permit certificate. We will verify it with the registry before continuing.
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <Button
@@ -140,7 +144,7 @@ export default function VerifyIdentityPage() {
             <Button
               className="flex-1"
               onClick={handleVerify}
-              disabled={!certificateId.trim() || isVerifying}
+              disabled={!permitNumber.trim() || isVerifying}
             >
               {isVerifying ? (
                 <>

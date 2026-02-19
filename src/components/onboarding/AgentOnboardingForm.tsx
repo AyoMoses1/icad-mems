@@ -43,6 +43,7 @@ import {
   type DocumentTypeDto,
   type AccreditedInstitutionDto,
 } from "@/lib/services/lookup-service";
+import { getAndClearStoredPermitValidation } from "@/lib/services/permit-validation-service";
 type Step = "agent" | "contact" | "documents" | "review";
 
 interface DocumentUpload {
@@ -94,6 +95,23 @@ export function AgentOnboardingForm({
 
   // Agent Documents
   const [agentDocuments, setAgentDocuments] = useState<DocumentUpload[]>([]);
+
+  // Prefill from permit validation (after verify-identity)
+  useEffect(() => {
+    const stored = getAndClearStoredPermitValidation();
+    if (!stored) return;
+    setAgentData((prev) => ({
+      ...prev,
+      roleSpecificIdentifier: stored.permitNumber || prev.roleSpecificIdentifier,
+    }));
+    if (stored.company?.email || stored.companyOwnerEmail) {
+      const email = stored.company?.email || stored.companyOwnerEmail || "";
+      setContactData((prev) => ({
+        ...prev,
+        email: prev.email || email,
+      }));
+    }
+  }, []);
 
   // Load dropdown data
   useEffect(() => {

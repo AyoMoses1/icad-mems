@@ -27,6 +27,14 @@ import {
   isOnboardingRejected,
   type UserSeafarerOnboardingDto,
 } from "@/lib/services/onboarding-service";
+import {
+  getUserReadinessStatus,
+  isUserReadyFromReadiness,
+  getDashboardRoleFromReadiness,
+  READINESS_NOT_FOUND_CODE,
+  type UserReadinessStatusDto,
+} from "@/lib/services/user-readiness-service";
+import { ApiError } from "@/lib/api-client";
 
 /**
  * Roles that require onboarding status check via the my-onboarding endpoint
@@ -133,6 +141,11 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const [hasRedirectedToOnboarding, setHasRedirectedToOnboarding] =
     useState(false);
   const [isInitializingUser, setIsInitializingUser] = useState(false);
+
+  // User Readiness (called first) — then my-onboarding for onboarding source
+  const [userReadinessData, setUserReadinessData] =
+    useState<UserReadinessStatusDto | null>(null);
+  const [userReadinessChecked, setUserReadinessChecked] = useState(false);
 
   // Onboarding status check state
   const [isCheckingOnboardingStatus, setIsCheckingOnboardingStatus] =
@@ -537,10 +550,48 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // 1) Call User Readiness first (before my-onboarding) to know if we show onboarding welcome or not
+  useEffect(() => {
+    if (isInitializing || !userRole) return;
+    const roleUpper = userRole.toUpperCase();
+    if (roleUpper === "ADMIN" || roleUpper === "SUPERADMIN") {
+      setUserReadinessChecked(true);
+      return;
+    }
+    let cancelled = false;
+    setIsCheckingOnboardingStatus(true);
+    (async () => {
+      try {
+        const response = await getUserReadinessStatus();
+        if (cancelled) return;
+        if (response.success && response.data) {
+          setUserReadinessData(response.data);
+        } else {
+          setUserReadinessData(null);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof ApiError && err.code === READINESS_NOT_FOUND_CODE) {
+          setUserReadinessData(null);
+        } else {
+          setUserReadinessData(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setUserReadinessChecked(true);
+          setIsCheckingOnboardingStatus(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isInitializing, userRole]);
+
   /**
    * Check onboarding status for roles that require it (SEAFARER, AGENT, TRAINING_INSTITUTION)
    * Also handles OWNER users who might have completed onboarding for a specific role
-   * This calls the /seafarer/api/v1/Onboarding/my-onboarding endpoint
+   * Calls my-onboarding only when User Readiness says source === "onboarding".
    */
   const checkOnboardingStatus = useCallback(
     async (role: string) => {
@@ -645,53 +696,65 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     [pathname, router]
   );
 
-  // Check onboarding status after user initialization completes
+  // 2) After User Readiness is checked: route permit users, or call my-onboarding for onboarding source
   useEffect(() => {
-    // Only run after initialization is complete and we have a role
-    if (isInitializing || !userRole || onboardingStatusChecked) {
-      return;
-    }
-    // Skip when user is on onboarding status pages (pending/rejected) - that page has its own status check and "Check Status" button
+    if (!userReadinessChecked || onboardingStatusChecked) return;
+    if (isInitializing || !userRole) return;
     if (pathname.startsWith("/onboarding/status/")) {
       setOnboardingStatusChecked(true);
       return;
     }
 
-    // Skip for admin roles (they don't need onboarding)
     const roleUpper = userRole.toUpperCase();
     if (roleUpper === "ADMIN" || roleUpper === "SUPERADMIN") {
       setOnboardingStatusChecked(true);
       return;
     }
 
-    // For OWNER users:
-    // - If on root page (/), skip check and let them see role selection
-    // - Otherwise, check if they have an active onboarding with pending/rejected status
+    // Permit-based user is ready: no my-onboarding call; redirect to dashboard if on / or onboarding
+    if (userReadinessData && isUserReadyFromReadiness(userReadinessData)) {
+      setOnboardingStatusChecked(true);
+      if (userReadinessData.source === "permit") {
+        const isRootPath = pathname === "/" || pathname === "";
+        const isOnboardingPath = pathname.startsWith("/onboarding");
+        if (isRootPath || isOnboardingPath) {
+          const dashboardRole = getDashboardRoleFromReadiness(userReadinessData);
+          const targetRoute =
+            dashboardRole !== null
+              ? getDashboardRoute(dashboardRole)
+              : "/seafarer/dashboard";
+          router.replace(targetRoute);
+        }
+      }
+      return;
+    }
+
+    // READINESS_NOT_FOUND or not ready: for OWNER on root, show role selection; else need my-onboarding for pending/rejected
     if (roleUpper === "OWNER") {
       const isRootPath = pathname === "/" || pathname === "";
       if (isRootPath) {
-        // Don't check on root page - let OWNER see role selection
         setOnboardingStatusChecked(true);
         return;
       }
-      // For other pages, check onboarding status
-      // This handles the case where an OWNER completed onboarding and has PENDING status
       checkOnboardingStatus(roleUpper);
       return;
     }
 
-    // Check onboarding status for other roles
+    // Onboarding source or no readiness: call my-onboarding
     if (ONBOARDING_CHECK_ROLES.includes(roleUpper)) {
       checkOnboardingStatus(roleUpper);
     } else {
       setOnboardingStatusChecked(true);
     }
   }, [
+    userReadinessChecked,
+    userReadinessData,
     isInitializing,
     userRole,
     onboardingStatusChecked,
     checkOnboardingStatus,
     pathname,
+    router,
   ]);
 
   // Reset redirect flag when pathname changes to onboarding
@@ -715,9 +778,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // IMPORTANT: If we've already checked onboarding status via my-onboarding API
-    // and the user has approved/completed onboarding, skip this legacy check
-    // The my-onboarding API is the source of truth for onboarding status
+    // User Readiness (permit) or my-onboarding (onboarding) says user is ready → skip redirect
+    if (onboardingStatusChecked && isUserReadyFromReadiness(userReadinessData)) {
+      return;
+    }
     if (onboardingStatusChecked && onboardingData?.isOnboardingComplete) {
       return;
     }
@@ -783,6 +847,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     hasRedirectedToOnboarding,
     onboardingStatusChecked,
     onboardingData,
+    userReadinessData,
   ]);
 
   // Check authentication on mount
@@ -889,12 +954,14 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const seaFarerWorkspace = getSeaFarerWorkspace(user);
   const hasSeaFarerWorkspace = seaFarerWorkspace !== null;
 
-  // IMPORTANT: Use my-onboarding API result as the source of truth if available
-  // Otherwise fall back to userinfo-based check
+  // User Readiness (permit) or my-onboarding (onboarding) as source of truth
+  const isOnboardingCompleteFromReadiness =
+    isUserReadyFromReadiness(userReadinessData);
   const isOnboardingCompleteFromApi =
     onboardingData?.isOnboardingComplete ||
     isOnboardingApproved(onboardingData?.status);
   const isOnboardingComplete =
+    isOnboardingCompleteFromReadiness ||
     isOnboardingCompleteFromApi ||
     isSeaFarerOnboardingComplete(user) ||
     user?.is_onboarding_complete ||

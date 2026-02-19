@@ -17,6 +17,13 @@ import {
   isOnboardingApproved,
   isOnboardingPendingReview,
 } from "@/lib/services/onboarding-service";
+import {
+  getUserReadinessStatus,
+  isUserReadyFromReadiness,
+  getDashboardRoleFromReadiness,
+  READINESS_NOT_FOUND_CODE,
+} from "@/lib/services/user-readiness-service";
+import { ApiError } from "@/lib/api-client";
 import { getFirstMenuRouteForWorkspace } from "@/lib/services/menu-service";
 import { SEA_FARER_WORKSPACE_ID } from "@/lib/utils/workspace-helpers";
 
@@ -26,7 +33,7 @@ export default function DashboardRedirectPage() {
   const [isChecking, setIsChecking] = useState(true);
   const [showRoleSelection, setShowRoleSelection] = useState(false);
 
-  // Check user role and route accordingly
+  // Call User Readiness first, then my-onboarding when source is onboarding
   useEffect(() => {
     const userRole = localStorage.getItem("userRole");
 
@@ -38,13 +45,78 @@ export default function DashboardRedirectPage() {
         return;
       }
 
-      if (roleUpper === "OWNER") {
-        (async () => {
+      (async () => {
+        try {
+          // 1) User Readiness first — single source of truth for "show onboarding welcome or not"
+          const readinessRes = await getUserReadinessStatus();
+
+          if (readinessRes.success && readinessRes.data) {
+            const readiness = readinessRes.data;
+
+            if (isUserReadyFromReadiness(readiness)) {
+              if (readiness.source === "permit") {
+                const dashboardRole = getDashboardRoleFromReadiness(readiness);
+                const targetRoute =
+                  dashboardRole !== null
+                    ? getDashboardRoute(dashboardRole)
+                    : "/seafarer/dashboard";
+                try {
+                  const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+                    SEA_FARER_WORKSPACE_ID
+                  );
+                  if (firstMenuRoute) {
+                    router.replace(firstMenuRoute);
+                    return;
+                  }
+                } catch {
+                  // Use role-based route
+                }
+                router.replace(targetRoute);
+                return;
+              }
+              // source === "onboarding" and ready
+              const role = readiness.role?.toUpperCase();
+              let targetRoute = getDashboardRoute(role || "SEAFARER");
+              try {
+                const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+                  SEA_FARER_WORKSPACE_ID
+                );
+                if (firstMenuRoute) targetRoute = firstMenuRoute;
+              } catch {
+                // Use role-based route
+              }
+              router.replace(targetRoute);
+              return;
+            }
+
+            // Not ready: onboarding source with pending/draft etc.
+            if (readiness.source === "onboarding") {
+              const myRes = await getMyOnboarding();
+              if (
+                myRes.success &&
+                myRes.data?.hasActiveOnboarding &&
+                isOnboardingPendingReview(myRes.data.status)
+              ) {
+                router.replace("/onboarding/status/pending");
+                return;
+              }
+            }
+          }
+        } catch (err) {
+          if (err instanceof ApiError && err.code === READINESS_NOT_FOUND_CODE) {
+            router.replace("/onboarding/welcome");
+            setIsChecking(false);
+            return;
+          }
+          // Other errors: fall through to legacy / my-onboarding
+        }
+
+        // Fallback: my-onboarding (e.g. OWNER or when readiness failed)
+        if (roleUpper === "OWNER") {
           try {
             const response = await getMyOnboarding();
             if (response.success && response.data) {
               const data = response.data;
-              // If user has active onboarding in pending state, send to status page (check status + Veriff).
               if (
                 data.hasActiveOnboarding &&
                 isOnboardingPendingReview(data.status)
@@ -64,14 +136,14 @@ export default function DashboardRedirectPage() {
                   );
                   if (firstMenuRoute) targetRoute = firstMenuRoute;
                 } catch {
-                  // Use role-based route when menu API fails
+                  // Use role-based route
                 }
                 router.replace(targetRoute);
                 return;
               }
             }
           } catch {
-            // API error or no onboarding - fall back to legacy check
+            // Fall through
           }
 
           const seaFarerOnboardingComplete = isSeaFarerOnboardingComplete(user);
@@ -86,7 +158,7 @@ export default function DashboardRedirectPage() {
                 didRedirect = true;
               }
             } catch {
-              // Fall through to role-based redirect
+              // Fall through
             }
             if (didRedirect) return;
             const primaryRole = getSeaFarerPrimaryRole(user);
@@ -106,21 +178,17 @@ export default function DashboardRedirectPage() {
             return;
           }
 
-          // OWNER: send to new onboarding welcome (about app + role dropdown) instead of legacy role selection
           router.replace("/onboarding/welcome");
           setIsChecking(false);
-        })();
-        return;
-      }
+          return;
+        }
 
-      // SEAFARER / AGENT / TRAINING_INSTITUTION: if they have pending onboarding, send to status page
-      const onboardingRequiredRoles = [
-        "SEAFARER",
-        "AGENT",
-        "TRAINING_INSTITUTION",
-      ];
-      if (onboardingRequiredRoles.includes(roleUpper)) {
-        (async () => {
+        const onboardingRequiredRoles = [
+          "SEAFARER",
+          "AGENT",
+          "TRAINING_INSTITUTION",
+        ];
+        if (onboardingRequiredRoles.includes(roleUpper)) {
           try {
             const response = await getMyOnboarding();
             if (
@@ -132,16 +200,16 @@ export default function DashboardRedirectPage() {
               return;
             }
           } catch {
-            // Fall through to dashboard
+            // Fall through
           }
           const dashboardRoute = getDashboardRouteFromRoles([userRole]);
           router.replace(dashboardRoute);
-        })();
-        return;
-      }
+          return;
+        }
 
-      const dashboardRoute = getDashboardRouteFromRoles([userRole]);
-      router.replace(dashboardRoute);
+        const dashboardRoute = getDashboardRouteFromRoles([userRole]);
+        router.replace(dashboardRoute);
+      })();
     } else {
       setIsChecking(false);
     }

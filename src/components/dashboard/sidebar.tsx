@@ -991,36 +991,27 @@ export function Sidebar() {
   const [useApiMenu, setUseApiMenu] = React.useState(false);
   const [isLoadingMenu, setIsLoadingMenu] = React.useState(true);
 
-  // Check if onboarding is complete - if not, don't render sidebar
+  // Check if onboarding is complete - if not, don't render sidebar (computed here; return after all hooks)
   // BUT EXCLUDE ADMINS - admins should always see the sidebar
   const userRoleFromStorage =
     typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
   const isAdmin =
     userRoleFromStorage?.toUpperCase() === "ADMIN" ||
     userRoleFromStorage?.toUpperCase() === "SUPERADMIN";
-
-  // Skip onboarding check for admins
-  if (!isAdmin) {
-    const seaFarerWorkspace = getSeaFarerWorkspace(user);
-    const hasSeaFarerWorkspace = seaFarerWorkspace !== null;
-    const isOnboardingComplete =
-      isSeaFarerOnboardingComplete(user) ??
-      user?.is_onboarding_complete ??
-      false;
-    const isOnboardingPage =
-      pathname === "/onboarding" || pathname.startsWith("/onboarding/");
-    const isRootPage = pathname === "/" || pathname === "";
-
-    // Don't render sidebar if user has Sea Farer workspace but onboarding is not complete
-    // Allow root page for role selection, but hide sidebar on onboarding pages
-    if (
-      hasSeaFarerWorkspace &&
-      !isOnboardingComplete &&
-      (isOnboardingPage || isRootPage)
-    ) {
-      return null;
-    }
-  }
+  const seaFarerWorkspace = getSeaFarerWorkspace(user);
+  const hasSeaFarerWorkspace = seaFarerWorkspace !== null;
+  const isOnboardingComplete =
+    isSeaFarerOnboardingComplete(user) ??
+    user?.is_onboarding_complete ??
+    false;
+  const isOnboardingPage =
+    pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+  const isRootPage = pathname === "/" || pathname === "";
+  const shouldHideSidebar =
+    !isAdmin &&
+    hasSeaFarerWorkspace &&
+    !isOnboardingComplete &&
+    (isOnboardingPage || isRootPage);
 
   // Get role from localStorage (set by loading page)
   React.useEffect(() => {
@@ -1212,6 +1203,11 @@ export function Sidebar() {
       }
     });
   }, [pathname, userRole]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Don't render sidebar if user has Sea Farer workspace but onboarding is not complete (after all hooks)
+  if (shouldHideSidebar) {
+    return null;
+  }
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
