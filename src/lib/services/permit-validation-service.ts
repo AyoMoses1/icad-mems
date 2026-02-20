@@ -68,6 +68,8 @@ export interface StoredPermitValidation {
   status?: string;
   message?: string;
   serviceTypeCode?: string;
+  /** Workspace role ID for the selected role (Seafarer Employer or Training Institution); sent to CompanyPermit/record */
+  workspaceRoleId?: string | null;
 }
 
 /**

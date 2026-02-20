@@ -43,23 +43,6 @@ export default function VerifyIdentityPage() {
     try {
       const result: PermitValidationResult = await validatePermit(permitNumber, role);
       if (result.valid) {
-        try {
-          sessionStorage.setItem(
-            PERMIT_VALIDATION_STORAGE_KEY,
-            JSON.stringify({
-              permitNumber: result.permitNumber,
-              company: result.company,
-              companyOwnerEmail: result.companyOwnerEmail,
-              validTo: result.validTo,
-              validFrom: result.validFrom,
-              status: result.status,
-              message: result.message,
-              serviceTypeCode: result.serviceTypeCode,
-            })
-          );
-        } catch {
-          // sessionStorage may be unavailable; continue without prefilling
-        }
         const workspaceRoles = await getDomainRoles(SEA_FARER_WORKSPACE_ID);
         const options = getOnboardingRoleOptions(workspaceRoles);
         const onboardingRole = role === "AGENT" ? "AGENT" : "TRAINING_INSTITUTION";
@@ -67,6 +50,24 @@ export default function VerifyIdentityPage() {
           (o) => getOnboardingRoleForRoleName(o.roleName) === onboardingRole
         );
         if (option) {
+          try {
+            sessionStorage.setItem(
+              PERMIT_VALIDATION_STORAGE_KEY,
+              JSON.stringify({
+                permitNumber: result.permitNumber,
+                company: result.company,
+                companyOwnerEmail: result.companyOwnerEmail,
+                validTo: result.validTo,
+                validFrom: result.validFrom,
+                status: result.status,
+                message: result.message,
+                serviceTypeCode: result.serviceTypeCode,
+                workspaceRoleId: option.workspaceRoleId,
+              })
+            );
+          } catch {
+            // sessionStorage may be unavailable; continue without prefilling
+          }
           router.push(
             `/onboarding/verify-success?role=${onboardingRole}&workspaceRoleId=${encodeURIComponent(option.workspaceRoleId)}`
           );

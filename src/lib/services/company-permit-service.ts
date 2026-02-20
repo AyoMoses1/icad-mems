@@ -28,15 +28,25 @@ export interface CompanyPermitRecordRequest {
     email: string | null;
   } | null;
   companyOwnerEmail: string | null;
+  workspaceRoleId: string;
 }
 
 /**
  * Build the request body for CompanyPermit/record from stored permit validation.
+ * workspaceRoleId comes from stored (set when user selects Seafarer Employer or Training Institution) or fallback.
  */
 export function buildCompanyPermitRecordBody(
-  stored: StoredPermitValidation
+  stored: StoredPermitValidation,
+  workspaceRoleIdFallback?: string | null
 ): CompanyPermitRecordRequest {
   const serviceTypeCode = stored.serviceTypeCode ?? "";
+  const workspaceRoleId =
+    stored.workspaceRoleId ?? workspaceRoleIdFallback ?? "";
+  if (!workspaceRoleId) {
+    console.warn(
+      "CompanyPermit/record: workspaceRoleId is missing; request may fail."
+    );
+  }
   return {
     valid: true,
     permitNumber: stored.permitNumber,
@@ -56,16 +66,19 @@ export function buildCompanyPermitRecordBody(
         }
       : null,
     companyOwnerEmail: stored.companyOwnerEmail ?? null,
+    workspaceRoleId,
   };
 }
 
 /**
  * Record the company permit on the Seafarer backend (onboard Seafarer Employer / Training Institution).
  * Call this when the user clicks "Set up your account on Seafarer" on the verify-success page.
+ * workspaceRoleId is taken from stored (set when user selects role); pass fallback from URL if needed.
  */
 export async function recordCompanyPermit(
-  stored: StoredPermitValidation
+  stored: StoredPermitValidation,
+  workspaceRoleIdFallback?: string | null
 ): Promise<ApiResponse<unknown>> {
-  const body = buildCompanyPermitRecordBody(stored);
+  const body = buildCompanyPermitRecordBody(stored, workspaceRoleIdFallback);
   return apiPostMain<unknown>(API_RECORD, body);
 }

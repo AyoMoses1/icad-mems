@@ -6,7 +6,6 @@ import {
   FileCheck,
   CheckCircle2,
   ArrowRight,
-  Ship,
   UserPlus,
   FileText,
   AlertCircle,
@@ -110,21 +109,6 @@ export default function AgentDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-green-500">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Active Vessels</p>
-                <p className="text-3xl font-bold">0</p>
-                <p className="text-xs text-muted-foreground">In operation</p>
-              </div>
-              <div className="p-3 rounded-lg bg-green-50 text-green-600">
-                <Ship className="h-5 w-5" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         <Card className="border-l-4 border-l-purple-500">
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
@@ -182,22 +166,6 @@ export default function AgentDashboardPage() {
               </Button>
             </Link>
 
-            <Link href="/vessels">
-              <Button
-                variant="outline"
-                className="w-full justify-start h-auto p-4 hover:bg-accent/50"
-              >
-                <Ship className="mr-3 h-5 w-5 text-green-600" />
-                <div className="text-left">
-                  <p className="font-medium">Vessels</p>
-                  <p className="text-xs text-muted-foreground">
-                    Manage vessels
-                  </p>
-                </div>
-                <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground" />
-              </Button>
-            </Link>
-
             <Link href="/seafarer/registry">
               <Button
                 variant="outline"
@@ -205,7 +173,7 @@ export default function AgentDashboardPage() {
               >
                 <Users className="mr-3 h-5 w-5 text-purple-600" />
                 <div className="text-left">
-                  <p className="font-medium">Seafarer Registry</p>
+                  <p className="font-medium">My Seafarers</p>
                   <p className="text-xs text-muted-foreground">
                     View all seafarers
                   </p>

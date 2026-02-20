@@ -83,11 +83,19 @@ export function canAccessRoute(userRole: UserRole | string, route: string): bool
     return true;
   }
   
-  if (roleUpper === "AGENT" && (route.startsWith("/agent") || route.startsWith("/seafarer"))) {
+  if (
+    roleUpper === "AGENT" &&
+    (route.startsWith("/agent") ||
+      route.startsWith("/seafarer") ||
+      route.startsWith("/employer"))
+  ) {
     return true;
   }
-  
-  if ((roleUpper === "TRAINING_INSTITUTION" || roleUpper === "INSTITUTION") && route.startsWith("/institution")) {
+
+  if (
+    (roleUpper === "TRAINING_INSTITUTION" || roleUpper === "INSTITUTION") &&
+    route.startsWith("/institution")
+  ) {
     return true;
   }
   

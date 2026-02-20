@@ -61,6 +61,7 @@ import { getMyPermissions } from "@/lib/services/permissions-service";
 import {
   isSeaFarerOnboardingComplete,
   getSeaFarerWorkspace,
+  getSeaFarerRoles,
   isSuperAdminInSeafarer,
 } from "@/lib/utils/workspace-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -156,58 +157,13 @@ const trainingInstitutionMenuItems: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
-    title: "Seafarer Management",
-    href: "#",
-    icon: Users,
-    children: [
-      { title: "Onboard Seafarer", href: "/seafarer/add" },
-      { title: "Seafarer Registry", href: "/seafarer/registry" },
-    ],
-  },
-  {
-    title: "Services & Applications",
-    href: "#",
-    icon: Briefcase,
-    children: [
-      { title: "Apply for Seafarer", href: "/seafarer/services" },
-      { title: "View Applications", href: "/seafarer/applications" },
-    ],
-  },
-  {
     title: "Training Results",
     href: "#",
     icon: GraduationCap,
     children: [
       { title: "Upload Results", href: "/institution/training-results/upload" },
+      { title: "Bulk Upload (Excel)", href: "/institution/training-upload" },
       { title: "View Results", href: "/institution/training-results" },
-    ],
-  },
-  {
-    title: "Institution Management",
-    href: "#",
-    icon: Building2,
-    children: [
-      { title: "My Institution", href: "/institutions" },
-      { title: "Documents", href: "/documents" },
-    ],
-  },
-  {
-    title: "Accreditation",
-    href: "#",
-    icon: Award,
-    children: [
-      { title: "Apply for Accreditation", href: "/accreditations/apply" },
-      { title: "My Accreditations", href: "/accreditations" },
-      { title: "STCW Standards", href: "/accreditations/stcw" },
-    ],
-  },
-  {
-    title: "Inspections & Deficiencies",
-    href: "#",
-    icon: ClipboardCheck,
-    children: [
-      { title: "Scheduled Inspections", href: "/institution/inspections" },
-      { title: "Deficiency Reports", href: "/institution/deficiencies" },
     ],
   },
   {
@@ -247,43 +203,16 @@ const agentMenuItems: MenuItem[] = [
     icon: Users,
     children: [
       { title: "Onboard Seafarer", href: "/seafarer/add" },
-      { title: "Seafarer Registry", href: "/seafarer/registry" },
+      { title: "My Seafarers", href: "/seafarer/registry" },
     ],
   },
   {
-    title: "Services & Applications",
+    title: "Employer",
     href: "#",
-    icon: Briefcase,
+    icon: UserPlus,
     children: [
-      { title: "Apply for Seafarer", href: "/seafarer/services" },
-      { title: "View Applications", href: "/seafarer/applications" },
-    ],
-  },
-  {
-    title: "Agency Management",
-    href: "#",
-    icon: Building2,
-    children: [
-      { title: "My Agency", href: "/institutions" },
-      { title: "Documents", href: "/documents" },
-    ],
-  },
-  {
-    title: "Accreditation",
-    href: "#",
-    icon: Award,
-    children: [
-      { title: "Apply for Accreditation", href: "/accreditations/apply" },
-      { title: "My Accreditations", href: "/accreditations" },
-    ],
-  },
-  {
-    title: "Inspections & Deficiencies",
-    href: "#",
-    icon: ClipboardCheck,
-    children: [
-      { title: "Scheduled Inspections", href: "/institution/inspections" },
-      { title: "Deficiency Reports", href: "/institution/deficiencies" },
+      { title: "Employ Seafarer", href: "/employer/employ" },
+      { title: "Assign to Ship / Contracts", href: "/employer/contracts" },
     ],
   },
   {
@@ -484,6 +413,7 @@ const ownerMenuItems: MenuItem[] = [
     icon: GraduationCap,
     children: [
       { title: "Upload Results", href: "/institution/training-results/upload" },
+      { title: "Bulk Upload (Excel)", href: "/institution/training-upload" },
       { title: "View Results", href: "/institution/training-results" },
     ],
   },
@@ -1109,12 +1039,32 @@ export function Sidebar() {
   }, [user, currentWorkspaceId, workspaceIdFromUrl]);
 
   // Get menu items - use API menu when API succeeded (even if empty); only fall back on API failure
-  // While loading, sidebar shows skeleton (see nav below); no fallback menu is shown
-  const currentMenuItems = useApiMenu
-    ? apiMenuItems
-    : userRole
-      ? getMenuItemsByRole(userRole)
-      : getMenuItems("admin"); // Fallback when no role
+  // TEMPORARY: For AGENT (Seafarer Employer) and TRAINING_INSTITUTION, always use hardcoded role menu
+  // because the API returns all workspace resources. Also detect from user.roles when userRole is "Owner"
+  // but they have AGENT or Training Institution in Seafarer workspace.
+  const roleUpper = userRole?.toUpperCase() ?? "";
+  const seaFarerRoleNames = (getSeaFarerRoles(user) || []).map((r) =>
+    r.toUpperCase().replace(/\s+/g, "_")
+  );
+  const hasAgentRole =
+    roleUpper === "AGENT" ||
+    seaFarerRoleNames.includes("AGENT");
+  const hasTrainingInstitutionRole =
+    roleUpper === "TRAINING_INSTITUTION" ||
+    seaFarerRoleNames.includes("TRAINING_INSTITUTION") ||
+    seaFarerRoleNames.some((r) => r.includes("TRAINING") && r.includes("INSTITUTION"));
+  const useHardcodedRoleMenu = hasAgentRole || hasTrainingInstitutionRole;
+  const menuRole = useHardcodedRoleMenu
+    ? hasAgentRole
+      ? "AGENT"
+      : "TRAINING_INSTITUTION"
+    : userRole;
+  const currentMenuItems =
+    useApiMenu && !useHardcodedRoleMenu
+      ? apiMenuItems
+      : menuRole
+        ? getMenuItemsByRole(menuRole)
+        : getMenuItems("admin"); // Fallback when no role
 
   const toggleExpand = (id: string) => {
     const isExpanding = !expandedItems.includes(id);

@@ -38,7 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/shared";
-import { getSeafarers, type SeafarerDto } from "@/lib/services/seafarers";
+import { getAllOnboardings, type UserSeafarerOnboardingDto } from "@/lib/services/onboarding-service";
 import { updateUserStatus } from "@/lib/services/user-service";
 import { formatDate, getInitials } from "@/lib/utils";
 
@@ -56,7 +56,7 @@ const statusConfig: Record<
 };
 
 export default function SeafarerRegistryPage() {
-  const [seafarers, setSeafarers] = useState<SeafarerDto[]>([]);
+  const [onboardings, setOnboardings] = useState<UserSeafarerOnboardingDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -64,9 +64,7 @@ export default function SeafarerRegistryPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isSuspendDialogOpen, setIsSuspendDialogOpen] = useState(false);
-  const [selectedSeafarer, setSelectedSeafarer] = useState<SeafarerDto | null>(
-    null,
-  );
+  const [selectedOnboarding, setSelectedOnboarding] = useState<UserSeafarerOnboardingDto | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const pageSize = 20;
 
@@ -93,78 +91,48 @@ export default function SeafarerRegistryPage() {
   const loadSeafarers = async () => {
     setIsLoading(true);
     try {
-      const status = statusFilter !== "all" ? statusFilter : undefined;
-      const response = await getSeafarers({
-        pageNumber: currentPage,
-        pageSize,
-        searchTerm: searchQuery || undefined,
-        status,
-      });
-
+      const response = await getAllOnboardings();
       const ok = response.success ?? (response as any).successful;
-      if (
-        ok &&
-        response.data &&
-        response.data.items &&
-        response.data.items.length > 0
-      ) {
-        setSeafarers(response.data.items);
-        const total = response.data.totalNumber ?? response.data.items.length;
-        setTotalPages(
-          response.data.pageSize
-            ? Math.ceil(total / Number(response.data.pageSize))
-            : 1,
+      if (ok && response.data && Array.isArray(response.data)) {
+        const all = response.data;
+        const seafarerOnly = all.filter(
+          (o) => (o.role?.toUpperCase?.() ?? "") === "SEAFARER",
         );
-        setTotalCount(total);
-
-        // Calculate stats from current page data (ideal would be from separate endpoint)
-        const activeCount = response.data.items.filter(
-          (u) => u.isActive === true,
+        setOnboardings(seafarerOnly);
+        const activeCount = seafarerOnly.filter(
+          (o) => (o.status?.toLowerCase?.() ?? "") === "approved" || o.isActive === true,
         ).length;
-        setStats((prev) => ({
-          ...prev,
-          totalRegistered: total,
-          activeSeafarers: activeCount,
-        }));
-      } else {
-        // If endpoint doesn't exist or returns empty, set empty state
-        // Don't show error toast as this is expected if endpoint is not available
-        setSeafarers([]);
-        setTotalCount(0);
-        setTotalPages(1);
         setStats({
-          totalRegistered: 0,
-          activeSeafarers: 0,
+          totalRegistered: seafarerOnly.length,
+          activeSeafarers: activeCount,
           expiredLicenses: 0,
         });
+      } else {
+        setOnboardings([]);
+        setTotalCount(0);
+        setTotalPages(1);
+        setStats({ totalRegistered: 0, activeSeafarers: 0, expiredLicenses: 0 });
       }
     } catch (error) {
       console.error("Error loading seafarers:", error);
-      // Don't show error toast - endpoint may not be available
-      setSeafarers([]);
+      setOnboardings([]);
       setTotalCount(0);
       setTotalPages(1);
-      setStats({
-        totalRegistered: 0,
-        activeSeafarers: 0,
-        expiredLicenses: 0,
-      });
+      setStats({ totalRegistered: 0, activeSeafarers: 0, expiredLicenses: 0 });
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleSuspend = async () => {
-    if (!selectedSeafarer || !selectedSeafarer.authUserId) return;
+    if (!selectedOnboarding || !selectedOnboarding.userId) return;
 
     setIsSubmitting(true);
     try {
-      // Note: updateUserStatus expects a number, but authUserId might be a string
-      // This may need to be adjusted based on the actual API implementation
       const userId =
-        typeof selectedSeafarer.authUserId === "string"
-          ? parseInt(selectedSeafarer.authUserId, 10)
-          : selectedSeafarer.authUserId;
+        typeof selectedOnboarding.userId === "string"
+          ? parseInt(selectedOnboarding.userId, 10)
+          : selectedOnboarding.userId;
 
       if (isNaN(userId)) {
         toast.error("Invalid user ID");
@@ -180,7 +148,7 @@ export default function SeafarerRegistryPage() {
       if (ok) {
         toast.success("Seafarer suspended successfully");
         setIsSuspendDialogOpen(false);
-        setSelectedSeafarer(null);
+        setSelectedOnboarding(null);
         loadSeafarers();
       } else {
         toast.error(response.message || "Failed to suspend seafarer");
@@ -193,25 +161,48 @@ export default function SeafarerRegistryPage() {
     }
   };
 
-  const getFullName = (seafarer: SeafarerDto) => {
-    return (
-      `${seafarer.firstName || ""} ${seafarer.lastName || ""}`.trim() || "N/A"
-    );
+  const getDisplayName = (o: UserSeafarerOnboardingDto) => {
+    const email = o.contactDetails?.email;
+    if (email) return email;
+    return `User ${o.userId ?? "—"}`;
   };
 
-  const columns: DataTableColumn<SeafarerDto>[] = [
+  const q = (searchQuery ?? "").toLowerCase().trim();
+  const statusNorm = (statusFilter !== "all" ? statusFilter : "").toLowerCase();
+  const filtered = onboardings.filter((o) => {
+    const matchSearch =
+      !q ||
+      (o.contactDetails?.email ?? "").toLowerCase().includes(q) ||
+      (o.rn ?? "").toLowerCase().includes(q) ||
+      (o.sin ?? "").toLowerCase().includes(q) ||
+      (o.userId ?? "").toLowerCase().includes(q);
+    const matchStatus =
+      !statusNorm ||
+      (o.status?.toLowerCase?.() ?? "") === statusNorm ||
+      (statusNorm === "active" && (o.isActive === true || (o.status?.toLowerCase?.() ?? "") === "approved")) ||
+      (statusNorm === "suspended" && (o.status?.toLowerCase?.() ?? "") === "suspended");
+    return matchSearch && matchStatus;
+  });
+  const totalFiltered = filtered.length;
+  const totalPagesComputed = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  const paginated = filtered.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+
+  const columns: DataTableColumn<UserSeafarerOnboardingDto>[] = [
     {
       id: "seafarer",
       header: "Seafarer",
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <Avatar>
-            <AvatarFallback>{getInitials(getFullName(row))}</AvatarFallback>
+            <AvatarFallback>{getInitials(getDisplayName(row))}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-medium">{getFullName(row)}</p>
+            <p className="font-medium">{getDisplayName(row)}</p>
             <p className="text-sm text-muted-foreground">
-              {row.email || "N/A"}
+              {row.contactDetails?.email || row.userId || "N/A"}
             </p>
           </div>
         </div>
@@ -219,25 +210,25 @@ export default function SeafarerRegistryPage() {
     },
     {
       id: "registrationNumber",
-      header: "CDC Number",
+      header: "RN / SIN",
       cell: ({ row }) => (
         <span className="font-mono text-sm">
-          {row.ninNumber || row.sidNumber || `CDC-${row.id}`}
+          {row.rn || row.sin || "—"}
         </span>
       ),
     },
     {
-      id: "rank",
-      header: "Rank",
+      id: "role",
+      header: "Role",
       cell: ({ row }) => (
-        <span className="text-sm">{row.currentRankId || "N/A"}</span>
+        <span className="text-sm">{row.roleDescription || row.role || "N/A"}</span>
       ),
     },
     {
       id: "status",
       header: "Status",
       cell: ({ row }) => {
-        const status = row.isActive ? "Active" : "Suspended";
+        const status = row.isActive ? "Active" : (row.status || "Pending");
         const config = statusConfig[status] || statusConfig.Pending;
         return <Badge variant={config.variant}>{config.label}</Badge>;
       },
@@ -247,7 +238,7 @@ export default function SeafarerRegistryPage() {
       header: "Last Active",
       cell: ({ row }) => (
         <span className="text-sm">
-          {row.lastModified ? formatDate(row.lastModified) : "Never"}
+          {row.dateModified || row.updatedAt ? formatDate(String(row.dateModified || row.updatedAt)) : "Never"}
         </span>
       ),
     },
@@ -263,17 +254,18 @@ export default function SeafarerRegistryPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
-              <Link href={`/seafarer/profile/${row.id}`}>View Profile</Link>
+              <Link href={row.rn ? `/seafarer/profile/${row.rn}` : "#"}>
+                View Profile
+              </Link>
             </DropdownMenuItem>
-            {/* Admin-only actions: Edit and Suspend */}
-            {canModifySeafarers && (
+            {canModifySeafarers && row.userId && (
               <>
                 <DropdownMenuItem>Edit Details</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive"
                   onClick={() => {
-                    setSelectedSeafarer(row);
+                    setSelectedOnboarding(row);
                     setIsSuspendDialogOpen(true);
                   }}
                 >
@@ -290,8 +282,8 @@ export default function SeafarerRegistryPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Seafarer Registry"
-        description="Manage and verify registered seafarers"
+        title="My Seafarers"
+        description="Manage and view your seafarers"
       />
 
       {/* Stats Cards */}
@@ -377,7 +369,7 @@ export default function SeafarerRegistryPage() {
 
           {isLoading ? (
             <LoadingSpinner />
-          ) : seafarers.length === 0 ? (
+          ) : paginated.length === 0 ? (
             <EmptyState
               title="No seafarers found"
               description="There are no registered seafarers to display"
@@ -385,11 +377,11 @@ export default function SeafarerRegistryPage() {
           ) : (
             <DataTable
               columns={columns}
-              data={seafarers}
+              data={paginated}
               isLoading={isLoading}
               searchable={false}
               pageSize={pageSize}
-              totalCount={totalCount}
+              totalCount={totalFiltered}
               currentPage={currentPage}
               onPageChange={setCurrentPage}
             />
@@ -402,7 +394,7 @@ export default function SeafarerRegistryPage() {
         open={isSuspendDialogOpen}
         onOpenChange={setIsSuspendDialogOpen}
         title="Suspend Seafarer"
-        description={`Are you sure you want to suspend ${selectedSeafarer ? getFullName(selectedSeafarer) : "this seafarer"}? This action cannot be undone.`}
+        description={`Are you sure you want to suspend ${selectedOnboarding ? getDisplayName(selectedOnboarding) : "this seafarer"}? This action cannot be undone.`}
         onConfirm={handleSuspend}
         variant="destructive"
         isLoading={isSubmitting}

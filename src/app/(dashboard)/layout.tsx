@@ -491,8 +491,16 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       setIsInitializingUser(false);
 
       // Step 12: Redirect to role-specific dashboard if on root path
-      // But only if we're not already on a specific page
-      if (pathname === "/" || pathname === "") {
+      // But only if we're not already on a specific page (use browser URL as source of truth to avoid stale pathname)
+      const browserPath =
+        typeof window !== "undefined" ? window.location.pathname : pathname;
+      const isOnEmployerOrInstitution =
+        browserPath.startsWith("/employer") ||
+        browserPath.startsWith("/institution");
+      if (
+        (pathname === "/" || pathname === "") &&
+        !isOnEmployerOrInstitution
+      ) {
         const userRole = localStorage.getItem("userRole");
 
         if (userRole) {
@@ -624,6 +632,23 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
           // Handle different statuses
           if (isOnboardingApproved(status)) {
+            // Never redirect away from employer or institution pages when the user's role can access them
+            if (
+              pathname.startsWith("/employer") &&
+              onboardingRole === "AGENT"
+            ) {
+              setOnboardingStatusChecked(true);
+              return;
+            }
+            if (
+              pathname.startsWith("/institution") &&
+              (onboardingRole === "TRAINING_INSTITUTION" ||
+                onboardingRole === "INSTITUTION")
+            ) {
+              setOnboardingStatusChecked(true);
+              return;
+            }
+
             // User is approved - use first menu item so they see what the menu shows (avoids Owner vs role mismatch)
             setOnboardingStatusChecked(true);
 
@@ -705,6 +730,12 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Never run onboarding redirect logic on employer or institution routes - allow direct access
+    if (pathname.startsWith("/employer") || pathname.startsWith("/institution")) {
+      setOnboardingStatusChecked(true);
+      return;
+    }
+
     const roleUpper = userRole.toUpperCase();
     if (roleUpper === "ADMIN" || roleUpper === "SUPERADMIN") {
       setOnboardingStatusChecked(true);
@@ -729,7 +760,13 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // READINESS_NOT_FOUND or not ready: for OWNER on root, show role selection; else need my-onboarding for pending/rejected
+    // Seafarer employer (agent) / Training institution: use User Readiness status only — never call my-onboarding
+    if (userReadinessData?.source === "permit" || roleUpper === "AGENT" || roleUpper === "TRAINING_INSTITUTION") {
+      setOnboardingStatusChecked(true);
+      return;
+    }
+
+    // OWNER: show role selection on root; otherwise call my-onboarding (seafarer pending/draft)
     if (roleUpper === "OWNER") {
       const isRootPath = pathname === "/" || pathname === "";
       if (isRootPath) {
@@ -740,8 +777,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Onboarding source or no readiness: call my-onboarding
-    if (ONBOARDING_CHECK_ROLES.includes(roleUpper)) {
+    // Seafarer: call my-onboarding only when source is "onboarding" or when we have no readiness yet (SEAFARER role)
+    if (userReadinessData?.source === "onboarding" || roleUpper === "SEAFARER") {
       checkOnboardingStatus(roleUpper);
     } else {
       setOnboardingStatusChecked(true);
@@ -829,6 +866,13 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       if (hasSeaFarerWorkspace && !isOnboardingComplete) {
         // Allow root page for role selection
         if (isRootPage) {
+          return;
+        }
+        // Allow employer and institution routes so they remain reachable when navigating from sidebar
+        if (
+          pathname.startsWith("/employer") ||
+          pathname.startsWith("/institution")
+        ) {
           return;
         }
 

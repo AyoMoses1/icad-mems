@@ -57,6 +57,9 @@ const getPageTitle = (pathname: string): string => {
   if (pathname.startsWith("/seafarer/profile/")) return "Seafarer Profile";
   if (pathname.startsWith("/seafarer/miis/")) return "MTI Details";
   if (pathname.startsWith("/training/enroll")) return "Enroll in Training";
+  if (pathname === "/institution/training-upload") return "Training Records – Bulk Upload";
+  if (pathname === "/employer/employ") return "Employ Seafarer";
+  if (pathname === "/employer/contracts") return "Employer – Assign to Ship";
 
   return routes[pathname] || "Dashboard";
 };

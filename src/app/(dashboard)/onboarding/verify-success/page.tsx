@@ -80,7 +80,7 @@ export default function VerifySuccessPage() {
     if (!data) return;
     setIsSubmitting(true);
     try {
-      const response = await recordCompanyPermit(data);
+      const response = await recordCompanyPermit(data, workspaceRoleId || undefined);
       if (response.success !== false) {
         try {
           sessionStorage.removeItem(PERMIT_VALIDATION_STORAGE_KEY);

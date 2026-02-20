@@ -89,7 +89,7 @@ export default function DashboardRedirectPage() {
               return;
             }
 
-            // Not ready: onboarding source with pending/draft etc.
+            // Not ready: seafarer only — call my-onboarding for pending/draft
             if (readiness.source === "onboarding") {
               const myRes = await getMyOnboarding();
               if (
@@ -101,6 +101,12 @@ export default function DashboardRedirectPage() {
                 return;
               }
             }
+            // Permit (agent/ti) not ready: use status only, redirect to welcome
+            if (readiness.source === "permit") {
+              router.replace("/onboarding/welcome");
+              setIsChecking(false);
+              return;
+            }
           }
         } catch (err) {
           if (err instanceof ApiError && err.code === READINESS_NOT_FOUND_CODE) {
@@ -108,11 +114,11 @@ export default function DashboardRedirectPage() {
             setIsChecking(false);
             return;
           }
-          // Other errors: fall through to legacy / my-onboarding
+          // Other errors: fall through to legacy
         }
 
-        // Fallback: my-onboarding (e.g. OWNER or when readiness failed)
-        if (roleUpper === "OWNER") {
+        // Fallback: my-onboarding only for seafarer path (OWNER or SEAFARER)
+        if (roleUpper === "OWNER" || roleUpper === "SEAFARER") {
           try {
             const response = await getMyOnboarding();
             if (response.success && response.data) {
@@ -183,12 +189,8 @@ export default function DashboardRedirectPage() {
           return;
         }
 
-        const onboardingRequiredRoles = [
-          "SEAFARER",
-          "AGENT",
-          "TRAINING_INSTITUTION",
-        ];
-        if (onboardingRequiredRoles.includes(roleUpper)) {
+        // Seafarer only: call my-onboarding for pending status
+        if (roleUpper === "SEAFARER") {
           try {
             const response = await getMyOnboarding();
             if (
@@ -202,11 +204,8 @@ export default function DashboardRedirectPage() {
           } catch {
             // Fall through
           }
-          const dashboardRoute = getDashboardRouteFromRoles([userRole]);
-          router.replace(dashboardRoute);
-          return;
         }
-
+        // Agent / Training institution: use status endpoint only (already handled above); redirect to dashboard
         const dashboardRoute = getDashboardRouteFromRoles([userRole]);
         router.replace(dashboardRoute);
       })();
