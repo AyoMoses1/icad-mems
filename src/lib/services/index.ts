@@ -243,3 +243,18 @@ export {
   type MenuItemDto,
   type WorkspaceMenuDto,
 } from "./menu-service";
+
+// Seafarer employment & training (employer / training institution)
+export {
+  searchSeafarer,
+  createSeafarerEmployment,
+  getSeafarerEmployments,
+  updateSeafarerEmploymentStatus,
+  uploadTrainingResult,
+  type SeafarerSearchResultDto,
+  type SeafarerEmploymentDto,
+  type CreateSeafarerEmploymentRequest,
+  type UpdateSeafarerEmploymentStatusRequest,
+  type SeafarerTrainingUploadResultDto,
+  type SeafarerTrainingRowErrorDto,
+} from "./seafarer-employment-training-service";

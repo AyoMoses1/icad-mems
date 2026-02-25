@@ -3,24 +3,20 @@
  * Based on GetMyPermissions_API_Documentation.md
  */
 
-import {
-  apiGetMain,
-  type ApiResponse,
-} from "@/lib/api-client";
+import type { ApiResponse } from "@/lib/api-client";
 
 /**
- * Get user permissions for a specific workspace
- * GET /api/workspaces/{workspaceId}/permissions/my
- * 
- * @param workspaceId - The unique identifier of the workspace
- * @returns Array of permission strings in format "ResourceName.PermissionName"
+ * Get user permissions for a specific workspace.
+ * The endpoint GET /api/workspaces/{workspaceId}/permissions/my is not available (404),
+ * so we return an empty list. Menu and route access will not filter by permissions.
+ *
+ * @param _workspaceId - The unique identifier of the workspace (unused)
+ * @returns Response with empty permission array
  */
 export async function getMyPermissions(
-  workspaceId: string
+  _workspaceId: string
 ): Promise<ApiResponse<string[]>> {
-  return apiGetMain<string[]>(
-    `/api/workspaces/${workspaceId}/permissions/my`
-  );
+  return { success: true, data: [] };
 }
 
 /**

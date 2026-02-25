@@ -61,7 +61,6 @@ import { getMyPermissions } from "@/lib/services/permissions-service";
 import {
   isSeaFarerOnboardingComplete,
   getSeaFarerWorkspace,
-  getSeaFarerRoles,
   isSuperAdminInSeafarer,
 } from "@/lib/utils/workspace-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -918,6 +917,7 @@ export function Sidebar() {
   const savedScrollTopRef = useRef(0);
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const [apiMenuItems, setApiMenuItems] = React.useState<MenuItem[]>([]);
+  const [apiWorkspaceName, setApiWorkspaceName] = React.useState<string | null>(null);
   const [useApiMenu, setUseApiMenu] = React.useState(false);
   const [isLoadingMenu, setIsLoadingMenu] = React.useState(true);
 
@@ -990,14 +990,16 @@ export function Sidebar() {
         if (menuResponse?.success && menuResponse?.data) {
           let filteredMenus = menuResponse.data;
 
-          // If we have a workspaceId, fetch permissions and filter menu (optional - show menu even if this fails)
+          // Only filter by permissions when we have a non-empty permission list.
+          // When permissions/my returns empty (or is unavailable), show full API menu.
           if (workspaceId) {
             try {
               const permissionsResponse = await getMyPermissions(workspaceId);
-              if (permissionsResponse.success && permissionsResponse.data) {
+              const permissionList = permissionsResponse.success && permissionsResponse.data ? permissionsResponse.data : [];
+              if (permissionList.length > 0) {
                 filteredMenus = filterMenuByPermissions(
                   menuResponse.data,
-                  permissionsResponse.data
+                  permissionList
                 );
               }
             } catch (permError) {
@@ -1005,7 +1007,6 @@ export function Sidebar() {
                 "Failed to fetch permissions, showing all menu items:",
                 permError
               );
-              // Keep filteredMenus as menuResponse.data so we still show the menu
             }
           }
 
@@ -1017,10 +1018,15 @@ export function Sidebar() {
             convertedMenuItems = filterMenuForSuperAdmin(convertedMenuItems);
           }
 
-          // Always use API menu when the API succeeded - empty resources means show no items
+          // Use first workspace name from API for sidebar heading (e.g. "Seafarer")
+          const firstWorkspace = menuResponse.data[0];
+          setApiWorkspaceName(
+            firstWorkspace?.workspaceName?.trim() || firstWorkspace?.workspaceCode?.trim() || null
+          );
           setApiMenuItems(convertedMenuItems);
           setUseApiMenu(true);
         } else {
+          setApiWorkspaceName(null);
           setUseApiMenu(false);
         }
       } catch (error) {
@@ -1028,6 +1034,7 @@ export function Sidebar() {
           "Failed to fetch menu from API, falling back to role-based menu:",
           error
         );
+        setApiWorkspaceName(null);
         setUseApiMenu(false);
       } finally {
         setIsLoadingMenu(false);
@@ -1038,29 +1045,10 @@ export function Sidebar() {
     // Re-fetch when workspaceId from URL or store changes (e.g. landing from IMS with ?workspaceId=...)
   }, [user, currentWorkspaceId, workspaceIdFromUrl]);
 
-  // Get menu items - use API menu when API succeeded (even if empty); only fall back on API failure
-  // TEMPORARY: For AGENT (Seafarer Employer) and TRAINING_INSTITUTION, always use hardcoded role menu
-  // because the API returns all workspace resources. Also detect from user.roles when userRole is "Owner"
-  // but they have AGENT or Training Institution in Seafarer workspace.
-  const roleUpper = userRole?.toUpperCase() ?? "";
-  const seaFarerRoleNames = (getSeaFarerRoles(user) || []).map((r) =>
-    r.toUpperCase().replace(/\s+/g, "_")
-  );
-  const hasAgentRole =
-    roleUpper === "AGENT" ||
-    seaFarerRoleNames.includes("AGENT");
-  const hasTrainingInstitutionRole =
-    roleUpper === "TRAINING_INSTITUTION" ||
-    seaFarerRoleNames.includes("TRAINING_INSTITUTION") ||
-    seaFarerRoleNames.some((r) => r.includes("TRAINING") && r.includes("INSTITUTION"));
-  const useHardcodedRoleMenu = hasAgentRole || hasTrainingInstitutionRole;
-  const menuRole = useHardcodedRoleMenu
-    ? hasAgentRole
-      ? "AGENT"
-      : "TRAINING_INSTITUTION"
-    : userRole;
+  // Use API menu when the API succeeded; fall back to role-based menu only when API failed or returned no data
+  const menuRole = userRole;
   const currentMenuItems =
-    useApiMenu && !useHardcodedRoleMenu
+    useApiMenu
       ? apiMenuItems
       : menuRole
         ? getMenuItemsByRole(menuRole)
@@ -1249,6 +1237,8 @@ export function Sidebar() {
           <span className="text-xs font-semibold text-sidebar-muted-foreground uppercase tracking-wider">
             {isLoadingMenu ? (
               <Skeleton className="h-3 w-20" />
+            ) : useApiMenu && apiWorkspaceName ? (
+              apiWorkspaceName
             ) : userRole ? (
               userRole.replace(/_/g, " ")
             ) : (
