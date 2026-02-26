@@ -61,6 +61,7 @@ import { getMyPermissions } from "@/lib/services/permissions-service";
 import {
   isSeaFarerOnboardingComplete,
   getSeaFarerWorkspace,
+  getSeaFarerRoles,
   isSuperAdminInSeafarer,
 } from "@/lib/utils/workspace-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1045,10 +1046,25 @@ export function Sidebar() {
     // Re-fetch when workspaceId from URL or store changes (e.g. landing from IMS with ?workspaceId=...)
   }, [user, currentWorkspaceId, workspaceIdFromUrl]);
 
-  // Use API menu when the API succeeded; fall back to role-based menu only when API failed or returned no data
-  const menuRole = userRole;
+  // For Seafarer Employer (AGENT) and Training Institution use hardcoded menu; backend menu returns irrelevant data for these roles
+  const roleUpper = userRole?.toUpperCase() ?? "";
+  const seaFarerRoleNames = (getSeaFarerRoles(user) || []).map((r) =>
+    r.toUpperCase().replace(/\s+/g, "_")
+  );
+  const hasAgentRole =
+    roleUpper === "AGENT" || seaFarerRoleNames.includes("AGENT");
+  const hasTrainingInstitutionRole =
+    roleUpper === "TRAINING_INSTITUTION" ||
+    seaFarerRoleNames.includes("TRAINING_INSTITUTION") ||
+    seaFarerRoleNames.some((r) => r.includes("TRAINING") && r.includes("INSTITUTION"));
+  const useHardcodedRoleMenu = hasAgentRole || hasTrainingInstitutionRole;
+  const menuRole = useHardcodedRoleMenu
+    ? hasAgentRole
+      ? "AGENT"
+      : "TRAINING_INSTITUTION"
+    : userRole;
   const currentMenuItems =
-    useApiMenu
+    useApiMenu && !useHardcodedRoleMenu
       ? apiMenuItems
       : menuRole
         ? getMenuItemsByRole(menuRole)

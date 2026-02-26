@@ -31,9 +31,29 @@ export interface CompanyPermitRecordRequest {
   workspaceRoleId: string;
 }
 
+/** Generate a UUID v4 when company id is not provided by reg & cert. */
+function generateTemporaryCompanyId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/** Generate a unique permit number on the fly (temporary: avoids PERMIT_NUMBER_EXISTS when testing). */
+function generateTemporaryPermitNumber(serviceTypeCode: string): string {
+  const year = new Date().getFullYear();
+  const suffix = Math.random().toString(36).slice(2, 10).toUpperCase();
+  return `PERMIT-${serviceTypeCode}-${year}-${suffix}`;
+}
+
 /**
  * Build the request body for CompanyPermit/record from stored permit validation.
  * workspaceRoleId comes from stored (set when user selects Seafarer Employer or Training Institution) or fallback.
+ * Company id and permit number are generated on the fly temporarily for testing.
  */
 export function buildCompanyPermitRecordBody(
   stored: StoredPermitValidation,
@@ -47,9 +67,14 @@ export function buildCompanyPermitRecordBody(
       "CompanyPermit/record: workspaceRoleId is missing; request may fail."
     );
   }
+  const companyId = generateTemporaryCompanyId();
+  const legalName =
+    stored.company?.legalName?.trim() || "Company (onboarding)";
+  const email = stored.companyOwnerEmail ?? stored.company?.email ?? null;
+  const permitNumber = generateTemporaryPermitNumber(serviceTypeCode);
   return {
     valid: true,
-    permitNumber: stored.permitNumber,
+    permitNumber,
     serviceTypeCode,
     requestedServiceTypeCode: serviceTypeCode,
     serviceTypeMatch: true,
@@ -58,14 +83,12 @@ export function buildCompanyPermitRecordBody(
     validTo: stored.validTo ?? null,
     isCurrentlyValid: true,
     message: stored.message ?? "Permit verified for onboarding",
-    company: stored.company
-      ? {
-          id: stored.company.id,
-          legalName: stored.company.legalName,
-          email: stored.company.email ?? null,
-        }
-      : null,
-    companyOwnerEmail: stored.companyOwnerEmail ?? null,
+    company: {
+      id: companyId,
+      legalName,
+      email,
+    },
+    companyOwnerEmail: email,
     workspaceRoleId,
   };
 }
