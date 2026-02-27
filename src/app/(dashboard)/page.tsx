@@ -7,7 +7,7 @@ import {
   getDashboardRoute,
 } from "@/lib/role-routing";
 import { useAuthStore } from "@/store";
-import { LoadingSpinner, RoleSelectionScreen } from "@/components/shared";
+import { LoadingSpinner } from "@/components/shared";
 import {
   isSeaFarerOnboardingComplete,
   getSeaFarerPrimaryRole,
@@ -27,11 +27,24 @@ import { ApiError } from "@/lib/api-client";
 import { getFirstMenuRouteForWorkspace } from "@/lib/services/menu-service";
 import { SEA_FARER_WORKSPACE_ID } from "@/lib/utils/workspace-helpers";
 
+/** SessionStorage key set by verify-success after permit record; root does one refresh for second status call */
+const PERMIT_JUST_RECORDED_KEY = "permitJustRecorded";
+
 export default function DashboardRedirectPage() {
   const router = useRouter();
   const { user } = useAuthStore();
   const [isChecking, setIsChecking] = useState(true);
-  const [showRoleSelection, setShowRoleSelection] = useState(false);
+
+  // After permit record: one refresh so second status call returns updated readiness and we redirect to dashboard
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const justRecorded = sessionStorage.getItem(PERMIT_JUST_RECORDED_KEY);
+    if (justRecorded === "1") {
+      sessionStorage.removeItem(PERMIT_JUST_RECORDED_KEY);
+      window.location.reload();
+      return;
+    }
+  }, []);
 
   // Call User Readiness first, then my-onboarding when source is onboarding
   useEffect(() => {
@@ -210,14 +223,10 @@ export default function DashboardRedirectPage() {
         router.replace(dashboardRoute);
       })();
     } else {
-      setIsChecking(false);
+      // No role in localStorage: send directly to onboarding welcome (dropdown), not the card-based role selection
+      router.replace("/onboarding/welcome");
     }
   }, [user, router]);
-
-  // Show role selection screen for OWNER
-  if (showRoleSelection) {
-    return <RoleSelectionScreen />;
-  }
 
   // Show loading spinner while checking or redirecting
   if (isChecking) {
@@ -233,6 +242,16 @@ export default function DashboardRedirectPage() {
     );
   }
 
-  // Fallback: show role selection if we reach here
-  return <RoleSelectionScreen />;
+  // Fallback: redirect to onboarding welcome so we never show the card-based role selection
+  if (typeof window !== "undefined") {
+    router.replace("/onboarding/welcome");
+  }
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="text-center">
+        <LoadingSpinner />
+        <p className="text-muted-foreground mt-4">Redirecting...</p>
+      </div>
+    </div>
+  );
 }

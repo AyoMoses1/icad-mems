@@ -1014,10 +1014,17 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const isOnboardingPage =
     pathname === "/onboarding" || pathname.startsWith("/onboarding/");
   const isOnboardingStatusPage = pathname.startsWith("/onboarding/status/");
+  const isOnboardingWelcomeOrRoot =
+    pathname === "/onboarding" || pathname === "/onboarding/welcome";
   const isRootPage = pathname === "/" || pathname === "";
 
   // If on onboarding status pages (pending/rejected), show without sidebar/header
   if (isOnboardingStatusPage) {
+    return <div className="min-h-screen bg-background">{children}</div>;
+  }
+
+  // Onboarding entry and welcome/role-selection: never show sidebar or header
+  if (isOnboardingWelcomeOrRoot) {
     return <div className="min-h-screen bg-background">{children}</div>;
   }
 

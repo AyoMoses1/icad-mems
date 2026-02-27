@@ -235,8 +235,8 @@ export function AgentOnboardingForm({
           // For drafts, stay on the page or redirect to a draft view
           toast.info("You can continue your onboarding later.");
         } else {
-          // For full submissions, redirect to pending status page
-          router.push("/onboarding/status/pending");
+          // Full page load so the app re-fetches user readiness and shows updated status
+          window.location.href = "/onboarding/status/pending";
         }
       } else {
         toast.error(response.message || "Failed to complete onboarding");

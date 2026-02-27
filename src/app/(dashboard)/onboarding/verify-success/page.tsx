@@ -52,6 +52,9 @@ function getRoleLabel(role: string): string {
   return role === "AGENT" ? "Seafarer Employer" : "Training Institution";
 }
 
+/** Flag so root page can do one refresh to get updated readiness after permit record */
+const PERMIT_JUST_RECORDED_KEY = "permitJustRecorded";
+
 export default function VerifySuccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -87,7 +90,7 @@ export default function VerifySuccessPage() {
         } catch {
           // ignore
         }
-        // Call User Readiness to confirm onboarding is complete and get routing
+        // First status check: User Readiness may not be updated yet by the backend
         try {
           const readinessRes = await getUserReadinessStatus();
           if (
@@ -99,16 +102,22 @@ export default function VerifySuccessPage() {
             const targetRoute =
               dashboardRole !== null
                 ? getDashboardRoute(dashboardRole)
-                : "/";
+                : "/agent/dashboard";
             toast.success("Your Seafarer workspace is ready.");
-            router.push(targetRoute);
+            window.location.href = targetRoute;
             return;
           }
         } catch {
-          // Readiness may not be updated yet; still send to root, layout will re-check
+          // Readiness may not be updated yet
+        }
+        // Not ready yet: full-page redirect to root; root will refresh once for second status call
+        try {
+          sessionStorage.setItem(PERMIT_JUST_RECORDED_KEY, "1");
+        } catch {
+          // ignore
         }
         toast.success("Your Seafarer workspace is ready.");
-        router.push("/");
+        window.location.href = "/";
       } else {
         toast.error(
           (response as { message?: string }).message ??
