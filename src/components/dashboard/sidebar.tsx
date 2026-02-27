@@ -120,6 +120,11 @@ const seafarerMenuItems: MenuItem[] = [
     ],
   },
   {
+    title: "Employment offers",
+    href: "/seafarer/offers",
+    icon: FileCheck,
+  },
+  {
     title: "Billing & Payments",
     href: "#",
     icon: CreditCard,

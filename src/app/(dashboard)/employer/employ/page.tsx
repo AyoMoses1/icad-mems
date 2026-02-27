@@ -37,6 +37,8 @@ import {
   User,
   Ship,
   FileText,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
@@ -44,10 +46,22 @@ import {
   searchSeafarer,
   createSeafarerEmployment,
   getSeafarerEmployments,
+  createShipAssignment,
+  getShipAssignments,
+  endShipAssignment,
   type SeafarerSearchResultDto,
   type SeafarerEmploymentDto,
+  type SeafarerShipAssignmentDto,
 } from "@/lib/services/seafarer-employment-training-service";
 import { getAllRanks, type RankDto } from "@/lib/services/ranks";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function EmploySeafarerPage() {
   const router = useRouter();
@@ -60,16 +74,16 @@ export default function EmploySeafarerPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [poolSearch, setPoolSearch] = useState("");
   const [poolRankFilter, setPoolRankFilter] = useState<string>("__all__");
+  const [employmentPageNumber, setEmploymentPageNumber] = useState(1);
+  const employmentPageSize = 20;
+  const [employmentTotalCount, setEmploymentTotalCount] = useState(0);
+  const [employmentTotalPages, setEmploymentTotalPages] = useState(0);
 
-  // Form fields for create employment
+  // Form fields for create employment (offer only; no vessel – assign to ship after seafarer accepts)
   const [rankId, setRankId] = useState("");
-  const [vesselName, setVesselName] = useState("");
-  const [vesselIMO, setVesselIMO] = useState("");
   const [contractType, setContractType] = useState("Fixed-term");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [joiningPort, setJoiningPort] = useState("");
-  const [tradingArea, setTradingArea] = useState("");
   const [basicWage, setBasicWage] = useState("");
   const [overtimeRate, setOvertimeRate] = useState("");
   const [leavePay, setLeavePay] = useState("");
@@ -78,6 +92,19 @@ export default function EmploySeafarerPage() {
   const [specialTerms, setSpecialTerms] = useState("");
   const [contractStatus, setContractStatus] = useState("Draft");
   const [employmentStatus, setEmploymentStatus] = useState("Active");
+
+  // Assign to ship modal (for Accepted employments only)
+  const [assignEmployment, setAssignEmployment] = useState<SeafarerEmploymentDto | null>(null);
+  const [assignments, setAssignments] = useState<SeafarerShipAssignmentDto[]>([]);
+  const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
+  const [isCreatingAssignment, setIsCreatingAssignment] = useState(false);
+  const [isEndingAssignment, setIsEndingAssignment] = useState<string | null>(null);
+  const [assignVesselName, setAssignVesselName] = useState("");
+  const [assignVesselIMO, setAssignVesselIMO] = useState("");
+  const [assignJoiningPort, setAssignJoiningPort] = useState("");
+  const [assignTradingArea, setAssignTradingArea] = useState("");
+  const [assignStartDate, setAssignStartDate] = useState("");
+  const [assignEndDate, setAssignEndDate] = useState("");
 
   const loadRanks = useCallback(async () => {
     try {
@@ -92,16 +119,23 @@ export default function EmploySeafarerPage() {
   const loadEmployments = useCallback(async () => {
     setIsLoadingEmployments(true);
     try {
-      const data = await getSeafarerEmployments();
-      setEmployments(data);
+      const result = await getSeafarerEmployments({
+        pageNumber: employmentPageNumber,
+        pageSize: employmentPageSize,
+      });
+      setEmployments(result.items);
+      setEmploymentTotalCount(result.totalCount);
+      setEmploymentTotalPages(result.totalPages);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load employments";
       toast.error(msg);
       setEmployments([]);
+      setEmploymentTotalCount(0);
+      setEmploymentTotalPages(0);
     } finally {
       setIsLoadingEmployments(false);
     }
-  }, []);
+  }, [employmentPageNumber]);
 
   useEffect(() => {
     loadRanks();
@@ -146,13 +180,9 @@ export default function EmploySeafarerPage() {
       await createSeafarerEmployment({
         seafarerRN: seafarer.rn,
         rankId,
-        vesselName: vesselName || undefined,
-        vesselIMO: vesselIMO || undefined,
         contractType: contractType || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
-        joiningPort: joiningPort || undefined,
-        tradingArea: tradingArea || undefined,
         basicWage: basicWage ? parseFloat(basicWage) : undefined,
         overtimeRate: overtimeRate ? parseFloat(overtimeRate) : undefined,
         leavePay: leavePay || undefined,
@@ -162,16 +192,12 @@ export default function EmploySeafarerPage() {
         contractStatus: contractStatus || "Draft",
         employmentStatus: employmentStatus || undefined,
       });
-      toast.success("Employment created");
+      toast.success("Offer created. The seafarer will be notified and can accept or reject.");
       setSeafarer(null);
       setIdentification("");
       setRankId("");
-      setVesselName("");
-      setVesselIMO("");
       setStartDate("");
       setEndDate("");
-      setJoiningPort("");
-      setTradingArea("");
       setBasicWage("");
       setOvertimeRate("");
       setLeavePay("");
@@ -186,13 +212,9 @@ export default function EmploySeafarerPage() {
   }, [
     seafarer,
     rankId,
-    vesselName,
-    vesselIMO,
     contractType,
     startDate,
     endDate,
-    joiningPort,
-    tradingArea,
     basicWage,
     overtimeRate,
     leavePay,
@@ -211,11 +233,106 @@ export default function EmploySeafarerPage() {
       (e.seafarerFullName && e.seafarerFullName.toLowerCase().includes(q)) ||
       (e.seafarerRN && e.seafarerRN.toLowerCase().includes(q)) ||
       (e.rankDescription && e.rankDescription.toLowerCase().includes(q)) ||
-      (e.vesselName && e.vesselName.toLowerCase().includes(q));
+      (e.acceptanceStatus && e.acceptanceStatus.toLowerCase().includes(q));
     const matchRank =
       poolRankFilter === "__all__" || e.rankId === poolRankFilter;
     return matchSearch && matchRank;
   });
+
+  const loadAssignmentsForEmployment = useCallback(
+    async (employmentId: string) => {
+      setIsLoadingAssignments(true);
+      try {
+        const list = await getShipAssignments(employmentId);
+        setAssignments(list);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to load assignments");
+        setAssignments([]);
+      } finally {
+        setIsLoadingAssignments(false);
+      }
+    },
+    []
+  );
+
+  const openAssignModal = useCallback(
+    (employment: SeafarerEmploymentDto) => {
+      setAssignEmployment(employment);
+      setAssignVesselName("");
+      setAssignVesselIMO("");
+      setAssignJoiningPort("");
+      setAssignTradingArea("");
+      setAssignStartDate("");
+      setAssignEndDate("");
+      setAssignments([]);
+      if (employment.seafarerEmploymentId) {
+        loadAssignmentsForEmployment(employment.seafarerEmploymentId);
+      }
+    },
+    [loadAssignmentsForEmployment]
+  );
+
+  const closeAssignModal = useCallback(() => {
+    setAssignEmployment(null);
+    setAssignments([]);
+  }, []);
+
+  const handleCreateAssignment = useCallback(async () => {
+    if (!assignEmployment) return;
+    setIsCreatingAssignment(true);
+    try {
+      await createShipAssignment(assignEmployment.seafarerEmploymentId, {
+        vesselName: assignVesselName || undefined,
+        vesselIMO: assignVesselIMO || undefined,
+        joiningPort: assignJoiningPort || undefined,
+        tradingArea: assignTradingArea || undefined,
+        assignmentStartDate: assignStartDate || undefined,
+        assignmentEndDate: assignEndDate || undefined,
+      });
+      toast.success("Seafarer assigned to ship");
+      setAssignVesselName("");
+      setAssignVesselIMO("");
+      setAssignJoiningPort("");
+      setAssignTradingArea("");
+      setAssignStartDate("");
+      setAssignEndDate("");
+      loadAssignmentsForEmployment(assignEmployment.seafarerEmploymentId);
+      loadEmployments();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Create assignment failed");
+    } finally {
+      setIsCreatingAssignment(false);
+    }
+  }, [
+    assignEmployment,
+    assignVesselName,
+    assignVesselIMO,
+    assignJoiningPort,
+    assignTradingArea,
+    assignStartDate,
+    assignEndDate,
+    loadAssignmentsForEmployment,
+    loadEmployments,
+  ]);
+
+  const handleEndAssignment = useCallback(
+    async (assignmentId: string) => {
+      setIsEndingAssignment(assignmentId);
+      try {
+        await endShipAssignment(assignmentId);
+        toast.success("Assignment ended");
+        if (assignEmployment) {
+          loadAssignmentsForEmployment(assignEmployment.seafarerEmploymentId);
+        }
+        loadEmployments();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "End assignment failed");
+      } finally {
+        setIsEndingAssignment(null);
+      }
+    },
+    [assignEmployment, loadAssignmentsForEmployment, loadEmployments]
+  );
 
   return (
     <div className="w-full max-w-[1600px] mx-auto space-y-6 lg:space-y-8 px-1">
@@ -235,7 +352,7 @@ export default function EmploySeafarerPage() {
               Employ Seafarer
             </h1>
             <p className="text-muted-foreground mt-1 text-sm sm:text-base max-w-xl">
-              Search seafarer by SIN or RN, then create an employment (assign to vessel).
+              Create an employment offer (terms and duration). The seafarer will accept or reject; you can assign to a ship after acceptance.
             </p>
           </div>
         </div>
@@ -255,7 +372,7 @@ export default function EmploySeafarerPage() {
           <CardHeader className="space-y-2 pb-4">
             <CardTitle className="text-lg">Search &amp; Create Employment</CardTitle>
             <CardDescription className="text-sm">
-              Enter SIN or RN and click Search. Then fill contract details and Create Employment.
+              Enter SIN or RN and click Search. Then fill contract details and Create offer (vessel assignment is done after the seafarer accepts).
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 pt-0">
@@ -318,22 +435,6 @@ export default function EmploySeafarerPage() {
                 </Select>
               </div>
               <div className="space-y-2 min-w-0">
-                <Label>Vessel name</Label>
-                <Input
-                  placeholder="e.g. MV Atlantic Star"
-                  value={vesselName}
-                  onChange={(e) => setVesselName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2 min-w-0">
-                <Label>Vessel IMO</Label>
-                <Input
-                  placeholder="e.g. 9123456"
-                  value={vesselIMO}
-                  onChange={(e) => setVesselIMO(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2 min-w-0">
                 <Label>Contract type</Label>
                 <Select value={contractType} onValueChange={setContractType}>
                   <SelectTrigger>
@@ -361,22 +462,6 @@ export default function EmploySeafarerPage() {
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2 min-w-0">
-                <Label>Joining port</Label>
-                <Input
-                  placeholder="e.g. Apapa, Lagos"
-                  value={joiningPort}
-                  onChange={(e) => setJoiningPort(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2 min-w-0">
-                <Label>Trading area</Label>
-                <Input
-                  placeholder="e.g. West Africa"
-                  value={tradingArea}
-                  onChange={(e) => setTradingArea(e.target.value)}
                 />
               </div>
               <div className="space-y-2 min-w-0">
@@ -455,7 +540,7 @@ export default function EmploySeafarerPage() {
               ) : (
                 <>
                   <Ship className="h-4 w-4 mr-2" />
-                  Create employment
+                  Create offer
                 </>
               )}
             </Button>
@@ -466,11 +551,13 @@ export default function EmploySeafarerPage() {
           <CardHeader className="space-y-4 pb-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <CardTitle className="text-lg">My employments</CardTitle>
-              <Badge variant="secondary">{filteredEmployments.length} shown</Badge>
+              <Badge variant="secondary">
+                Page {employmentPageNumber} of {employmentTotalPages || 1} · {employmentTotalCount} total
+              </Badge>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
               <Input
-                placeholder="Search by name, RN, rank, vessel…"
+                placeholder="Search by name, RN, rank, acceptance…"
                 className="flex-1 min-w-0 sm:min-w-[200px]"
                 value={poolSearch}
                 onChange={(e) => setPoolSearch(e.target.value)}
@@ -502,8 +589,8 @@ export default function EmploySeafarerPage() {
                     <TableRow>
                       <TableHead className="min-w-[140px]">Seafarer</TableHead>
                       <TableHead className="min-w-[100px]">Rank</TableHead>
-                      <TableHead className="min-w-[100px]">Vessel</TableHead>
-                      <TableHead className="min-w-[90px]">Status</TableHead>
+                      <TableHead className="min-w-[90px]">Acceptance</TableHead>
+                      <TableHead className="min-w-[90px]">Contract</TableHead>
                       <TableHead className="min-w-[100px]">Created</TableHead>
                       <TableHead className="text-right">Action</TableHead>
                     </TableRow>
@@ -512,7 +599,7 @@ export default function EmploySeafarerPage() {
                     {filteredEmployments.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center text-muted-foreground py-12">
-                          No employments yet. Search a seafarer and create an employment.
+                          No employments yet. Search a seafarer and create an offer.
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -523,14 +610,36 @@ export default function EmploySeafarerPage() {
                             <div className="text-xs text-muted-foreground">{e.seafarerRN}</div>
                           </TableCell>
                           <TableCell>{e.rankDescription ?? "—"}</TableCell>
-                          <TableCell>{e.vesselName ?? "—"}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                e.acceptanceStatus === "Accepted"
+                                  ? "default"
+                                  : e.acceptanceStatus === "Rejected"
+                                    ? "destructive"
+                                    : "secondary"
+                              }
+                            >
+                              {e.acceptanceStatus ?? "Pending"}
+                            </Badge>
+                          </TableCell>
                           <TableCell>
                             <Badge variant="secondary">{e.contractStatus}</Badge>
                           </TableCell>
                           <TableCell className="text-muted-foreground">
                             {e.dateCreated ? formatDate(e.dateCreated) : "—"}
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right flex gap-1 justify-end flex-wrap">
+                            {e.acceptanceStatus === "Accepted" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openAssignModal(e)}
+                              >
+                                <Ship className="h-3 w-3 mr-1" />
+                                Assign to ship
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
@@ -546,7 +655,30 @@ export default function EmploySeafarerPage() {
                 </Table>
               )}
             </div>
-            <div className="mt-4 pt-4 border-t">
+            <div className="mt-4 pt-4 border-t flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEmploymentPageNumber((p) => Math.max(1, p - 1))}
+                  disabled={employmentPageNumber <= 1 || isLoadingEmployments}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {employmentPageNumber} of {employmentTotalPages || 1}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEmploymentPageNumber((p) => p + 1)}
+                  disabled={employmentPageNumber >= employmentTotalPages || isLoadingEmployments || employmentTotalPages === 0}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
               <Button
                 variant="default"
                 className="w-full sm:w-auto"
@@ -558,6 +690,128 @@ export default function EmploySeafarerPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!assignEmployment} onOpenChange={(open) => !open && closeAssignModal()}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Assign to ship</DialogTitle>
+            <DialogDescription>
+              {assignEmployment && (
+                <>Assign {assignEmployment.seafarerFullName ?? assignEmployment.seafarerRN} to a vessel. One active assignment per seafarer.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {assignEmployment && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Vessel name</Label>
+                  <Input
+                    placeholder="e.g. MV Atlantic Star"
+                    value={assignVesselName}
+                    onChange={(e) => setAssignVesselName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Vessel IMO</Label>
+                  <Input
+                    placeholder="e.g. 9123456"
+                    value={assignVesselIMO}
+                    onChange={(e) => setAssignVesselIMO(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Joining port</Label>
+                  <Input
+                    placeholder="e.g. Apapa, Lagos"
+                    value={assignJoiningPort}
+                    onChange={(e) => setAssignJoiningPort(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Trading area</Label>
+                  <Input
+                    placeholder="e.g. West Africa"
+                    value={assignTradingArea}
+                    onChange={(e) => setAssignTradingArea(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Assignment start date</Label>
+                  <Input
+                    type="date"
+                    value={assignStartDate}
+                    onChange={(e) => setAssignStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Assignment end date</Label>
+                  <Input
+                    type="date"
+                    value={assignEndDate}
+                    onChange={(e) => setAssignEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleCreateAssignment}
+                disabled={isCreatingAssignment}
+              >
+                {isCreatingAssignment ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Ship className="h-4 w-4 mr-2" />
+                )}
+                Create assignment
+              </Button>
+              <div className="border-t pt-4 space-y-2">
+                <p className="text-sm font-medium">Ship assignments</p>
+                {isLoadingAssignments ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading…
+                  </div>
+                ) : assignments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No assignments yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {assignments.map((a) => (
+                      <li
+                        key={a.seafarerShipAssignmentId}
+                        className="flex items-center justify-between rounded border p-2 text-sm"
+                      >
+                        <span>
+                          {a.vesselName ?? "—"} {a.vesselIMO ? `(${a.vesselIMO})` : ""} · {a.status}
+                          {a.assignmentStartDate && ` · from ${formatDate(a.assignmentStartDate)}`}
+                        </span>
+                        {a.status === "Active" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEndAssignment(a.seafarerShipAssignmentId)}
+                            disabled={isEndingAssignment === a.seafarerShipAssignmentId}
+                          >
+                            {isEndingAssignment === a.seafarerShipAssignmentId ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              "End"
+                            )}
+                          </Button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={closeAssignModal}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

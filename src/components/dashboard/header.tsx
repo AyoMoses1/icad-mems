@@ -37,6 +37,7 @@ const getPageTitle = (pathname: string): string => {
     "/seafarer/overview": "Seafarer Overview",
     "/seafarer/applications": "Applications",
     "/seafarer/applications/review": "Review Application",
+    "/seafarer/offers": "Employment offers",
     "/seafarer/registry": "Seafarer Registry",
     "/seafarer/profile": "Seafarer Profile",
     "/seafarer/add": "Onboard Seafarer",

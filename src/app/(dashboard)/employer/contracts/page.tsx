@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -36,15 +37,29 @@ import {
   Ship,
   User,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import {
   getSeafarerEmployments,
   updateSeafarerEmploymentStatus,
+  getShipAssignments,
+  createShipAssignment,
+  endShipAssignment,
   type SeafarerEmploymentDto,
+  type SeafarerShipAssignmentDto,
 } from "@/lib/services/seafarer-employment-training-service";
 import { getAllRanks, type RankDto } from "@/lib/services/ranks";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function EmployerContractsPage() {
   const router = useRouter();
@@ -55,20 +70,46 @@ export default function EmployerContractsPage() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [search, setSearch] = useState("");
   const [filterRank, setFilterRank] = useState<string>("__all__");
+  const [filterAcceptanceStatus, setFilterAcceptanceStatus] = useState<string>("__all__");
+  const [filterContractStatus, setFilterContractStatus] = useState<string>("__all__");
+  const [pageNumber, setPageNumber] = useState(1);
+  const pageSize = 20;
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [selectedAssignments, setSelectedAssignments] = useState<SeafarerShipAssignmentDto[]>([]);
+  const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [assignVesselName, setAssignVesselName] = useState("");
+  const [assignVesselIMO, setAssignVesselIMO] = useState("");
+  const [assignJoiningPort, setAssignJoiningPort] = useState("");
+  const [assignTradingArea, setAssignTradingArea] = useState("");
+  const [assignStartDate, setAssignStartDate] = useState("");
+  const [assignEndDate, setAssignEndDate] = useState("");
+  const [isCreatingAssignment, setIsCreatingAssignment] = useState(false);
+  const [isEndingAssignmentId, setIsEndingAssignmentId] = useState<string | null>(null);
 
   const loadEmployments = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await getSeafarerEmployments();
-      setEmployments(data);
+      const result = await getSeafarerEmployments({
+        pageNumber,
+        pageSize,
+        acceptanceStatus: filterAcceptanceStatus === "__all__" ? undefined : filterAcceptanceStatus,
+        contractStatus: filterContractStatus === "__all__" ? undefined : filterContractStatus,
+      });
+      setEmployments(result.items);
+      setTotalCount(result.totalCount);
+      setTotalPages(result.totalPages);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load employments";
       toast.error(msg);
       setEmployments([]);
+      setTotalCount(0);
+      setTotalPages(0);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [pageNumber, filterAcceptanceStatus, filterContractStatus]);
 
   const loadRanks = useCallback(async () => {
     try {
@@ -81,8 +122,17 @@ export default function EmployerContractsPage() {
 
   useEffect(() => {
     loadEmployments();
+  }, [loadEmployments]);
+
+  useEffect(() => {
     loadRanks();
-  }, [loadEmployments, loadRanks]);
+  }, [loadRanks]);
+
+  const handleFilterChange = useCallback((acceptance?: string, contract?: string) => {
+    if (acceptance !== undefined) setFilterAcceptanceStatus(acceptance);
+    if (contract !== undefined) setFilterContractStatus(contract);
+    setPageNumber(1);
+  }, []);
 
   const filteredEmployments = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -92,14 +142,26 @@ export default function EmployerContractsPage() {
         (e.seafarerFullName && e.seafarerFullName.toLowerCase().includes(q)) ||
         (e.seafarerRN && e.seafarerRN.toLowerCase().includes(q)) ||
         (e.rankDescription && e.rankDescription.toLowerCase().includes(q)) ||
-        (e.vesselName && e.vesselName.toLowerCase().includes(q));
+        (e.acceptanceStatus && e.acceptanceStatus.toLowerCase().includes(q));
       const matchRank = filterRank === "__all__" || e.rankId === filterRank;
       return matchSearch && matchRank;
     });
   }, [employments, search, filterRank]);
 
-  const handleSelect = useCallback((employment: SeafarerEmploymentDto) => {
+  const handleSelect = useCallback(async (employment: SeafarerEmploymentDto) => {
     setSelected(employment);
+    setSelectedAssignments([]);
+    if (employment.acceptanceStatus === "Accepted" && employment.seafarerEmploymentId) {
+      setIsLoadingAssignments(true);
+      try {
+        const list = await getShipAssignments(employment.seafarerEmploymentId);
+        setSelectedAssignments(list);
+      } catch {
+        setSelectedAssignments([]);
+      } finally {
+        setIsLoadingAssignments(false);
+      }
+    }
   }, []);
 
   const handleMarkSent = useCallback(async () => {
@@ -146,7 +208,7 @@ export default function EmployerContractsPage() {
     return [
       "SEAFARER EMPLOYMENT CONTRACT",
       `Employment ID: ${e.seafarerEmploymentId}`,
-      `Status: ${e.contractStatus}`,
+      `Contract status: ${e.contractStatus} · Acceptance: ${e.acceptanceStatus ?? "Pending"}`,
       "",
       "PARTIES",
       `Employer: ${e.companyLegalName ?? "—"}`,
@@ -156,13 +218,11 @@ export default function EmployerContractsPage() {
       `RN: ${e.seafarerRN} · SIN: ${e.seafarerSIN ?? "—"}`,
       `Rank: ${e.rankDescription ?? "—"}`,
       "",
-      "VESSEL & CONTRACT",
-      `Vessel: ${e.vesselName ?? "—"} (${e.vesselIMO ?? "—"})`,
+      "CONTRACT",
       `Contract type: ${e.contractType ?? "—"}`,
-      `Trading area: ${e.tradingArea ?? "—"}`,
-      `Joining port: ${e.joiningPort ?? "—"}`,
       `Start date: ${e.startDate ? formatDate(e.startDate) : "—"}`,
       `End date: ${e.endDate ? formatDate(e.endDate) : "—"}`,
+      "Vessel: Assign after seafarer accepts (see Ship assignments).",
       "",
       "REMUNERATION",
       `Basic wage: ${e.basicWage != null ? e.basicWage : "—"} USD`,
@@ -181,12 +241,11 @@ export default function EmployerContractsPage() {
     const data = {
       seafarerEmploymentId: selected.seafarerEmploymentId,
       contractStatus: selected.contractStatus,
+      acceptanceStatus: selected.acceptanceStatus,
       companyLegalName: selected.companyLegalName,
       seafarerFullName: selected.seafarerFullName,
       seafarerRN: selected.seafarerRN,
       rankDescription: selected.rankDescription,
-      vesselName: selected.vesselName,
-      vesselIMO: selected.vesselIMO,
       contractType: selected.contractType,
       startDate: selected.startDate,
       endDate: selected.endDate,
@@ -208,6 +267,89 @@ export default function EmployerContractsPage() {
     setSelected(null);
     toast.info("Selection cleared");
   }, []);
+
+  const openAssignDialog = useCallback(async () => {
+    setAssignDialogOpen(true);
+    setAssignVesselName("");
+    setAssignVesselIMO("");
+    setAssignJoiningPort("");
+    setAssignTradingArea("");
+    setAssignStartDate("");
+    setAssignEndDate("");
+    if (selected?.seafarerEmploymentId) {
+      setIsLoadingAssignments(true);
+      try {
+        const list = await getShipAssignments(selected.seafarerEmploymentId);
+        setSelectedAssignments(list);
+      } catch {
+        setSelectedAssignments([]);
+      } finally {
+        setIsLoadingAssignments(false);
+      }
+    }
+  }, [selected?.seafarerEmploymentId]);
+
+  const closeAssignDialog = useCallback(() => {
+    setAssignDialogOpen(false);
+  }, []);
+
+  const handleCreateAssignment = useCallback(async () => {
+    if (!selected?.seafarerEmploymentId) return;
+    setIsCreatingAssignment(true);
+    try {
+      await createShipAssignment(selected.seafarerEmploymentId, {
+        vesselName: assignVesselName || undefined,
+        vesselIMO: assignVesselIMO || undefined,
+        joiningPort: assignJoiningPort || undefined,
+        tradingArea: assignTradingArea || undefined,
+        assignmentStartDate: assignStartDate || undefined,
+        assignmentEndDate: assignEndDate || undefined,
+      });
+      toast.success("Seafarer assigned to ship");
+      setAssignVesselName("");
+      setAssignVesselIMO("");
+      setAssignJoiningPort("");
+      setAssignTradingArea("");
+      setAssignStartDate("");
+      setAssignEndDate("");
+      const list = await getShipAssignments(selected.seafarerEmploymentId);
+      setSelectedAssignments(list);
+      loadEmployments();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Create assignment failed");
+    } finally {
+      setIsCreatingAssignment(false);
+    }
+  }, [
+    selected,
+    assignVesselName,
+    assignVesselIMO,
+    assignJoiningPort,
+    assignTradingArea,
+    assignStartDate,
+    assignEndDate,
+    loadEmployments,
+  ]);
+
+  const handleEndAssignment = useCallback(
+    async (assignmentId: string) => {
+      setIsEndingAssignmentId(assignmentId);
+      try {
+        await endShipAssignment(assignmentId);
+        toast.success("Assignment ended");
+        if (selected?.seafarerEmploymentId) {
+          const list = await getShipAssignments(selected.seafarerEmploymentId);
+          setSelectedAssignments(list);
+        }
+        loadEmployments();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "End assignment failed");
+      } finally {
+        setIsEndingAssignmentId(null);
+      }
+    },
+    [selected?.seafarerEmploymentId, loadEmployments]
+  );
 
   return (
     <div className="w-full max-w-[1600px] mx-auto space-y-6 lg:space-y-8 px-1">
@@ -246,13 +388,13 @@ export default function EmployerContractsPage() {
             <Download className="h-4 w-4 mr-2" />
             Download JSON
           </Button>
-          <Button
-            size="sm"
-            className="sm:size-default"
-            onClick={() => router.push("/employer/employ")}
-          >
-            Create employment
-          </Button>
+            <Button
+              size="sm"
+              className="sm:size-default"
+              onClick={() => router.push("/employer/employ")}
+            >
+              Create offer
+            </Button>
         </div>
       </div>
 
@@ -263,10 +405,7 @@ export default function EmployerContractsPage() {
               <CardTitle className="text-lg">My employments</CardTitle>
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary" className="text-xs">
-                  {employments.length} total
-                </Badge>
-                <Badge variant="secondary" className="text-xs">
-                  {filteredEmployments.length} shown
+                  Page {pageNumber} of {totalPages || 1} · {totalCount} total
                 </Badge>
                 <Badge variant="outline" className="text-xs font-medium">
                   {selected ? selected.seafarerFullName ?? selected.seafarerRN : "None selected"}
@@ -276,10 +415,38 @@ export default function EmployerContractsPage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
               <Input
                 className="flex-1 min-w-0 sm:min-w-[220px]"
-                placeholder="Search by name, RN, rank, vessel…"
+                placeholder="Search by name, RN, rank, acceptance…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+              <Select
+                value={filterAcceptanceStatus}
+                onValueChange={(v) => handleFilterChange(v, undefined)}
+              >
+                <SelectTrigger className="w-full sm:w-[140px]">
+                  <SelectValue placeholder="Acceptance" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All acceptance</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Accepted">Accepted</SelectItem>
+                  <SelectItem value="Rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={filterContractStatus}
+                onValueChange={(v) => handleFilterChange(undefined, v)}
+              >
+                <SelectTrigger className="w-full sm:w-[130px]">
+                  <SelectValue placeholder="Contract" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All contract</SelectItem>
+                  <SelectItem value="Draft">Draft</SelectItem>
+                  <SelectItem value="Sent">Sent</SelectItem>
+                  <SelectItem value="Signed">Signed</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={filterRank} onValueChange={setFilterRank}>
                 <SelectTrigger className="w-full sm:w-[160px] lg:w-[180px]">
                   <SelectValue placeholder="All ranks" />
@@ -307,7 +474,7 @@ export default function EmployerContractsPage() {
                     <TableRow>
                       <TableHead className="min-w-[220px]">Seafarer</TableHead>
                       <TableHead className="min-w-[120px]">Rank</TableHead>
-                      <TableHead className="min-w-[120px]">Vessel</TableHead>
+                      <TableHead className="min-w-[100px]">Acceptance</TableHead>
                       <TableHead className="min-w-[100px]">Status</TableHead>
                       <TableHead className="min-w-[100px]">Created</TableHead>
                       <TableHead className="text-right min-w-[100px]">Action</TableHead>
@@ -341,7 +508,19 @@ export default function EmployerContractsPage() {
                               </div>
                             </TableCell>
                             <TableCell>{e.rankDescription ?? "—"}</TableCell>
-                            <TableCell>{e.vesselName ?? "—"}</TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  e.acceptanceStatus === "Accepted"
+                                    ? "default"
+                                    : e.acceptanceStatus === "Rejected"
+                                      ? "destructive"
+                                      : "secondary"
+                                }
+                              >
+                                {e.acceptanceStatus ?? "Pending"}
+                              </Badge>
+                            </TableCell>
                             <TableCell>
                               <Badge
                                 variant={
@@ -376,6 +555,29 @@ export default function EmployerContractsPage() {
                   </TableBody>
                 </Table>
               )}
+            </div>
+            <div className="mt-4 pt-4 border-t flex flex-wrap items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+                disabled={pageNumber <= 1 || isLoading}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {pageNumber} of {totalPages || 1}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPageNumber((p) => p + 1)}
+                disabled={pageNumber >= totalPages || isLoading || totalPages === 0}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -438,6 +640,71 @@ export default function EmployerContractsPage() {
             </CardContent>
           </Card>
 
+          {selected?.acceptanceStatus === "Accepted" && (
+            <Card className="flex flex-col min-h-0">
+              <CardHeader className="pb-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <CardTitle className="text-lg">Ship assignments</CardTitle>
+                    <CardDescription className="text-sm">
+                      Vessel assignments for this employment.
+                    </CardDescription>
+                  </div>
+                  {selected?.seafarerEmploymentId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={openAssignDialog}
+                    >
+                      <Ship className="h-3 w-3 mr-1" />
+                      Assign to ship
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {isLoadingAssignments ? (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading…
+                  </div>
+                ) : selectedAssignments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No ship assignments yet. Use <strong>Assign to ship</strong> above to add one.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {selectedAssignments.map((a) => (
+                      <li
+                        key={a.seafarerShipAssignmentId}
+                        className="flex items-center justify-between rounded border p-2 text-sm gap-2"
+                      >
+                        <span>
+                          {a.vesselName ?? "—"} {a.vesselIMO ? `(${a.vesselIMO})` : ""} · {a.status}
+                          {a.assignmentStartDate && ` · from ${formatDate(a.assignmentStartDate)}`}
+                        </span>
+                        {a.status === "Active" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEndAssignment(a.seafarerShipAssignmentId)}
+                            disabled={isEndingAssignmentId === a.seafarerShipAssignmentId}
+                          >
+                            {isEndingAssignmentId === a.seafarerShipAssignmentId ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              "End"
+                            )}
+                          </Button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="flex flex-col min-h-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Contract preview</CardTitle>
@@ -452,6 +719,128 @@ export default function EmployerContractsPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={assignDialogOpen && selected != null} onOpenChange={(open) => !open && closeAssignDialog()}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Assign to ship</DialogTitle>
+            <DialogDescription>
+              {selected && (
+                <>Assign {selected.seafarerFullName ?? selected.seafarerRN} to a vessel. One active assignment per seafarer.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {selected && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Vessel name</Label>
+                  <Input
+                    placeholder="e.g. MV Atlantic Star"
+                    value={assignVesselName}
+                    onChange={(e) => setAssignVesselName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Vessel IMO</Label>
+                  <Input
+                    placeholder="e.g. 9123456"
+                    value={assignVesselIMO}
+                    onChange={(e) => setAssignVesselIMO(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Joining port</Label>
+                  <Input
+                    placeholder="e.g. Apapa, Lagos"
+                    value={assignJoiningPort}
+                    onChange={(e) => setAssignJoiningPort(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Trading area</Label>
+                  <Input
+                    placeholder="e.g. West Africa"
+                    value={assignTradingArea}
+                    onChange={(e) => setAssignTradingArea(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Assignment start date</Label>
+                  <Input
+                    type="date"
+                    value={assignStartDate}
+                    onChange={(e) => setAssignStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Assignment end date</Label>
+                  <Input
+                    type="date"
+                    value={assignEndDate}
+                    onChange={(e) => setAssignEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleCreateAssignment}
+                disabled={isCreatingAssignment}
+              >
+                {isCreatingAssignment ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Ship className="h-4 w-4 mr-2" />
+                )}
+                Create assignment
+              </Button>
+              <div className="border-t pt-4 space-y-2">
+                <p className="text-sm font-medium">Ship assignments</p>
+                {isLoadingAssignments ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading…
+                  </div>
+                ) : selectedAssignments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No assignments yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {selectedAssignments.map((a) => (
+                      <li
+                        key={a.seafarerShipAssignmentId}
+                        className="flex items-center justify-between rounded border p-2 text-sm"
+                      >
+                        <span>
+                          {a.vesselName ?? "—"} {a.vesselIMO ? `(${a.vesselIMO})` : ""} · {a.status}
+                          {a.assignmentStartDate && ` · from ${formatDate(a.assignmentStartDate)}`}
+                        </span>
+                        {a.status === "Active" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEndAssignment(a.seafarerShipAssignmentId)}
+                            disabled={isEndingAssignmentId === a.seafarerShipAssignmentId}
+                          >
+                            {isEndingAssignmentId === a.seafarerShipAssignmentId ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              "End"
+                            )}
+                          </Button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={closeAssignDialog}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
