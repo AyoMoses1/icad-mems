@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Users,
@@ -9,6 +10,8 @@ import {
   UserPlus,
   FileText,
   AlertCircle,
+  Ship,
+  Send,
 } from "lucide-react";
 import {
   Card,
@@ -20,13 +23,86 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store";
 import { isSeaFarerOnboardingComplete } from "@/lib/utils/workspace-helpers";
+import { getAllOnboardings } from "@/lib/services/onboarding-service";
+import {
+  getSeafarerEmployments,
+} from "@/lib/services/seafarer-employment-training-service";
+
+interface EmployerDashboardStats {
+  activeSeafarersCount: number;
+  totalContractsCount: number;
+  pendingAcceptanceCount: number;
+  signedContractsCount: number;
+}
 
 export default function AgentDashboardPage() {
   const { user } = useAuthStore();
+  const [stats, setStats] = useState<EmployerDashboardStats>({
+    activeSeafarersCount: 0,
+    totalContractsCount: 0,
+    pendingAcceptanceCount: 0,
+    signedContractsCount: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
   // Check if onboarding is complete for Sea Farer workspace
-  // Use workspace-specific onboarding status if available, otherwise fall back to top-level
   const isOnboardingComplete = isSeaFarerOnboardingComplete(user) ?? user?.is_onboarding_complete ?? false;
+
+  const loadDashboardData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Active seafarers = total count of employer's seafarers (from onboarding/registry list)
+      const onboardingsRes = await getAllOnboardings();
+      const onboardingsOk = onboardingsRes.success ?? (onboardingsRes as { successful?: boolean }).successful;
+      let activeSeafarersCount = 0;
+      if (onboardingsOk && onboardingsRes.data && Array.isArray(onboardingsRes.data)) {
+        const seafarerOnly = onboardingsRes.data.filter(
+          (o) => (o.role?.toUpperCase?.() ?? "") === "SEAFARER"
+        );
+        activeSeafarersCount = seafarerOnly.length;
+      }
+
+      // Contracts: total, pending acceptance, signed (from seafarer-employment API)
+      let totalContractsCount = 0;
+      let pendingAcceptanceCount = 0;
+      let signedContractsCount = 0;
+
+      const [totalRes, pendingRes, signedRes] = await Promise.all([
+        getSeafarerEmployments({ pageNumber: 1, pageSize: 1 }),
+        getSeafarerEmployments({ acceptanceStatus: "Pending", pageNumber: 1, pageSize: 1 }),
+        getSeafarerEmployments({ contractStatus: "Signed", pageNumber: 1, pageSize: 1 }),
+      ]);
+
+      totalContractsCount = totalRes.totalCount ?? 0;
+      pendingAcceptanceCount = pendingRes.totalCount ?? 0;
+      signedContractsCount = signedRes.totalCount ?? 0;
+
+      setStats({
+        activeSeafarersCount,
+        totalContractsCount,
+        pendingAcceptanceCount,
+        signedContractsCount,
+      });
+    } catch (error) {
+      console.error("Error loading employer dashboard data:", error);
+      setStats({
+        activeSeafarersCount: 0,
+        totalContractsCount: 0,
+        pendingAcceptanceCount: 0,
+        signedContractsCount: 0,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOnboardingComplete) {
+      loadDashboardData();
+    } else {
+      setIsLoading(false);
+    }
+  }, [isOnboardingComplete, loadDashboardData]);
 
   return (
     <div className="space-y-6">
@@ -73,58 +149,91 @@ export default function AgentDashboardPage() {
         </Card>
       )}
 
-      {/* Key Stats Cards */}
+      {/* Key Stats Cards - employer-relevant metrics from seafarers & contracts */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Active Seafarers
-                </p>
-                <p className="text-3xl font-bold">0</p>
-                <p className="text-xs text-muted-foreground">Under management</p>
+        <Link href="/seafarer/registry">
+          <Card className="border-l-4 border-l-blue-500 hover:bg-muted/50 transition-colors h-full">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Active Seafarers
+                  </p>
+                  <p className="text-3xl font-bold">
+                    {isLoading ? "—" : stats.activeSeafarersCount}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Under management</p>
+                </div>
+                <div className="p-3 rounded-lg bg-blue-50 text-blue-600">
+                  <Users className="h-5 w-5" />
+                </div>
               </div>
-              <div className="p-3 rounded-lg bg-blue-50 text-blue-600">
-                <Users className="h-5 w-5" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card className="border-l-4 border-l-orange-500">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Pending Applications
-                </p>
-                <p className="text-3xl font-bold">0</p>
-                <p className="text-xs text-muted-foreground">Awaiting review</p>
+        <Link href="/employer/contracts">
+          <Card className="border-l-4 border-l-slate-600 hover:bg-muted/50 transition-colors h-full">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Contracts Assigned
+                  </p>
+                  <p className="text-3xl font-bold">
+                    {isLoading ? "—" : stats.totalContractsCount}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Total employments</p>
+                </div>
+                <div className="p-3 rounded-lg bg-slate-100 text-slate-600">
+                  <Ship className="h-5 w-5" />
+                </div>
               </div>
-              <div className="p-3 rounded-lg bg-orange-50 text-orange-600">
-                <FileCheck className="h-5 w-5" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card className="border-l-4 border-l-purple-500">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Completed This Month
-                </p>
-                <p className="text-3xl font-bold">0</p>
-                <p className="text-xs text-muted-foreground">Applications</p>
+        <Link href="/employer/contracts?acceptance=Pending">
+          <Card className="border-l-4 border-l-orange-500 hover:bg-muted/50 transition-colors h-full">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Pending Acceptance
+                  </p>
+                  <p className="text-3xl font-bold">
+                    {isLoading ? "—" : stats.pendingAcceptanceCount}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Awaiting seafarer</p>
+                </div>
+                <div className="p-3 rounded-lg bg-orange-50 text-orange-600">
+                  <Send className="h-5 w-5" />
+                </div>
               </div>
-              <div className="p-3 rounded-lg bg-purple-50 text-purple-600">
-                <CheckCircle2 className="h-5 w-5" />
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/employer/contracts?status=Signed">
+          <Card className="border-l-4 border-l-purple-500 hover:bg-muted/50 transition-colors h-full">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Contracts Signed
+                  </p>
+                  <p className="text-3xl font-bold">
+                    {isLoading ? "—" : stats.signedContractsCount}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Ready for assignment</p>
+                </div>
+                <div className="p-3 rounded-lg bg-purple-50 text-purple-600">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Quick Actions */}
@@ -150,16 +259,32 @@ export default function AgentDashboardPage() {
               </Button>
             </Link>
 
-            <Link href="/seafarer/applications">
+            <Link href="/employer/employ">
+              <Button
+                variant="outline"
+                className="w-full justify-start h-auto p-4 hover:bg-accent/50"
+              >
+                <Ship className="mr-3 h-5 w-5 text-slate-600" />
+                <div className="text-left">
+                  <p className="font-medium">Employ Seafarer</p>
+                  <p className="text-xs text-muted-foreground">
+                    Create contract offer
+                  </p>
+                </div>
+                <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground" />
+              </Button>
+            </Link>
+
+            <Link href="/employer/contracts">
               <Button
                 variant="outline"
                 className="w-full justify-start h-auto p-4 hover:bg-accent/50"
               >
                 <FileCheck className="mr-3 h-5 w-5 text-orange-600" />
                 <div className="text-left">
-                  <p className="font-medium">Applications</p>
+                  <p className="font-medium">Assign to Ship / Contracts</p>
                   <p className="text-xs text-muted-foreground">
-                    Manage applications
+                    Manage contracts & ship assignments
                   </p>
                 </div>
                 <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground" />
@@ -189,7 +314,7 @@ export default function AgentDashboardPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Recent Activity</CardTitle>
-          <Link href="/seafarer/applications">
+          <Link href="/employer/contracts">
             <Button variant="ghost" size="sm">
               View All
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -201,7 +326,7 @@ export default function AgentDashboardPage() {
             <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>No recent activity</p>
             <p className="text-sm mt-2">
-              Your recent seafarer applications and updates will appear here
+              Your contracts and ship assignments will appear here
             </p>
           </div>
         </CardContent>

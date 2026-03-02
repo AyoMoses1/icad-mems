@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Users,
   CheckCircle2,
-  Clock,
   AlertTriangle,
   Search,
   MoreVertical,
@@ -39,8 +38,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/shared";
 import { getAllOnboardings, type UserSeafarerOnboardingDto } from "@/lib/services/onboarding-service";
+import {
+  getSeafarerEmployments,
+  type SeafarerEmploymentDto,
+} from "@/lib/services/seafarer-employment-training-service";
 import { updateUserStatus } from "@/lib/services/user-service";
 import { formatDate, getInitials } from "@/lib/utils";
+
+/** Unified row for the registry table: from onboarding (admin) or employment pool (employer) */
+export interface RegistryRow {
+  displayName: string;
+  email?: string | null;
+  rn: string;
+  sin?: string | null;
+  role: string;
+  status: string;
+  dateModified?: string | null;
+  userId?: string | null;
+  /** When true, row is from employer's employment pool (no suspend; profile link by RN) */
+  isEmployerPool?: boolean;
+}
 
 const statusConfig: Record<
   string,
@@ -53,10 +70,68 @@ const statusConfig: Record<
   Suspended: { label: "Suspended", variant: "destructive" },
   Expired: { label: "Expired", variant: "outline" },
   Pending: { label: "Pending", variant: "secondary" },
+  Signed: { label: "Signed", variant: "default" },
+  Accepted: { label: "Accepted", variant: "default" },
+  Rejected: { label: "Rejected", variant: "destructive" },
+  Draft: { label: "Draft", variant: "secondary" },
+  Sent: { label: "Sent", variant: "secondary" },
 };
 
+function mapOnboardingToRow(o: UserSeafarerOnboardingDto): RegistryRow {
+  const status = o.isActive ? "Active" : (o.status || "Pending");
+  return {
+    displayName: o.contactDetails?.email ?? `User ${o.userId ?? "—"}`,
+    email: o.contactDetails?.email ?? null,
+    rn: o.rn ?? "",
+    sin: o.sin ?? null,
+    role: o.roleDescription ?? o.role ?? "N/A",
+    status,
+    dateModified: o.dateModified ?? o.updatedAt ?? null,
+    userId: o.userId ?? null,
+    isEmployerPool: false,
+  };
+}
+
+/** Build unique pool seafarers from employments (one row per seafarerRN; use latest employment for display). */
+function buildPoolRowsFromEmployments(employments: SeafarerEmploymentDto[]): RegistryRow[] {
+  const byRn = new Map<string, SeafarerEmploymentDto>();
+  for (const e of employments) {
+    const rn = e.seafarerRN?.trim() || "";
+    if (!rn) continue;
+    const existing = byRn.get(rn);
+    if (!existing || (e.dateCreated && existing.dateCreated && e.dateCreated > existing.dateCreated)) {
+      byRn.set(rn, e);
+    }
+  }
+  return Array.from(byRn.values()).map((e) => {
+    const status =
+      e.contractStatus === "Signed"
+        ? "Signed"
+        : e.acceptanceStatus === "Accepted"
+          ? "Accepted"
+          : e.acceptanceStatus === "Rejected"
+            ? "Rejected"
+            : e.contractStatus === "Sent"
+              ? "Sent"
+              : e.contractStatus === "Draft"
+                ? "Draft"
+                : e.acceptanceStatus ?? "Pending";
+    return {
+      displayName: e.seafarerFullName ?? e.seafarerRN ?? "—",
+      email: null,
+      rn: e.seafarerRN,
+      sin: e.seafarerSIN ?? null,
+      role: e.rankDescription ?? "N/A",
+      status,
+      dateModified: e.dateCreated ?? null,
+      userId: null,
+      isEmployerPool: true,
+    };
+  });
+}
+
 export default function SeafarerRegistryPage() {
-  const [onboardings, setOnboardings] = useState<UserSeafarerOnboardingDto[]>([]);
+  const [rows, setRows] = useState<RegistryRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -64,75 +139,95 @@ export default function SeafarerRegistryPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isSuspendDialogOpen, setIsSuspendDialogOpen] = useState(false);
-  const [selectedOnboarding, setSelectedOnboarding] = useState<UserSeafarerOnboardingDto | null>(null);
+  const [selectedRow, setSelectedRow] = useState<RegistryRow | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const pageSize = 20;
 
-  // Check user role for permission-based UI
-  // Agents and Training Institutions can VIEW but NOT modify/approve seafarers
   const userRole =
     typeof window !== "undefined"
       ? localStorage.getItem("userRole")?.toUpperCase()
       : null;
   const isAdminRole = userRole === "ADMIN" || userRole === "SUPERADMIN";
-  const canModifySeafarers = isAdminRole; // Only admins can edit/suspend seafarers
+  const isEmployerView = userRole === "AGENT" || userRole === "OWNER";
+  const canModifySeafarers = isAdminRole;
 
-  // Stats (would ideally come from a summary endpoint)
   const [stats, setStats] = useState({
     totalRegistered: 0,
     activeSeafarers: 0,
     expiredLicenses: 0,
   });
 
-  useEffect(() => {
-    loadSeafarers();
-  }, [currentPage, searchQuery, statusFilter]);
-
-  const loadSeafarers = async () => {
+  const loadSeafarers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await getAllOnboardings();
-      const ok = response.success ?? (response as any).successful;
-      if (ok && response.data && Array.isArray(response.data)) {
-        const all = response.data;
-        const seafarerOnly = all.filter(
-          (o) => (o.role?.toUpperCase?.() ?? "") === "SEAFARER",
-        );
-        setOnboardings(seafarerOnly);
-        const activeCount = seafarerOnly.filter(
-          (o) => (o.status?.toLowerCase?.() ?? "") === "approved" || o.isActive === true,
+      if (isEmployerView) {
+        // Employer: fetch only seafarers in this employer's pool (from employments)
+        const allItems: SeafarerEmploymentDto[] = [];
+        let page = 1;
+        const size = 100;
+        let totalPages = 1;
+        do {
+          const result = await getSeafarerEmployments({ pageNumber: page, pageSize: size });
+          allItems.push(...(result.items ?? []));
+          totalPages = result.totalPages ?? 1;
+          page++;
+        } while (page <= totalPages);
+        const poolRows = buildPoolRowsFromEmployments(allItems);
+        setRows(poolRows);
+        const activeCount = poolRows.filter(
+          (r) => r.status === "Signed" || r.status === "Accepted" || r.status === "Active"
         ).length;
         setStats({
-          totalRegistered: seafarerOnly.length,
+          totalRegistered: poolRows.length,
           activeSeafarers: activeCount,
           expiredLicenses: 0,
         });
       } else {
-        setOnboardings([]);
-        setTotalCount(0);
-        setTotalPages(1);
-        setStats({ totalRegistered: 0, activeSeafarers: 0, expiredLicenses: 0 });
+        // Admin: all seafarers in the system (onboarding)
+        const response = await getAllOnboardings();
+        const ok = response.success ?? (response as { successful?: boolean }).successful;
+        if (ok && response.data && Array.isArray(response.data)) {
+          const seafarerOnly = response.data.filter(
+            (o) => (o.role?.toUpperCase?.() ?? "") === "SEAFARER"
+          );
+          const mapped = seafarerOnly.map(mapOnboardingToRow);
+          setRows(mapped);
+          const activeCount = seafarerOnly.filter(
+            (o) => (o.status?.toLowerCase?.() ?? "") === "approved" || o.isActive === true
+          ).length;
+          setStats({
+            totalRegistered: seafarerOnly.length,
+            activeSeafarers: activeCount,
+            expiredLicenses: 0,
+          });
+        } else {
+          setRows([]);
+          setStats({ totalRegistered: 0, activeSeafarers: 0, expiredLicenses: 0 });
+        }
       }
     } catch (error) {
       console.error("Error loading seafarers:", error);
-      setOnboardings([]);
-      setTotalCount(0);
-      setTotalPages(1);
+      setRows([]);
       setStats({ totalRegistered: 0, activeSeafarers: 0, expiredLicenses: 0 });
+      toast.error("Failed to load seafarers");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isEmployerView]);
+
+  useEffect(() => {
+    loadSeafarers();
+  }, [loadSeafarers]);
 
   const handleSuspend = async () => {
-    if (!selectedOnboarding || !selectedOnboarding.userId) return;
+    if (!selectedRow?.userId) return;
 
     setIsSubmitting(true);
     try {
       const userId =
-        typeof selectedOnboarding.userId === "string"
-          ? parseInt(selectedOnboarding.userId, 10)
-          : selectedOnboarding.userId;
+        typeof selectedRow.userId === "string"
+          ? parseInt(selectedRow.userId, 10)
+          : selectedRow.userId;
 
       if (isNaN(userId)) {
         toast.error("Invalid user ID");
@@ -148,7 +243,7 @@ export default function SeafarerRegistryPage() {
       if (ok) {
         toast.success("Seafarer suspended successfully");
         setIsSuspendDialogOpen(false);
-        setSelectedOnboarding(null);
+        setSelectedRow(null);
         loadSeafarers();
       } else {
         toast.error(response.message || "Failed to suspend seafarer");
@@ -161,26 +256,22 @@ export default function SeafarerRegistryPage() {
     }
   };
 
-  const getDisplayName = (o: UserSeafarerOnboardingDto) => {
-    const email = o.contactDetails?.email;
-    if (email) return email;
-    return `User ${o.userId ?? "—"}`;
-  };
-
   const q = (searchQuery ?? "").toLowerCase().trim();
   const statusNorm = (statusFilter !== "all" ? statusFilter : "").toLowerCase();
-  const filtered = onboardings.filter((o) => {
+  const filtered = rows.filter((r) => {
     const matchSearch =
       !q ||
-      (o.contactDetails?.email ?? "").toLowerCase().includes(q) ||
-      (o.rn ?? "").toLowerCase().includes(q) ||
-      (o.sin ?? "").toLowerCase().includes(q) ||
-      (o.userId ?? "").toLowerCase().includes(q);
+      (r.displayName ?? "").toLowerCase().includes(q) ||
+      (r.email ?? "").toLowerCase().includes(q) ||
+      (r.rn ?? "").toLowerCase().includes(q) ||
+      (r.sin ?? "").toLowerCase().includes(q) ||
+      (r.userId ?? "").toLowerCase().includes(q);
     const matchStatus =
       !statusNorm ||
-      (o.status?.toLowerCase?.() ?? "") === statusNorm ||
-      (statusNorm === "active" && (o.isActive === true || (o.status?.toLowerCase?.() ?? "") === "approved")) ||
-      (statusNorm === "suspended" && (o.status?.toLowerCase?.() ?? "") === "suspended");
+      (r.status?.toLowerCase?.() ?? "") === statusNorm ||
+      (statusNorm === "active" &&
+        (r.status === "Active" || r.status === "Signed" || r.status === "Accepted" || (r.status?.toLowerCase?.() ?? "") === "approved")) ||
+      (statusNorm === "suspended" && (r.status?.toLowerCase?.() ?? "") === "suspended");
     return matchSearch && matchStatus;
   });
   const totalFiltered = filtered.length;
@@ -190,19 +281,19 @@ export default function SeafarerRegistryPage() {
     currentPage * pageSize,
   );
 
-  const columns: DataTableColumn<UserSeafarerOnboardingDto>[] = [
+  const columns: DataTableColumn<RegistryRow>[] = [
     {
       id: "seafarer",
       header: "Seafarer",
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <Avatar>
-            <AvatarFallback>{getInitials(getDisplayName(row))}</AvatarFallback>
+            <AvatarFallback>{getInitials(row.displayName)}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-medium">{getDisplayName(row)}</p>
+            <p className="font-medium">{row.displayName}</p>
             <p className="text-sm text-muted-foreground">
-              {row.contactDetails?.email || row.userId || "N/A"}
+              {row.email || row.rn || "N/A"}
             </p>
           </div>
         </div>
@@ -219,17 +310,16 @@ export default function SeafarerRegistryPage() {
     },
     {
       id: "role",
-      header: "Role",
+      header: isEmployerView ? "Rank" : "Role",
       cell: ({ row }) => (
-        <span className="text-sm">{row.roleDescription || row.role || "N/A"}</span>
+        <span className="text-sm">{row.role}</span>
       ),
     },
     {
       id: "status",
       header: "Status",
       cell: ({ row }) => {
-        const status = row.isActive ? "Active" : (row.status || "Pending");
-        const config = statusConfig[status] || statusConfig.Pending;
+        const config = statusConfig[row.status] || statusConfig.Pending;
         return <Badge variant={config.variant}>{config.label}</Badge>;
       },
     },
@@ -238,7 +328,7 @@ export default function SeafarerRegistryPage() {
       header: "Last Active",
       cell: ({ row }) => (
         <span className="text-sm">
-          {row.dateModified || row.updatedAt ? formatDate(String(row.dateModified || row.updatedAt)) : "Never"}
+          {row.dateModified ? formatDate(String(row.dateModified)) : "—"}
         </span>
       ),
     },
@@ -258,14 +348,14 @@ export default function SeafarerRegistryPage() {
                 View Profile
               </Link>
             </DropdownMenuItem>
-            {canModifySeafarers && row.userId && (
+            {canModifySeafarers && row.userId && !row.isEmployerPool && (
               <>
                 <DropdownMenuItem>Edit Details</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive"
                   onClick={() => {
-                    setSelectedOnboarding(row);
+                    setSelectedRow(row);
                     setIsSuspendDialogOpen(true);
                   }}
                 >
@@ -283,7 +373,7 @@ export default function SeafarerRegistryPage() {
     <div className="space-y-6">
       <PageHeader
         title="My Seafarers"
-        description="Manage and view your seafarers"
+        description={isEmployerView ? "Seafarers in your employment pool (employed by you)" : "Manage and view your seafarers"}
       />
 
       {/* Stats Cards */}
@@ -360,9 +450,22 @@ export default function SeafarerRegistryPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="Suspended">Suspended</SelectItem>
-                <SelectItem value="Expired">Expired</SelectItem>
+                {isEmployerView ? (
+                  <>
+                    <SelectItem value="Signed">Signed</SelectItem>
+                    <SelectItem value="Accepted">Accepted</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Rejected">Rejected</SelectItem>
+                    <SelectItem value="Draft">Draft</SelectItem>
+                    <SelectItem value="Sent">Sent</SelectItem>
+                  </>
+                ) : (
+                  <>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Suspended">Suspended</SelectItem>
+                    <SelectItem value="Expired">Expired</SelectItem>
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -394,7 +497,7 @@ export default function SeafarerRegistryPage() {
         open={isSuspendDialogOpen}
         onOpenChange={setIsSuspendDialogOpen}
         title="Suspend Seafarer"
-        description={`Are you sure you want to suspend ${selectedOnboarding ? getDisplayName(selectedOnboarding) : "this seafarer"}? This action cannot be undone.`}
+        description={`Are you sure you want to suspend ${selectedRow?.displayName ?? "this seafarer"}? This action cannot be undone.`}
         onConfirm={handleSuspend}
         variant="destructive"
         isLoading={isSubmitting}
