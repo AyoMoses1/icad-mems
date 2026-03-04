@@ -18,6 +18,7 @@ const UI_STORAGE_KEY = "ui-store";
  * Clears all session-related caches and persisted state (except auth store
  * itself, which is cleared by useAuthStore.getState().logout()).
  * Call logout() first, then this, or have logout() call this for storage only.
+ * Use on: logout, sign out, return to IMS, and when new token is received (e.g. from URL).
  */
 export function clearSessionCaches(): void {
   if (typeof window === "undefined") return;
@@ -35,6 +36,14 @@ export function clearSessionCaches(): void {
   ui.setUserType("seafarer");
   ui.setViewMode("user");
   safeLocalStorage.removeItem(UI_STORAGE_KEY);
+
+  // Clear all sessionStorage so next user never sees previous user's session state
+  // (e.g. permit validation, training result view, certificate verification, onboarding prefill)
+  try {
+    sessionStorage.clear();
+  } catch {
+    // Ignore if sessionStorage is unavailable (e.g. private mode)
+  }
 }
 
 /**

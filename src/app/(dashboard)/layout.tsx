@@ -518,6 +518,12 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             return;
           }
 
+          // Training institution: always go to institution dashboard (never seafarer)
+          if (roleUpper === "TRAINING_INSTITUTION") {
+            router.replace("/institution/dashboard");
+            return;
+          }
+
           // For other roles, redirect to their specific dashboard
           const dashboardRoute = getDashboardRouteFromRoles([userRole]);
           router.replace(dashboardRoute);
@@ -559,10 +565,15 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   };
 
   // 1) Call User Readiness first (before my-onboarding) to know if we show onboarding welcome or not
+  // TRAINING_INSTITUTION: do not call User Readiness — that endpoint is for seafarer/employer; TI uses permit flow only and we redirect by role
   useEffect(() => {
     if (isInitializing || !userRole) return;
     const roleUpper = userRole.toUpperCase();
     if (roleUpper === "ADMIN" || roleUpper === "SUPERADMIN") {
+      setUserReadinessChecked(true);
+      return;
+    }
+    if (roleUpper === "TRAINING_INSTITUTION") {
       setUserReadinessChecked(true);
       return;
     }
@@ -649,19 +660,26 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
               return;
             }
 
-            // User is approved - use first menu item so they see what the menu shows (avoids Owner vs role mismatch)
+            // User is approved - use role-based dashboard so AGENT/TI never get redirected to seafarer
             setOnboardingStatusChecked(true);
 
             let correctDashboard = getDashboardRoute(
               onboardingRole || "SEAFARER"
             );
-            try {
-              const firstMenuRoute = await getFirstMenuRouteForWorkspace(
-                SEA_FARER_WORKSPACE_ID
-              );
-              if (firstMenuRoute) correctDashboard = firstMenuRoute;
-            } catch {
-              // Use role-based route when menu API fails
+            // For AGENT and TRAINING_INSTITUTION always use role dashboard; never override with first menu route (API menu order can put seafarer first)
+            const useRoleDashboardOnly =
+              onboardingRole === "AGENT" ||
+              onboardingRole === "TRAINING_INSTITUTION" ||
+              onboardingRole === "INSTITUTION";
+            if (!useRoleDashboardOnly) {
+              try {
+                const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+                  SEA_FARER_WORKSPACE_ID
+                );
+                if (firstMenuRoute) correctDashboard = firstMenuRoute;
+              } catch {
+                // Use role-based route when menu API fails
+              }
             }
 
             const isOnRootPage = pathname === "/" || pathname === "";

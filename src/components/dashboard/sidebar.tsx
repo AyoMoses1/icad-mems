@@ -770,30 +770,41 @@ const getIconForMenuItem = (
 // Convert API Menu Items to Sidebar Menu Format
 // ============================================================================
 
-/** Remove "Admin " prefix from menu labels for display (e.g. "Admin Dashboard" → "Dashboard") */
+/** Normalize menu labels: any "* Dashboard" (Admin, Institution, Agent, Seafarer, etc.) → "Dashboard" */
 function normalizeMenuItemTitle(name: string): string {
   if (!name || typeof name !== "string") return name;
   const trimmed = name.trim();
   if (/^Admin\s+/i.test(trimmed)) return trimmed.replace(/^Admin\s+/i, "").trim();
+  // Always display as "Dashboard" for any dashboard menu item
+  if (/\bDashboard$/i.test(trimmed)) return "Dashboard";
   return trimmed;
 }
 
+/**
+ * Converts API workspace menus to sidebar items. Uses only one workspace's menu
+ * (the one matching workspaceId, or the first) so we never merge multiple
+ * workspaces and show "plenty" or duplicated items after switching users.
+ */
 const convertApiMenuToSidebarMenu = (
-  workspaceMenus: WorkspaceMenuDto[]
+  workspaceMenus: WorkspaceMenuDto[],
+  workspaceId?: string
 ): MenuItem[] => {
   const menuItems: MenuItem[] = [];
 
-  // For now, we'll use the first workspace's menu items
-  // In the future, you might want to show workspace switcher or merge menus
   if (workspaceMenus.length === 0) {
     return menuItems;
   }
 
-  // Get all root-level items from all workspaces
-  const allRootItems: MenuItemDto[] = [];
-  workspaceMenus.forEach((workspaceMenu) => {
-    allRootItems.push(...workspaceMenu.resources);
-  });
+  // Use only the workspace that matches workspaceId, or the first workspace — never merge all
+  const targetMenu = workspaceId
+    ? workspaceMenus.find(
+        (m) =>
+          m.workspaceId === workspaceId ||
+          (m as any).id === workspaceId
+      ) ?? workspaceMenus[0]
+    : workspaceMenus[0];
+
+  const allRootItems: MenuItemDto[] = [...(targetMenu.resources || [])];
 
   // Convert API menu items to sidebar menu items (with normalized display titles)
   const convertMenuItem = (item: MenuItemDto): MenuItem => {
@@ -813,7 +824,14 @@ const convertApiMenuToSidebarMenu = (
     };
   };
 
-  return allRootItems.map(convertMenuItem);
+  const items = allRootItems.map(convertMenuItem);
+
+  // Ensure Dashboard is always the first menu item (by title or href ending with /dashboard)
+  const isDashboardItem = (m: MenuItem) =>
+    m.title === "Dashboard" || (m.href && m.href !== "#" && m.href.endsWith("/dashboard"));
+  const dashboards = items.filter(isDashboardItem);
+  const rest = items.filter((m) => !isDashboardItem(m));
+  return [...dashboards, ...rest];
 };
 
 /** Admin Dashboard - first menu item for Super Admin */
@@ -949,13 +967,13 @@ export function Sidebar() {
     !isOnboardingComplete &&
     (isOnboardingPage || isRootPage);
 
-  // Get role from localStorage (set by loading page)
+  // Sync role from localStorage when user changes (so new login gets correct role, not previous user's)
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       const role = localStorage.getItem("userRole");
       setUserRole(role);
     }
-  }, []);
+  }, [user?.id]);
 
   // workspaceId from URL (when navigating from IMS dashboard with ?workspaceId=...)
   const workspaceIdFromUrl = searchParams.get("workspaceId")?.trim() || null;
@@ -964,6 +982,10 @@ export function Sidebar() {
   React.useEffect(() => {
     const fetchMenuAndPermissions = async () => {
       if (!user) {
+        // Clear menu state so previous user's menu is never shown
+        setApiMenuItems([]);
+        setApiWorkspaceName(null);
+        setUseApiMenu(false);
         setIsLoadingMenu(false);
         return;
       }
@@ -1016,8 +1038,8 @@ export function Sidebar() {
             }
           }
 
-          // Convert API menu items to sidebar menu format (may be empty if resources: [])
-          let convertedMenuItems = convertApiMenuToSidebarMenu(filteredMenus);
+          // Convert API menu to sidebar: use only one workspace (no merge) so menu isn't "plenty" or duplicated
+          let convertedMenuItems = convertApiMenuToSidebarMenu(filteredMenus, workspaceId);
 
           // Super Admin in seafarer module: only show Dashboard, and it must be first
           if (isSuperAdminInSeafarer(user, workspaceId)) {
@@ -1051,25 +1073,10 @@ export function Sidebar() {
     // Re-fetch when workspaceId from URL or store changes (e.g. landing from IMS with ?workspaceId=...)
   }, [user, currentWorkspaceId, workspaceIdFromUrl]);
 
-  // For Seafarer Employer (AGENT) and Training Institution use hardcoded menu; backend menu returns irrelevant data for these roles
-  const roleUpper = userRole?.toUpperCase() ?? "";
-  const seaFarerRoleNames = (getSeaFarerRoles(user) || []).map((r) =>
-    r.toUpperCase().replace(/\s+/g, "_")
-  );
-  const hasAgentRole =
-    roleUpper === "AGENT" || seaFarerRoleNames.includes("AGENT");
-  const hasTrainingInstitutionRole =
-    roleUpper === "TRAINING_INSTITUTION" ||
-    seaFarerRoleNames.includes("TRAINING_INSTITUTION") ||
-    seaFarerRoleNames.some((r) => r.includes("TRAINING") && r.includes("INSTITUTION"));
-  const useHardcodedRoleMenu = hasAgentRole || hasTrainingInstitutionRole;
-  const menuRole = useHardcodedRoleMenu
-    ? hasAgentRole
-      ? "AGENT"
-      : "TRAINING_INSTITUTION"
-    : userRole;
+  // Use API menu for all roles when available (no hardcoded agent/TI menu); fallback to role-based only when API fails or returns no data
+  const menuRole = userRole;
   const currentMenuItems =
-    useApiMenu && !useHardcodedRoleMenu
+    useApiMenu && apiMenuItems.length > 0
       ? apiMenuItems
       : menuRole
         ? getMenuItemsByRole(menuRole)

@@ -58,6 +58,12 @@ export default function DashboardRedirectPage() {
         return;
       }
 
+      // Training institution: never call User Readiness (that endpoint is for seafarer/employer only). Redirect straight to institution dashboard.
+      if (roleUpper === "TRAINING_INSTITUTION") {
+        router.replace("/institution/dashboard");
+        return;
+      }
+
       (async () => {
         try {
           // 1) User Readiness first — single source of truth for "show onboarding welcome or not"
@@ -69,20 +75,22 @@ export default function DashboardRedirectPage() {
             if (isUserReadyFromReadiness(readiness)) {
               if (readiness.source === "permit") {
                 const dashboardRole = getDashboardRoleFromReadiness(readiness);
-                const targetRoute =
+                let targetRoute =
                   dashboardRole !== null
                     ? getDashboardRoute(dashboardRole)
                     : "/seafarer/dashboard";
-                try {
-                  const firstMenuRoute = await getFirstMenuRouteForWorkspace(
-                    SEA_FARER_WORKSPACE_ID
-                  );
-                  if (firstMenuRoute) {
-                    router.replace(firstMenuRoute);
-                    return;
+                // For AGENT/TRAINING_INSTITUTION use role dashboard only; don't override with first menu route
+                const useRoleDashboardOnly =
+                  dashboardRole === "AGENT" || dashboardRole === "TRAINING_INSTITUTION";
+                if (!useRoleDashboardOnly) {
+                  try {
+                    const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+                      SEA_FARER_WORKSPACE_ID
+                    );
+                    if (firstMenuRoute) targetRoute = firstMenuRoute;
+                  } catch {
+                    // Use role-based route
                   }
-                } catch {
-                  // Use role-based route
                 }
                 router.replace(targetRoute);
                 return;
@@ -90,13 +98,17 @@ export default function DashboardRedirectPage() {
               // source === "onboarding" and ready
               const role = readiness.role?.toUpperCase();
               let targetRoute = getDashboardRoute(role || "SEAFARER");
-              try {
-                const firstMenuRoute = await getFirstMenuRouteForWorkspace(
-                  SEA_FARER_WORKSPACE_ID
-                );
-                if (firstMenuRoute) targetRoute = firstMenuRoute;
-              } catch {
-                // Use role-based route
+              const useRoleDashboardOnly =
+                role === "AGENT" || role === "TRAINING_INSTITUTION" || role === "INSTITUTION";
+              if (!useRoleDashboardOnly) {
+                try {
+                  const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+                    SEA_FARER_WORKSPACE_ID
+                  );
+                  if (firstMenuRoute) targetRoute = firstMenuRoute;
+                } catch {
+                  // Use role-based route
+                }
               }
               router.replace(targetRoute);
               return;
@@ -149,13 +161,17 @@ export default function DashboardRedirectPage() {
               ) {
                 const role = data.role?.toUpperCase();
                 let targetRoute = getDashboardRoute(role || "SEAFARER");
-                try {
-                  const firstMenuRoute = await getFirstMenuRouteForWorkspace(
-                    SEA_FARER_WORKSPACE_ID
-                  );
-                  if (firstMenuRoute) targetRoute = firstMenuRoute;
-                } catch {
-                  // Use role-based route
+                const useRoleDashboardOnly =
+                  role === "AGENT" || role === "TRAINING_INSTITUTION" || role === "INSTITUTION";
+                if (!useRoleDashboardOnly) {
+                  try {
+                    const firstMenuRoute = await getFirstMenuRouteForWorkspace(
+                      SEA_FARER_WORKSPACE_ID
+                    );
+                    if (firstMenuRoute) targetRoute = firstMenuRoute;
+                  } catch {
+                    // Use role-based route
+                  }
                 }
                 router.replace(targetRoute);
                 return;
@@ -167,6 +183,16 @@ export default function DashboardRedirectPage() {
 
           const seaFarerOnboardingComplete = isSeaFarerOnboardingComplete(user);
           if (seaFarerOnboardingComplete) {
+            const primaryRole = getSeaFarerPrimaryRole(user);
+            // For AGENT and Training Institution use role dashboard only; never first menu route
+            if (primaryRole === "Agent") {
+              router.replace("/agent/dashboard");
+              return;
+            }
+            if (primaryRole === "Training Institution") {
+              router.replace("/institution/dashboard");
+              return;
+            }
             let didRedirect = false;
             try {
               const firstMenuRoute = await getFirstMenuRouteForWorkspace(
@@ -180,17 +206,8 @@ export default function DashboardRedirectPage() {
               // Fall through
             }
             if (didRedirect) return;
-            const primaryRole = getSeaFarerPrimaryRole(user);
             if (primaryRole === "Seafarer" || primaryRole === "Owner") {
               router.replace("/seafarer/dashboard");
-              return;
-            }
-            if (primaryRole === "Agent") {
-              router.replace("/agent/dashboard");
-              return;
-            }
-            if (primaryRole === "Training Institution") {
-              router.replace("/institution/dashboard");
               return;
             }
             router.replace("/seafarer/dashboard");
