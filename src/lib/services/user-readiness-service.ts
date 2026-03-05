@@ -26,7 +26,8 @@ export interface UserReadinessStatusDto {
   role: string | null; // "Seafarer" | "training_institute" | "seafarer_employer" | "training_institute_or_seafarer_employer"
   /** Populated when source === "onboarding" */
   hasOnboarded?: boolean | null;
-  onboardingStatus?: UserReadinessOnboardingStatus | number | null;
+  /** Backend may return number (e.g. 2) or string (e.g. "APPROVED") */
+  onboardingStatus?: UserReadinessOnboardingStatus | number | string | null;
   userSeafarerOnboardingId?: string | null;
   /** Populated when source === "permit" */
   hasSubmittedPermit?: boolean | null;
@@ -56,7 +57,7 @@ export async function getUserReadinessStatus(): Promise<
 /**
  * Returns true if the user is "ready" and should see the app (not onboarding welcome).
  * - Permit: hasSubmittedPermit and not expired.
- * - Onboarding: hasOnboarded true or status APPROVED (2).
+ * - Onboarding: hasOnboarded true or status APPROVED (2 or "APPROVED").
  */
 export function isUserReadyFromReadiness(
   data: UserReadinessStatusDto | null | undefined
@@ -66,11 +67,13 @@ export function isUserReadyFromReadiness(
     return data.hasSubmittedPermit === true && data.isPermitExpired !== true;
   }
   if (data.source === "onboarding") {
-    return (
+    const status = data.onboardingStatus;
+    const isApproved =
       data.hasOnboarded === true ||
-      data.onboardingStatus === UserReadinessOnboardingStatus.APPROVED ||
-      data.onboardingStatus === 2
-    );
+      status === UserReadinessOnboardingStatus.APPROVED ||
+      status === 2 ||
+      (typeof status === "string" && status.toUpperCase() === "APPROVED");
+    return !!isApproved;
   }
   return false;
 }

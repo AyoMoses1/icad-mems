@@ -16,7 +16,7 @@ import { canAccessRouteCombined } from "@/utils/route-protection";
  */
 export function useRouteAccess(requiredPermissions?: string[]) {
   const pathname = usePathname();
-  const { user } = useAuthStore();
+  const { user, primaryRole } = useAuthStore();
   const [hasAccess, setHasAccess] = useState<boolean>(true); // Default to true to avoid blocking
   const [isChecking, setIsChecking] = useState<boolean>(true);
   const [permissions, setPermissions] = useState<string[]>([]);
@@ -26,10 +26,8 @@ export function useRouteAccess(requiredPermissions?: string[]) {
       setIsChecking(true);
 
       try {
-        // Get user role from localStorage
-        const userRole = typeof window !== "undefined"
-          ? localStorage.getItem("userRole")
-          : null;
+        // Role from API (auth store), not localStorage
+        const userRole = primaryRole;
 
         // Try to get workspaceId from user
         const workspaceId = user?.workspaces?.[0]?.workspaceId ||
@@ -71,7 +69,7 @@ export function useRouteAccess(requiredPermissions?: string[]) {
     };
 
     checkAccess();
-  }, [pathname, user, requiredPermissions]);
+  }, [pathname, user, primaryRole, requiredPermissions]);
 
   return {
     hasAccess,

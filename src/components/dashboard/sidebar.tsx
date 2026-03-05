@@ -53,11 +53,9 @@ import { useAuthStore, useUIStore, useWorkspaceStore } from "@/store";
 import type { UserType } from "@/store/ui-store";
 import {
   getMenu,
-  filterMenuByPermissions,
   type WorkspaceMenuDto,
   type MenuItemDto,
 } from "@/lib/services/menu-service";
-import { getMyPermissions } from "@/lib/services/permissions-service";
 import {
   isSeaFarerOnboardingComplete,
   getSeaFarerWorkspace,
@@ -559,7 +557,10 @@ const adminMenuItems: MenuItem[] = [
       { title: "Documents Master", href: "/documents" },
       { title: "Ranks", href: "/ranks" },
       { title: "Nationalities", href: "/nationalities" },
-      { title: "Onboarding Requirements", href: "/admin/onboarding-requirements" },
+      {
+        title: "Onboarding Requirements",
+        href: "/admin/onboarding-requirements",
+      },
       { title: "Audit Logs", href: "/admin/audit-logs" },
     ],
   },
@@ -622,17 +623,8 @@ const getMenuItemsByRole = (role: string | null): MenuItem[] => {
   }
 };
 
-// Legacy function for backward compatibility with UI store userType
+// Legacy function for backward compatibility with UI store userType. Does not use localStorage.
 const getMenuItems = (userType: UserType): MenuItem[] => {
-  // Try to get role from localStorage first
-  if (typeof window !== "undefined") {
-    const role = localStorage.getItem("userRole");
-    if (role) {
-      return getMenuItemsByRole(role);
-    }
-  }
-
-  // Fallback to userType
   switch (userType) {
     case "admin":
       return adminMenuItems;
@@ -652,7 +644,7 @@ const getMenuItems = (userType: UserType): MenuItem[] => {
 
 const getIconForMenuItem = (
   name: string,
-  url?: string | null
+  url?: string | null,
 ): React.ComponentType<{ className?: string }> => {
   const nameLower = name.toLowerCase();
   const urlLower = url?.toLowerCase() || "";
@@ -774,7 +766,8 @@ const getIconForMenuItem = (
 function normalizeMenuItemTitle(name: string): string {
   if (!name || typeof name !== "string") return name;
   const trimmed = name.trim();
-  if (/^Admin\s+/i.test(trimmed)) return trimmed.replace(/^Admin\s+/i, "").trim();
+  if (/^Admin\s+/i.test(trimmed))
+    return trimmed.replace(/^Admin\s+/i, "").trim();
   // Always display as "Dashboard" for any dashboard menu item
   if (/\bDashboard$/i.test(trimmed)) return "Dashboard";
   return trimmed;
@@ -787,7 +780,7 @@ function normalizeMenuItemTitle(name: string): string {
  */
 const convertApiMenuToSidebarMenu = (
   workspaceMenus: WorkspaceMenuDto[],
-  workspaceId?: string
+  workspaceId?: string,
 ): MenuItem[] => {
   const menuItems: MenuItem[] = [];
 
@@ -797,11 +790,9 @@ const convertApiMenuToSidebarMenu = (
 
   // Use only the workspace that matches workspaceId, or the first workspace — never merge all
   const targetMenu = workspaceId
-    ? workspaceMenus.find(
-        (m) =>
-          m.workspaceId === workspaceId ||
-          (m as any).id === workspaceId
-      ) ?? workspaceMenus[0]
+    ? (workspaceMenus.find(
+        (m) => m.workspaceId === workspaceId || (m as any).id === workspaceId,
+      ) ?? workspaceMenus[0])
     : workspaceMenus[0];
 
   const allRootItems: MenuItemDto[] = [...(targetMenu.resources || [])];
@@ -828,7 +819,8 @@ const convertApiMenuToSidebarMenu = (
 
   // Ensure Dashboard is always the first menu item (by title or href ending with /dashboard)
   const isDashboardItem = (m: MenuItem) =>
-    m.title === "Dashboard" || (m.href && m.href !== "#" && m.href.endsWith("/dashboard"));
+    m.title === "Dashboard" ||
+    (m.href && m.href !== "#" && m.href.endsWith("/dashboard"));
   const dashboards = items.filter(isDashboardItem);
   const rest = items.filter((m) => !isDashboardItem(m));
   return [...dashboards, ...rest];
@@ -883,7 +875,7 @@ function filterMenuForSuperAdmin(menuItems: MenuItem[]): MenuItem[] {
       // Keep if it has children we might show after filtering
       const filteredChildren =
         item.children?.filter(
-          (c) => c.href && c.href !== "#" && !isExcludedForSuperAdmin(c.href)
+          (c) => c.href && c.href !== "#" && !isExcludedForSuperAdmin(c.href),
         ) ?? [];
       if (filteredChildren.length > 0) {
         filtered.push({ ...item, children: filteredChildren });
@@ -894,11 +886,10 @@ function filterMenuForSuperAdmin(menuItems: MenuItem[]): MenuItem[] {
     // Filter children for this item
     const filteredChildren =
       item.children?.filter(
-        (c) => c.href && c.href !== "#" && !isExcludedForSuperAdmin(c.href)
+        (c) => c.href && c.href !== "#" && !isExcludedForSuperAdmin(c.href),
       ) ?? [];
     const hasUsableChildren =
-      filteredChildren.length > 0 &&
-      (item.children?.length ?? 0) > 0;
+      filteredChildren.length > 0 && (item.children?.length ?? 0) > 0;
 
     filtered.push({
       ...item,
@@ -911,7 +902,7 @@ function filterMenuForSuperAdmin(menuItems: MenuItem[]): MenuItem[] {
     (item) =>
       item.href === ADMIN_DASHBOARD_HREF ||
       item.title?.toLowerCase() === "admin dashboard" ||
-      item.title?.toLowerCase() === "dashboard"
+      item.title?.toLowerCase() === "dashboard",
   );
   if (adminDashboardIndex > 0) {
     const [adminItem] = filtered.splice(adminDashboardIndex, 1);
@@ -929,35 +920,35 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, logout } = useAuthStore();
+  const { user, logout, primaryRole } = useAuthStore();
   const { mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
   const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const [expandedItems, setExpandedItems] = React.useState<string[]>([]);
   const [itemJustExpanded, setItemJustExpanded] = React.useState<string | null>(
-    null
+    null,
   );
   const expandableItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const savedScrollTopRef = useRef(0);
-  const [userRole, setUserRole] = React.useState<string | null>(null);
   const [apiMenuItems, setApiMenuItems] = React.useState<MenuItem[]>([]);
-  const [apiWorkspaceName, setApiWorkspaceName] = React.useState<string | null>(null);
+  const [apiWorkspaceName, setApiWorkspaceName] = React.useState<string | null>(
+    null,
+  );
   const [useApiMenu, setUseApiMenu] = React.useState(false);
   const [isLoadingMenu, setIsLoadingMenu] = React.useState(true);
 
+  // Role from API only (store.primaryRole set by layout from /connect/userinfo)
+  const userRole = primaryRole;
+
   // Check if onboarding is complete - if not, don't render sidebar (computed here; return after all hooks)
   // BUT EXCLUDE ADMINS - admins should always see the sidebar
-  const userRoleFromStorage =
-    typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
   const isAdmin =
-    userRoleFromStorage?.toUpperCase() === "ADMIN" ||
-    userRoleFromStorage?.toUpperCase() === "SUPERADMIN";
+    userRole?.toUpperCase() === "ADMIN" ||
+    userRole?.toUpperCase() === "SUPERADMIN";
   const seaFarerWorkspace = getSeaFarerWorkspace(user);
   const hasSeaFarerWorkspace = seaFarerWorkspace !== null;
   const isOnboardingComplete =
-    isSeaFarerOnboardingComplete(user) ??
-    user?.is_onboarding_complete ??
-    false;
+    isSeaFarerOnboardingComplete(user) ?? user?.is_onboarding_complete ?? false;
   const isOnboardingPage =
     pathname === "/onboarding" || pathname.startsWith("/onboarding/");
   const isRootPage = pathname === "/" || pathname === "";
@@ -966,14 +957,6 @@ export function Sidebar() {
     hasSeaFarerWorkspace &&
     !isOnboardingComplete &&
     (isOnboardingPage || isRootPage);
-
-  // Sync role from localStorage when user changes (so new login gets correct role, not previous user's)
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const role = localStorage.getItem("userRole");
-      setUserRole(role);
-    }
-  }, [user?.id]);
 
   // workspaceId from URL (when navigating from IMS dashboard with ?workspaceId=...)
   const workspaceIdFromUrl = searchParams.get("workspaceId")?.trim() || null;
@@ -1008,7 +991,7 @@ export function Sidebar() {
         } catch (menuErr) {
           console.warn(
             "Failed to fetch menu from API, falling back to role-based menu:",
-            menuErr
+            menuErr,
           );
           setUseApiMenu(false);
           setIsLoadingMenu(false);
@@ -1016,30 +999,12 @@ export function Sidebar() {
         }
 
         if (menuResponse?.success && menuResponse?.data) {
-          let filteredMenus = menuResponse.data;
-
-          // Only filter by permissions when we have a non-empty permission list.
-          // When permissions/my returns empty (or is unavailable), show full API menu.
-          if (workspaceId) {
-            try {
-              const permissionsResponse = await getMyPermissions(workspaceId);
-              const permissionList = permissionsResponse.success && permissionsResponse.data ? permissionsResponse.data : [];
-              if (permissionList.length > 0) {
-                filteredMenus = filterMenuByPermissions(
-                  menuResponse.data,
-                  permissionList
-                );
-              }
-            } catch (permError) {
-              console.warn(
-                "Failed to fetch permissions, showing all menu items:",
-                permError
-              );
-            }
-          }
-
-          // Convert API menu to sidebar: use only one workspace (no merge) so menu isn't "plenty" or duplicated
-          let convertedMenuItems = convertApiMenuToSidebarMenu(filteredMenus, workspaceId);
+          // Use menu API response as-is: sidebar shows exactly what the API returns (no frontend filtering).
+          // The menu API is the source of truth for which resources the user can see.
+          let convertedMenuItems = convertApiMenuToSidebarMenu(
+            menuResponse.data,
+            workspaceId,
+          );
 
           // Super Admin in seafarer module: only show Dashboard, and it must be first
           if (isSuperAdminInSeafarer(user, workspaceId)) {
@@ -1049,7 +1014,9 @@ export function Sidebar() {
           // Use first workspace name from API for sidebar heading (e.g. "Seafarer")
           const firstWorkspace = menuResponse.data[0];
           setApiWorkspaceName(
-            firstWorkspace?.workspaceName?.trim() || firstWorkspace?.workspaceCode?.trim() || null
+            firstWorkspace?.workspaceName?.trim() ||
+              firstWorkspace?.workspaceCode?.trim() ||
+              null,
           );
           setApiMenuItems(convertedMenuItems);
           setUseApiMenu(true);
@@ -1060,7 +1027,7 @@ export function Sidebar() {
       } catch (error) {
         console.warn(
           "Failed to fetch menu from API, falling back to role-based menu:",
-          error
+          error,
         );
         setApiWorkspaceName(null);
         setUseApiMenu(false);
@@ -1092,7 +1059,7 @@ export function Sidebar() {
       setItemJustExpanded(id);
     }
     setExpandedItems((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
@@ -1126,10 +1093,7 @@ export function Sidebar() {
     } catch (error) {
       console.error("Logout - API call failed:", error);
     } finally {
-      // Clear role from localStorage
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("userRole");
-      }
+      // logout() clears auth store and calls clearSessionCaches (role, workspace, sessionStorage)
       logout();
       window.location.href = "https://ims.mems.ng";
     }
@@ -1211,7 +1175,7 @@ export function Sidebar() {
             "before:content-['']",
             active
               ? "bg-[#1E40AF] border-[#3B82F6] text-white font-medium"
-              : "text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted border-transparent"
+              : "text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted border-transparent",
           )}
           onClick={() => setMobileSidebarOpen(false)}
         >
@@ -1228,7 +1192,7 @@ export function Sidebar() {
           "flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors",
           active
             ? "bg-[#1E40AF] border border-[#3B82F6] text-white font-medium"
-            : "text-sidebar-foreground hover:bg-sidebar-muted"
+            : "text-sidebar-foreground hover:bg-sidebar-muted",
         )}
         onClick={() => setMobileSidebarOpen(false)}
       >
@@ -1323,7 +1287,7 @@ export function Sidebar() {
                         "flex items-center justify-between w-full px-3 py-2.5 text-sm rounded-lg transition-colors border",
                         hasActiveChild
                           ? "bg-[#1E40AF] border-[#3B82F6] text-white font-medium"
-                          : "text-sidebar-foreground hover:bg-sidebar-muted border-transparent"
+                          : "text-sidebar-foreground hover:bg-sidebar-muted border-transparent",
                       )}
                     >
                       <div className="flex items-center gap-3">
@@ -1440,7 +1404,7 @@ export function Sidebar() {
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out lg:hidden",
-          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <SidebarContent />

@@ -3,6 +3,10 @@
  * Clears all user-specific persisted state so the next user never sees
  * the previous user's role, menu, or workspace.
  * Call this on logout and on 401 so no stale data remains.
+ *
+ * - Role is not stored in localStorage; it lives in auth store (primaryRole) from API.
+ *   We still clear the legacy "userRole" key here if present.
+ * - Menu is never cached; it is always fetched from the API (GET /api/menu) when the sidebar loads.
  */
 
 import { safeLocalStorage } from "@/lib/utils";

@@ -13,11 +13,14 @@ interface AuthState {
   expiresAt: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  /** Role from API (/connect/userinfo). Not persisted - always from API. */
+  primaryRole: string | null;
 
   // Actions
   setSession: (session: AuthSession) => void;
   setUser: (user: User) => void;
   updateUser: (updates: Partial<User>) => void;
+  setPrimaryRole: (role: string | null) => void;
   logout: () => void;
   setLoading: (loading: boolean) => void;
 
@@ -35,6 +38,7 @@ export const useAuthStore = create<AuthState>()(
       expiresAt: null,
       isAuthenticated: false,
       isLoading: true,
+      primaryRole: null,
 
       // Actions
       setSession: (session: AuthSession) => {
@@ -83,6 +87,10 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      setPrimaryRole: (role: string | null) => {
+        set({ primaryRole: role });
+      },
+
       logout: () => {
         set({
           user: null,
@@ -91,6 +99,7 @@ export const useAuthStore = create<AuthState>()(
           expiresAt: null,
           isAuthenticated: false,
           isLoading: false,
+          primaryRole: null,
         });
         // Clear auth from storage
         safeLocalStorage.removeItem("auth-storage");
@@ -132,6 +141,7 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
         expiresAt: state.expiresAt,
         isAuthenticated: state.isAuthenticated,
+        // primaryRole is intentionally NOT persisted - always from API
       }),
       onRehydrateStorage: () => (state) => {
         // After rehydration, set loading to false

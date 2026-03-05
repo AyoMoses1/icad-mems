@@ -16,9 +16,7 @@ import {
 import {
   isSeaFarerOnboardingComplete,
   getSeaFarerWorkspace,
-  SEA_FARER_WORKSPACE_ID,
 } from "@/lib/utils/workspace-helpers";
-import { getFirstMenuRouteForWorkspace } from "@/lib/services/menu-service";
 import { Button } from "@/components/ui/button";
 import {
   getMyOnboarding,
@@ -130,7 +128,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     setLoading,
     token,
     setSession,
+    setPrimaryRole,
     user,
+    primaryRole,
   } = useAuthStore();
   const [isInitializing, setIsInitializing] = useState(true);
   const [initializationError, setInitializationError] = useState<string | null>(
@@ -176,15 +176,14 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     }
 
     // Check if user is already fully loaded - if so, just mark as done
-    // But only skip if we have BOTH complete user data AND stored role
+    // But only skip if we have BOTH complete user data AND role from API (store, not localStorage)
     const hasCompleteUserData =
       user &&
       user.id &&
       user.roles &&
       Array.isArray(user.roles) &&
       user.roles.length > 0;
-    const hasStoredRole =
-      typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
+    const hasStoredRole = useAuthStore.getState().primaryRole;
 
     // Only skip if we have everything - otherwise fetch to get latest data
     if (
@@ -239,9 +238,11 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         setInitializationError("No authentication token found");
         setIsInitializing(false);
         setIsInitializingUser(false);
+        // SSO: redirect to IMS to sign in (no local login page)
+        const imsUrl = process.env.NEXT_PUBLIC_IMS_URL?.trim() || "https://ims.mems.ng";
         setTimeout(() => {
-          router.replace("/auth/signin");
-        }, 2000);
+          window.location.href = imsUrl;
+        }, 1500);
         return;
       }
 
@@ -475,8 +476,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       };
       localStorage.setItem("auth-storage", JSON.stringify(storageData));
 
-      // Step 10: Store role in localStorage
-      localStorage.setItem("userRole", role);
+      // Step 10: Set role from API in store only (no localStorage - menu/header use this)
+      setPrimaryRole(role);
       setUserRole(role);
 
       // Step 11: Remove token from URL if present (keep URL clean; keep workspaceId for menu)
@@ -501,10 +502,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         (pathname === "/" || pathname === "") &&
         !isOnEmployerOrInstitution
       ) {
-        const userRole = localStorage.getItem("userRole");
-
-        if (userRole) {
-          const roleUpper = userRole.toUpperCase();
+        // Use role from API (just computed above), not localStorage
+        if (role) {
+          const roleUpper = role.toUpperCase();
 
           // ADMIN goes to admin dashboard
           if (roleUpper === "ADMIN" || roleUpper === "SUPERADMIN") {
@@ -525,7 +525,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           }
 
           // For other roles, redirect to their specific dashboard
-          const dashboardRoute = getDashboardRouteFromRoles([userRole]);
+          const dashboardRoute = getDashboardRouteFromRoles([role]);
           router.replace(dashboardRoute);
         } else {
           // Fallback to seafarer dashboard if no role
@@ -548,12 +548,13 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         errorMessage.includes("Authentication required");
 
       if (isAuthError) {
-        // For auth errors, redirect to login
+        // SSO: redirect to IMS to sign in again
         setInitializationError("Authentication failed");
         toast.error("Authentication failed. Please sign in again.");
+        const imsUrl = process.env.NEXT_PUBLIC_IMS_URL?.trim() || "https://ims.mems.ng";
         setTimeout(() => {
-          router.replace("/auth/signin");
-        }, 2000);
+          window.location.href = imsUrl;
+        }, 1500);
       } else {
         // For other errors (like network issues), show error but don't redirect
         setInitializationError(
@@ -663,24 +664,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             // User is approved - use role-based dashboard so AGENT/TI never get redirected to seafarer
             setOnboardingStatusChecked(true);
 
-            let correctDashboard = getDashboardRoute(
+            const correctDashboard = getDashboardRoute(
               onboardingRole || "SEAFARER"
             );
-            // For AGENT and TRAINING_INSTITUTION always use role dashboard; never override with first menu route (API menu order can put seafarer first)
-            const useRoleDashboardOnly =
-              onboardingRole === "AGENT" ||
-              onboardingRole === "TRAINING_INSTITUTION" ||
-              onboardingRole === "INSTITUTION";
-            if (!useRoleDashboardOnly) {
-              try {
-                const firstMenuRoute = await getFirstMenuRouteForWorkspace(
-                  SEA_FARER_WORKSPACE_ID
-                );
-                if (firstMenuRoute) correctDashboard = firstMenuRoute;
-              } catch {
-                // Use role-based route when menu API fails
-              }
-            }
 
             const isOnRootPage = pathname === "/" || pathname === "";
             const isOnOnboardingPage = pathname.startsWith("/onboarding");
@@ -760,20 +746,16 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Permit-based user is ready: no my-onboarding call; redirect to dashboard if on / or onboarding
+    // User is ready (permit or onboarding approved): redirect to dashboard if on / or onboarding path
     if (userReadinessData && isUserReadyFromReadiness(userReadinessData)) {
       setOnboardingStatusChecked(true);
-      if (userReadinessData.source === "permit") {
-        const isRootPath = pathname === "/" || pathname === "";
-        const isOnboardingPath = pathname.startsWith("/onboarding");
-        if (isRootPath || isOnboardingPath) {
-          const dashboardRole = getDashboardRoleFromReadiness(userReadinessData);
-          const targetRoute =
-            dashboardRole !== null
-              ? getDashboardRoute(dashboardRole)
-              : "/seafarer/dashboard";
-          router.replace(targetRoute);
-        }
+      const isRootPath = pathname === "/" || pathname === "";
+      const isOnboardingPath = pathname.startsWith("/onboarding");
+      if (isRootPath || isOnboardingPath) {
+        const dashboardRole =
+          getDashboardRoleFromReadiness(userReadinessData) ?? "SEAFARER";
+        const targetRoute = getDashboardRoute(dashboardRole);
+        router.replace(targetRoute);
       }
       return;
     }
@@ -847,12 +829,11 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Check if user is admin - if so, skip onboarding check
-    const userRoleFromStorage =
-      typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
+    // Check if user is admin - if so, skip onboarding check (role from API store, not localStorage)
+    const currentRole = useAuthStore.getState().primaryRole;
     const isAdmin =
-      userRoleFromStorage?.toUpperCase() === "ADMIN" ||
-      userRoleFromStorage?.toUpperCase() === "SUPERADMIN" ||
+      currentRole?.toUpperCase() === "ADMIN" ||
+      currentRole?.toUpperCase() === "SUPERADMIN" ||
       user?.roles?.some((r: any) => {
         if (typeof r === "string") return false;
         return r.tenants?.some((t: any) =>
@@ -912,15 +893,20 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     userReadinessData,
   ]);
 
-  // Check authentication on mount
+  // Redirect to IMS when not authenticated (SSO only – no local login page).
+  // Skip when token is in URL (SSO callback) or still initializing to avoid redirecting right after login.
   useEffect(() => {
-    if (!authLoading && !isInitializing) {
-      const currentState = useAuthStore.getState();
-      if (!currentState.isAuthenticated || !currentState.token) {
-        router.replace("/auth/signin");
-      }
+    if (authLoading || isInitializing) return;
+    const tokenInUrl =
+      (typeof window !== "undefined" && searchParams.get("token")) ||
+      (typeof window !== "undefined" && /[?&]token=/.test(window.location.search));
+    if (tokenInUrl) return; // SSO callback in progress
+    const currentState = useAuthStore.getState();
+    if (!currentState.isAuthenticated || !currentState.token) {
+      const imsUrl = process.env.NEXT_PUBLIC_IMS_URL?.trim() || "https://ims.mems.ng";
+      window.location.href = imsUrl;
     }
-  }, [authLoading, isInitializing, router]);
+  }, [authLoading, isInitializing, searchParams]);
 
   // Show unauthorized screen if user doesn't have required role
   if (isUnauthorized) {
@@ -996,12 +982,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   // Check if user has completed onboarding for Sea Farer workspace
   // This applies to ANY user with a role in Sea Farer workspace (Owner, Seafarer, Agent, etc.)
-  // BUT EXCLUDE ADMINS - admins should have full access regardless of onboarding status
-  const userRoleFromStorage =
-    typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
+  // BUT EXCLUDE ADMINS - admins should have full access regardless of onboarding status (role from API store)
   const isAdmin =
-    userRoleFromStorage?.toUpperCase() === "ADMIN" ||
-    userRoleFromStorage?.toUpperCase() === "SUPERADMIN" ||
+    primaryRole?.toUpperCase() === "ADMIN" ||
+    primaryRole?.toUpperCase() === "SUPERADMIN" ||
     user?.roles?.some((r: any) => {
       if (typeof r === "string") return false;
       return r.tenants?.some((t: any) =>

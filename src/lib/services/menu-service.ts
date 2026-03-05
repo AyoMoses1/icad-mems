@@ -97,6 +97,60 @@ export async function getFirstMenuRouteForWorkspace(
 }
 
 /**
+ * URL path prefixes allowed for Seafarer workspace when API returns all resources.
+ * Used to filter menu so seafarers only see their own items, not admin/agent/institution.
+ */
+const SEAFARER_ALLOWED_URL_PREFIXES = [
+  "/seafarer/",
+  "/profile-documents",
+  "/invoices/my-invoices",
+  "/invoices/payments",
+  "/audit-logs",
+  "/license-certification",
+  "/onboarding",
+  "/documents",
+  "/accreditations/apply",
+  "/accreditations/stcw",
+  "/ranks",
+];
+
+function isSeafarerAllowedUrl(url: string | null | undefined): boolean {
+  if (!url || url === "#") return false;
+  const path = url.replace(/^\//, "").toLowerCase();
+  return SEAFARER_ALLOWED_URL_PREFIXES.some((prefix) => {
+    const p = prefix.replace(/^\//, "").toLowerCase();
+    return path === p || path.startsWith(p.endsWith("/") ? p : p + "/");
+  });
+}
+
+/**
+ * Filter resources to only seafarer-relevant items when workspace is Seafarer (SEA_FARER).
+ * Backend may return all resources; this keeps only items with allowed URLs so the menu is not "plenty".
+ */
+export function filterResourcesForSeafarerWorkspace(
+  items: MenuItemDto[]
+): MenuItemDto[] {
+  return items
+    .map((item) => {
+      const hasAllowedUrl = isSeafarerAllowedUrl(item.url);
+      const filteredChildren =
+        item.children && item.children.length > 0
+          ? filterResourcesForSeafarerWorkspace(item.children)
+          : [];
+      const hasAllowedChild = filteredChildren.length > 0;
+
+      if (hasAllowedUrl) {
+        return { ...item, children: filteredChildren };
+      }
+      if (hasAllowedChild) {
+        return { ...item, children: filteredChildren };
+      }
+      return null;
+    })
+    .filter((item): item is MenuItemDto => item !== null);
+}
+
+/**
  * Find menu item by URL
  *
  * @param menus - Array of workspace menus

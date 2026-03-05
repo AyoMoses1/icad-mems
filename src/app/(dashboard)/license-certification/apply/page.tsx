@@ -103,16 +103,17 @@ export default function ApplyCertificateLicensePage() {
   const [infoConfirmed, setInfoConfirmed] = useState(false);
 
   useEffect(() => {
-    // Check authentication before loading data
+    // SSO: redirect to IMS to sign in (no local login page)
     if (!isAuthenticated || !token) {
-      toast.error("Please log in to continue");
-      router.push("/auth/login");
+      toast.error("Please sign in to continue");
+      const imsUrl = process.env.NEXT_PUBLIC_IMS_URL?.trim() || "https://ims.mems.ng";
+      window.location.href = imsUrl;
       return;
     }
 
     loadServices();
     loadUserDocuments();
-  }, [isAuthenticated, token, router]);
+  }, [isAuthenticated, token]);
 
   useEffect(() => {
     if (currentStep === 3 && createdApplication?.id) {

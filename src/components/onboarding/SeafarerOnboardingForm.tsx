@@ -47,6 +47,12 @@ import {
 } from "@/lib/services/comprehensive-onboarding-service";
 import { handleApiError } from "@/lib/error-handler";
 import { ApiError } from "@/lib/api-client";
+import {
+  getUserReadinessStatus,
+  isUserReadyFromReadiness,
+  getDashboardRoleFromReadiness,
+} from "@/lib/services/user-readiness-service";
+import { getDashboardRoute } from "@/lib/role-routing";
 import { OnboardingErrorCodes } from "@/types/errors";
 import {
   getDocumentTypes,
@@ -712,14 +718,25 @@ export function SeafarerOnboardingForm({
               : "Onboarding submitted successfully! Your application is now pending review.")
         );
 
-        // After successful submission, the onboarding status is PENDING
-        // Redirect to the pending status page to show the user their application is under review
         if (saveAsDraft) {
-          // For drafts, stay on the page or redirect to a draft view
-          // The user can continue editing later
           toast.info("You can continue your onboarding later.");
         } else {
-          // For full submissions, redirect to pending status page
+          // Re-fetch readiness; if backend already marks approved, hard redirect to dashboard so layout gets fresh status
+          try {
+            const readinessRes = await getUserReadinessStatus();
+            if (
+              readinessRes.success &&
+              readinessRes.data &&
+              isUserReadyFromReadiness(readinessRes.data)
+            ) {
+              const dashboardRole =
+                getDashboardRoleFromReadiness(readinessRes.data) ?? "SEAFARER";
+              window.location.href = getDashboardRoute(dashboardRole);
+              return;
+            }
+          } catch {
+            // Fall through to pending
+          }
           router.push("/onboarding/status/pending");
         }
       } else {

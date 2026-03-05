@@ -84,11 +84,11 @@ function VerifyEmailContent() {
         </div>
         <div className="space-y-2">
           <Button asChild className="w-full">
-            <Link href="/auth/signin">Back to sign in</Link>
+            <Link href={process.env.NEXT_PUBLIC_IMS_URL || "https://ims.mems.ng"} target="_blank" rel="noopener noreferrer">Back to sign in</Link>
           </Button>
           <p className="text-sm text-muted-foreground">
             Need a new verification link?{" "}
-            <Link href="/auth/signin" className="text-primary hover:underline">
+            <Link href={process.env.NEXT_PUBLIC_IMS_URL || "https://ims.mems.ng"} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
               Contact support
             </Link>
           </p>
@@ -109,7 +109,7 @@ function VerifyEmailContent() {
         <p className="text-sm text-muted-foreground">{message}</p>
       </div>
       <Button asChild className="w-full">
-        <Link href="/auth/signin">Continue to sign in</Link>
+        <Link href={process.env.NEXT_PUBLIC_IMS_URL || "https://ims.mems.ng"} target="_blank" rel="noopener noreferrer">Continue to sign in</Link>
       </Button>
     </div>
   );

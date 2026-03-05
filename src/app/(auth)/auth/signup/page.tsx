@@ -123,8 +123,9 @@ export default function SignUpPage() {
         description: result.message || "You can now sign in to your account.",
       });
 
-      // Redirect to login screen
-      router.push("/auth/signin");
+      // SSO: redirect to IMS to sign in
+      const imsUrl = process.env.NEXT_PUBLIC_IMS_URL?.trim() || "https://ims.mems.ng";
+      window.location.href = imsUrl;
     } catch (error) {
       toast.error("Registration failed", {
         description:
@@ -466,9 +467,9 @@ export default function SignUpPage() {
 
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <Link href="/auth/signin" className="text-primary hover:underline">
-          Sign in
-        </Link>
+<Link href={process.env.NEXT_PUBLIC_IMS_URL || "https://ims.mems.ng"} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+            Sign in
+          </Link>
       </p>
     </div>
   );

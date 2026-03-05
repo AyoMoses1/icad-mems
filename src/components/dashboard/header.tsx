@@ -80,23 +80,14 @@ const roleLabels: Record<string, string> = {
 
 export function Header() {
   const pathname = usePathname();
-  const { user } = useAuthStore();
+  const { user, primaryRole } = useAuthStore();
   const { setMobileSidebarOpen } = useUIStore();
   const [searchQuery, setSearchQuery] = useState("");
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const userRole = primaryRole;
 
-  // Get role from localStorage
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const role = localStorage.getItem("userRole");
-      setUserRole(role);
-    }
-  }, []);
-  
   // Check if onboarding is complete - if not, don't render header
   // BUT EXCLUDE ADMINS - admins should always see the header
-  const userRoleFromStorage = typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
-  const isAdmin = userRoleFromStorage?.toUpperCase() === "ADMIN" || userRoleFromStorage?.toUpperCase() === "SUPERADMIN";
+  const isAdmin = userRole?.toUpperCase() === "ADMIN" || userRole?.toUpperCase() === "SUPERADMIN";
   
   // Skip onboarding check for admins
   if (!isAdmin) {

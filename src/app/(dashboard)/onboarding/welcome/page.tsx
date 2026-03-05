@@ -1,7 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import {
+  getUserReadinessStatus,
+  isUserReadyFromReadiness,
+  getDashboardRoleFromReadiness,
+} from "@/lib/services/user-readiness-service";
+import { getDashboardRoute } from "@/lib/role-routing";
 import {
   Card,
   CardContent,
@@ -51,6 +57,41 @@ export default function OnboardingWelcomePage() {
     "SEAFARER" | "AGENT" | "TRAINING_INSTITUTION" | ""
   >("");
   const [isLoading, setIsLoading] = useState(false);
+  const [checkingReadiness, setCheckingReadiness] = useState(true);
+
+  // If user has already onboarded (e.g. after refresh), redirect to dashboard
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getUserReadinessStatus();
+        if (cancelled) return;
+        if (res.success && res.data && isUserReadyFromReadiness(res.data)) {
+          const dashboardRole =
+            getDashboardRoleFromReadiness(res.data) ?? "SEAFARER";
+          router.replace(getDashboardRoute(dashboardRole));
+          return;
+        }
+      } catch {
+        // Ignore; show welcome
+      } finally {
+        if (!cancelled) setCheckingReadiness(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  if (checkingReadiness) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
+        <div className="text-center text-muted-foreground">
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleContinue = async () => {
     if (!selectedRole) return;

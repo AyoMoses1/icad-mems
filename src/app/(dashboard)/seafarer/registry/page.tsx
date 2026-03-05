@@ -10,6 +10,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthStore } from "@/store";
 import {
   PageHeader,
   DataTable,
@@ -143,10 +144,8 @@ export default function SeafarerRegistryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const pageSize = 20;
 
-  const userRole =
-    typeof window !== "undefined"
-      ? localStorage.getItem("userRole")?.toUpperCase()
-      : null;
+  const primaryRole = useAuthStore((s) => s.primaryRole);
+  const userRole = primaryRole?.toUpperCase() ?? null;
   const isAdminRole = userRole === "ADMIN" || userRole === "SUPERADMIN";
   const isEmployerView = userRole === "AGENT" || userRole === "OWNER";
   const canModifySeafarers = isAdminRole;

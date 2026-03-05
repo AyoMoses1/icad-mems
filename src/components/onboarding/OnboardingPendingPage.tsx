@@ -30,9 +30,6 @@ import {
   isOnboardingApproved,
   OnboardingStatus,
 } from "@/lib/services/onboarding-service";
-import { getFirstMenuRouteForWorkspace } from "@/lib/services/menu-service";
-import { SEA_FARER_WORKSPACE_ID } from "@/lib/utils/workspace-helpers";
-
 interface OnboardingPendingPageProps {
   /** Optional callback when status changes */
   onStatusChange?: (status: string) => void;
@@ -75,16 +72,8 @@ export function OnboardingPendingPage({
     try {
       const data = await refresh();
       if (data && isOnboardingApproved(data.status)) {
-        let targetRoute = getDashboardRoute(data.role ?? "SEAFARER");
-        try {
-          const firstMenuRoute = await getFirstMenuRouteForWorkspace(
-            SEA_FARER_WORKSPACE_ID
-          );
-          if (firstMenuRoute) targetRoute = firstMenuRoute;
-        } catch {
-          // Use role-based route when menu API fails
-        }
-        router.replace(targetRoute);
+        const role = (data.role ?? "SEAFARER").toUpperCase();
+        router.replace(getDashboardRoute(role));
         return;
       }
     } finally {
@@ -232,8 +221,11 @@ export function OnboardingPendingPage({
                   { label: "Application Submitted", completed: true },
                   {
                     label: "Document Verification",
-                    completed:
-                      onboardingData?.status?.toUpperCase() === "UNDER_REVIEW",
+                    completed: (() => {
+                      const s = onboardingData?.status?.toUpperCase();
+                      // PENDING = submitted and docs verified; UNDER_REVIEW = in admin review
+                      return s === "PENDING" || s === "UNDER_REVIEW";
+                    })(),
                   },
                   { label: "Admin Review", completed: false },
                   { label: "Approval Decision", completed: false },

@@ -121,7 +121,7 @@ function ResetPasswordForm() {
           </p>
         </div>
         <Button asChild className="w-full">
-          <Link href="/auth/signin">Sign in</Link>
+          <Link href={process.env.NEXT_PUBLIC_IMS_URL || "https://ims.mems.ng"} target="_blank" rel="noopener noreferrer">Sign in</Link>
         </Button>
       </div>
     );

@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
             try again
           </button>
         </p>
-        <Link href="/auth/signin">
+        <Link href={process.env.NEXT_PUBLIC_IMS_URL || "https://ims.mems.ng"} target="_blank" rel="noopener noreferrer">
           <Button variant="outline" className="w-full">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to sign in
@@ -134,7 +134,7 @@ export default function ForgotPasswordPage() {
         </Button>
       </form>
 
-      <Link href="/auth/signin">
+      <Link href={process.env.NEXT_PUBLIC_IMS_URL || "https://ims.mems.ng"} target="_blank" rel="noopener noreferrer">
         <Button variant="ghost" className="w-full">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to sign in
