@@ -7,6 +7,7 @@ import {
   Trash2,
   MoreHorizontal,
   Ship,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,6 +44,7 @@ import {
   updateVessel,
   deleteVessel,
 } from "@/lib/services/vessels-service";
+import { getShipByImo } from "@/lib/services/imo-ship-lookup-service";
 import { formatDate } from "@/lib/utils";
 
 export default function VesselsPage() {
@@ -60,6 +62,8 @@ export default function VesselsPage() {
     builtDate: "",
     isActive: true,
   });
+  const [vesselDetailsFromApi, setVesselDetailsFromApi] = useState(false);
+  const [imoLookupLoading, setImoLookupLoading] = useState(false);
 
   useEffect(() => {
     loadVessels();
@@ -89,6 +93,7 @@ export default function VesselsPage() {
       builtDate: "",
       isActive: true,
     });
+    setVesselDetailsFromApi(false);
     setSelectedVessel(null);
     setIsCreateOpen(true);
   };
@@ -100,8 +105,36 @@ export default function VesselsPage() {
       builtDate: vessel.builtDate ? vessel.builtDate.split("T")[0] : "",
       isActive: vessel.isActive,
     });
+    setVesselDetailsFromApi(false);
     setSelectedVessel(vessel);
     setIsEditOpen(true);
+  };
+
+  const handleImoLookup = async () => {
+    const imo = formData.imoNumber.trim();
+    if (!imo) {
+      toast.error("Enter IMO number first");
+      return;
+    }
+    setImoLookupLoading(true);
+    try {
+      const ship = await getShipByImo(imo);
+      if (!ship) {
+        toast.error("Vessel not found for this IMO number");
+        return;
+      }
+      setFormData((prev) => ({
+        ...prev,
+        name: ship.shipName,
+        builtDate: ship.yearBuilt ? `${ship.yearBuilt}-01-01` : prev.builtDate,
+      }));
+      setVesselDetailsFromApi(true);
+      toast.success("Vessel details filled from registry");
+    } catch {
+      toast.error("Failed to look up vessel by IMO");
+    } finally {
+      setImoLookupLoading(false);
+    }
   };
 
   const handleDelete = (vessel: VesselDto) => {
@@ -278,6 +311,33 @@ export default function VesselsPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
+              <Label htmlFor="imoNumber">IMO Number</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="imoNumber"
+                  value={formData.imoNumber}
+                  onChange={(e) => {
+                    setFormData({ ...formData, imoNumber: e.target.value });
+                    if (vesselDetailsFromApi) setVesselDetailsFromApi(false);
+                  }}
+                  placeholder="IMO number"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleImoLookup}
+                  disabled={!formData.imoNumber.trim() || imoLookupLoading}
+                >
+                  {imoLookupLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Look up"
+                  )}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="name">Name *</Label>
               <Input
                 id="name"
@@ -285,18 +345,9 @@ export default function VesselsPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                placeholder="Vessel name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="imoNumber">IMO Number</Label>
-              <Input
-                id="imoNumber"
-                value={formData.imoNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, imoNumber: e.target.value })
-                }
-                placeholder="IMO number"
+                placeholder="Vessel name (or use Look up from IMO)"
+                readOnly={vesselDetailsFromApi}
+                className={vesselDetailsFromApi ? "bg-muted" : undefined}
               />
             </div>
             <div className="space-y-2">
@@ -308,6 +359,8 @@ export default function VesselsPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, builtDate: e.target.value })
                 }
+                readOnly={vesselDetailsFromApi}
+                className={vesselDetailsFromApi ? "bg-muted" : undefined}
               />
             </div>
             <div className="flex items-center space-x-2">
@@ -349,6 +402,33 @@ export default function VesselsPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
+              <Label htmlFor="edit-imoNumber">IMO Number</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="edit-imoNumber"
+                  value={formData.imoNumber}
+                  onChange={(e) => {
+                    setFormData({ ...formData, imoNumber: e.target.value });
+                    if (vesselDetailsFromApi) setVesselDetailsFromApi(false);
+                  }}
+                  placeholder="IMO number"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleImoLookup}
+                  disabled={!formData.imoNumber.trim() || imoLookupLoading}
+                >
+                  {imoLookupLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Look up"
+                  )}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="edit-name">Name</Label>
               <Input
                 id="edit-name"
@@ -356,18 +436,9 @@ export default function VesselsPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                placeholder="Vessel name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-imoNumber">IMO Number</Label>
-              <Input
-                id="edit-imoNumber"
-                value={formData.imoNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, imoNumber: e.target.value })
-                }
-                placeholder="IMO number"
+                placeholder="Vessel name (or use Look up from IMO)"
+                readOnly={vesselDetailsFromApi}
+                className={vesselDetailsFromApi ? "bg-muted" : undefined}
               />
             </div>
             <div className="space-y-2">
@@ -379,6 +450,8 @@ export default function VesselsPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, builtDate: e.target.value })
                 }
+                readOnly={vesselDetailsFromApi}
+                className={vesselDetailsFromApi ? "bg-muted" : undefined}
               />
             </div>
             <div className="flex items-center space-x-2">

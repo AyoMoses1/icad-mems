@@ -17,6 +17,7 @@ import {
   Ship,
   Award,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, LoadingSpinner } from "@/components/shared";
@@ -62,6 +63,7 @@ import {
   normalizeRequirementKind,
   type OnboardingRequirementDto,
 } from "@/lib/services/onboarding-requirements-service";
+import { getShipByImo } from "@/lib/services/imo-ship-lookup-service";
 import { getAllRanks, type RankDto } from "@/lib/services/ranks";
 import {
   getVerificationStatus,
@@ -214,6 +216,9 @@ export function SeafarerOnboardingForm({
   const [voyageActivities, setVoyageActivities] = useState<
     VoyageActivityRequest[]
   >([]);
+  /** Indices of voyage rows whose vessel name / flag were filled from IMO lookup (readonly) */
+  const [voyageLookedUpFromApi, setVoyageLookedUpFromApi] = useState<Set<number>>(new Set());
+  const [voyageImoLookupLoading, setVoyageImoLookupLoading] = useState<number | null>(null);
 
   // Profile Documents (used when no onboarding requirements from API)
   const [profileDocuments, setProfileDocuments] = useState<DocumentUpload[]>(
@@ -438,6 +443,44 @@ export function SeafarerOnboardingForm({
     setVoyageDocuments((prev) =>
       prev.filter((doc) => doc.voyageActivityIndex !== index)
     );
+    setVoyageLookedUpFromApi((prev) => {
+      const next = new Set<number>();
+      prev.forEach((i) => {
+        if (i < index) next.add(i);
+        if (i > index) next.add(i - 1);
+      });
+      return next;
+    });
+  };
+
+  const handleVoyageImoLookup = async (index: number) => {
+    const voyage = voyageActivities[index];
+    const imo = (voyage?.imoNumber ?? "").trim();
+    if (!imo) {
+      toast.error("Enter an IMO number first");
+      return;
+    }
+    setVoyageImoLookupLoading(index);
+    try {
+      const ship = await getShipByImo(imo);
+      if (!ship) {
+        toast.error("Vessel not found for this IMO number");
+        return;
+      }
+      const newVoyages = [...voyageActivities];
+      newVoyages[index] = {
+        ...newVoyages[index],
+        vesselName: ship.shipName,
+        flagState: ship.country ?? ship.flag ?? "",
+      };
+      setVoyageActivities(newVoyages);
+      setVoyageLookedUpFromApi((prev) => new Set(prev).add(index));
+      toast.success("Vessel details filled from registry");
+    } catch {
+      toast.error("Failed to look up vessel by IMO");
+    } finally {
+      setVoyageImoLookupLoading(null);
+    }
   };
 
   const handleAddProfileDocument = () => {
@@ -1450,20 +1493,37 @@ export function SeafarerOnboardingForm({
                           setVoyageActivities(newVoyages);
                         }}
                         placeholder="MV Atlantic Explorer"
+                        readOnly={voyageLookedUpFromApi.has(index)}
+                        className={voyageLookedUpFromApi.has(index) ? "bg-muted" : undefined}
                       />
                     </div>
 
                     <div className="space-y-2">
                       <Label>IMO Number</Label>
-                      <Input
-                        value={voyage.imoNumber}
-                        onChange={(e) => {
-                          const newVoyages = [...voyageActivities];
-                          newVoyages[index].imoNumber = e.target.value;
-                          setVoyageActivities(newVoyages);
-                        }}
-                        placeholder="IMO-9876543"
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          value={voyage.imoNumber}
+                          onChange={(e) => {
+                            const newVoyages = [...voyageActivities];
+                            newVoyages[index].imoNumber = e.target.value;
+                            setVoyageActivities(newVoyages);
+                          }}
+                          placeholder="IMO-9876543"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleVoyageImoLookup(index)}
+                          disabled={!voyage.imoNumber?.trim() || voyageImoLookupLoading === index}
+                        >
+                          {voyageImoLookupLoading === index ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Look up"
+                          )}
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
@@ -1476,6 +1536,8 @@ export function SeafarerOnboardingForm({
                           setVoyageActivities(newVoyages);
                         }}
                         placeholder="Nigeria"
+                        readOnly={voyageLookedUpFromApi.has(index)}
+                        className={voyageLookedUpFromApi.has(index) ? "bg-muted" : undefined}
                       />
                     </div>
 

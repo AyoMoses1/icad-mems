@@ -301,12 +301,16 @@ export async function submitApplication(
 /**
  * Get my applications
  * GET /seafarer/api/v1/Applications/my-applications
- * Note: The base endpoint /seafarer/api/v1/Applications only supports POST, not GET
+ * API returns data as { items, totalCount, pageNumber, pageSize, totalPages }; we normalize to data = items.
  */
 export async function getMyApplications(): Promise<ApiResponse<ApplicationDto[]>> {
-  // Ensure endpoint doesn't have trailing slash - use /my-applications suffix
   const endpoint = `${API_BASE}/my-applications`;
-  return apiGetMain<ApplicationDto[]>(endpoint);
+  const response = await apiGetMain<
+    ApplicationDto[] | { items: ApplicationDto[]; totalCount?: number; pageNumber?: number; pageSize?: number; totalPages?: number }
+  >(endpoint);
+  const raw = response.data;
+  const items = Array.isArray(raw) ? raw : (raw?.items ?? []);
+  return { ...response, data: items };
 }
 
 /**

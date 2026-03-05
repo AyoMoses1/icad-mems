@@ -51,6 +51,7 @@ export interface AuditLogsAdminFilters {
 /**
  * Get current user's audit logs (for seafarer/normal user).
  * GET /seafarer/api/v1/audit-logs/my-logs?page=&pageSize=
+ * Normalizes response so data is always an array (handles data or data.items).
  */
 export async function getMyAuditLogs(
   page?: number,
@@ -60,14 +61,19 @@ export async function getMyAuditLogs(
   if (page != null) params.append("page", String(page));
   if (pageSize != null) params.append("pageSize", String(pageSize));
   const query = params.toString();
-  return apiGetMain<AuditLogDto[]>(
-    `${MY_LOGS_PATH}${query ? `?${query}` : ""}`
-  );
+  const response = await apiGetMain<
+    AuditLogDto[] | { items: AuditLogDto[]; totalCount?: number; totalPages?: number }
+  >(`${MY_LOGS_PATH}${query ? `?${query}` : ""}`);
+  const raw = response.data;
+  const items = Array.isArray(raw) ? raw : (raw?.items ?? []);
+  return { ...response, data: items };
 }
 
 /**
  * Get audit logs for admin (all users, with filters).
  * GET /seafarer/api/v1/audit-logs/admin
+ * Query params: userId, entityType, action, fromDate, toDate, success, page, pageSize.
+ * Normalizes response so data is always an array (handles data or data.items).
  */
 export async function getAdminAuditLogs(
   filters?: AuditLogsAdminFilters
@@ -84,7 +90,10 @@ export async function getAdminAuditLogs(
   if (filters?.pageSize != null)
     params.append("pageSize", String(filters.pageSize));
   const query = params.toString();
-  return apiGetMain<AuditLogAdminDto[]>(
-    `${ADMIN_LOGS_PATH}${query ? `?${query}` : ""}`
-  );
+  const response = await apiGetMain<
+    AuditLogAdminDto[] | { items: AuditLogAdminDto[]; totalCount?: number; totalPages?: number }
+  >(`${ADMIN_LOGS_PATH}${query ? `?${query}` : ""}`);
+  const raw = response.data;
+  const items = Array.isArray(raw) ? raw : (raw?.items ?? []);
+  return { ...response, data: items };
 }

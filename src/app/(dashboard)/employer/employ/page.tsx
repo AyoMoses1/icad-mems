@@ -53,6 +53,7 @@ import {
   type SeafarerEmploymentDto,
   type SeafarerShipAssignmentDto,
 } from "@/lib/services/seafarer-employment-training-service";
+import { getShipByImo } from "@/lib/services/imo-ship-lookup-service";
 import { getAllRanks, type RankDto } from "@/lib/services/ranks";
 import {
   Dialog,
@@ -101,6 +102,8 @@ export default function EmploySeafarerPage() {
   const [isEndingAssignment, setIsEndingAssignment] = useState<string | null>(null);
   const [assignVesselName, setAssignVesselName] = useState("");
   const [assignVesselIMO, setAssignVesselIMO] = useState("");
+  const [assignVesselNameFromApi, setAssignVesselNameFromApi] = useState(false);
+  const [assignImoLookupLoading, setAssignImoLookupLoading] = useState(false);
   const [assignJoiningPort, setAssignJoiningPort] = useState("");
   const [assignTradingArea, setAssignTradingArea] = useState("");
   const [assignStartDate, setAssignStartDate] = useState("");
@@ -260,6 +263,7 @@ export default function EmploySeafarerPage() {
       setAssignEmployment(employment);
       setAssignVesselName("");
       setAssignVesselIMO("");
+      setAssignVesselNameFromApi(false);
       setAssignJoiningPort("");
       setAssignTradingArea("");
       setAssignStartDate("");
@@ -271,6 +275,29 @@ export default function EmploySeafarerPage() {
     },
     [loadAssignmentsForEmployment]
   );
+
+  const handleAssignImoLookup = useCallback(async () => {
+    const imo = assignVesselIMO.trim();
+    if (!imo) {
+      toast.error("Enter vessel IMO first");
+      return;
+    }
+    setAssignImoLookupLoading(true);
+    try {
+      const ship = await getShipByImo(imo);
+      if (!ship) {
+        toast.error("Vessel not found for this IMO number");
+        return;
+      }
+      setAssignVesselName(ship.shipName);
+      setAssignVesselNameFromApi(true);
+      toast.success("Vessel details filled from registry");
+    } catch {
+      toast.error("Failed to look up vessel by IMO");
+    } finally {
+      setAssignImoLookupLoading(false);
+    }
+  }, [assignVesselIMO]);
 
   const closeAssignModal = useCallback(() => {
     setAssignEmployment(null);
@@ -705,19 +732,39 @@ export default function EmploySeafarerPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Vessel name</Label>
-                  <Input
-                    placeholder="e.g. MV Atlantic Star"
-                    value={assignVesselName}
-                    onChange={(e) => setAssignVesselName(e.target.value)}
-                  />
+                  <Label>Vessel IMO</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="e.g. 9123456"
+                      value={assignVesselIMO}
+                      onChange={(e) => {
+                        setAssignVesselIMO(e.target.value);
+                        if (assignVesselNameFromApi) setAssignVesselNameFromApi(false);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAssignImoLookup}
+                      disabled={!assignVesselIMO.trim() || assignImoLookupLoading}
+                    >
+                      {assignImoLookupLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Look up"
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Vessel IMO</Label>
+                  <Label>Vessel name</Label>
                   <Input
-                    placeholder="e.g. 9123456"
-                    value={assignVesselIMO}
-                    onChange={(e) => setAssignVesselIMO(e.target.value)}
+                    placeholder="e.g. MV Atlantic Star (or use Look up from IMO)"
+                    value={assignVesselName}
+                    onChange={(e) => setAssignVesselName(e.target.value)}
+                    readOnly={assignVesselNameFromApi}
+                    className={assignVesselNameFromApi ? "bg-muted" : undefined}
                   />
                 </div>
                 <div className="space-y-2">

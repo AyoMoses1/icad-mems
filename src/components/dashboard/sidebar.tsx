@@ -135,7 +135,7 @@ const seafarerMenuItems: MenuItem[] = [
   },
   {
     title: "Audit Logs",
-    href: "/seafarer/audit-logs",
+    href: "/audit-logs",
     icon: FileText,
   },
 ];

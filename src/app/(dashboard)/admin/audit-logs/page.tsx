@@ -46,7 +46,8 @@ export default function AdminAuditLogsPage() {
         page,
         pageSize: PAGE_SIZE,
       });
-      if (response.success && response.data) {
+      const ok = response.success ?? (response as { success?: boolean }).success;
+      if (ok && response.data) {
         setLogs(response.data);
       } else {
         toast.error(response.message || "Failed to load audit logs");
@@ -255,7 +256,10 @@ export default function AdminAuditLogsPage() {
               >
                 Previous
               </Button>
-              <span className="text-sm text-muted-foreground">Page {page}</span>
+              <span className="text-sm text-muted-foreground">
+                Page {page}
+                {logs.length >= PAGE_SIZE && " (more available)"}
+              </span>
               <Button
                 variant="outline"
                 size="sm"

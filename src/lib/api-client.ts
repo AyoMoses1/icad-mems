@@ -124,6 +124,18 @@ function getBaseUrlForEndpoint(endpoint: string): string {
     return ssoUrl;
   }
 
+  // IAM/ThirdParty endpoints (e.g. IMO vessel search) – same base URL as menu/IMS
+  if (pathname.startsWith("/iam/")) {
+    const ssoUrl = getSsoBaseUrl();
+    if (!ssoUrl) {
+      throw new Error(
+        "NEXT_PUBLIC_SSO_BASE_URL is not configured for IAM endpoints. " +
+          "Please add it to your .env.local file."
+      );
+    }
+    return ssoUrl;
+  }
+
   // Use main API base URL for all other endpoints
   return getApiBaseUrl();
 }

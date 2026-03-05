@@ -16,7 +16,11 @@ import { ScrollText, CheckCircle, XCircle } from "lucide-react";
 
 const PAGE_SIZE = 20;
 
-export default function SeafarerAuditLogsPage() {
+/**
+ * My Audit Logs – for any authenticated user (seafarer, training institution, employer, etc.).
+ * Route: /audit-logs (not under /seafarer so all roles can use it).
+ */
+export default function MyAuditLogsPage() {
   const [logs, setLogs] = useState<AuditLogDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -29,7 +33,8 @@ export default function SeafarerAuditLogsPage() {
     try {
       setIsLoading(true);
       const response = await getMyAuditLogs(page, PAGE_SIZE);
-      if (response.success && response.data) {
+      const ok = response.success ?? (response as { success?: boolean }).success;
+      if (ok && response.data) {
         setLogs(response.data);
       } else {
         toast.error(response.message || "Failed to load audit logs");
@@ -134,7 +139,10 @@ export default function SeafarerAuditLogsPage() {
               >
                 Previous
               </Button>
-              <span className="text-sm text-muted-foreground">Page {page}</span>
+              <span className="text-sm text-muted-foreground">
+                Page {page}
+                {logs.length >= PAGE_SIZE && " (more available)"}
+              </span>
               <Button
                 variant="outline"
                 size="sm"
