@@ -814,6 +814,15 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     if (isInitializing || !user || !user.roles || !Array.isArray(user.roles)) {
       return;
     }
+    // Wait for readiness + onboarding checks to settle before legacy fallback redirects.
+    // This prevents route ping-pong that can repeatedly re-trigger status endpoint calls.
+    if (
+      !userReadinessChecked ||
+      !onboardingStatusChecked ||
+      isCheckingOnboardingStatus
+    ) {
+      return;
+    }
 
     // User Readiness (permit) or my-onboarding (onboarding) says user is ready → skip redirect
     if (onboardingStatusChecked && isUserReadyFromReadiness(userReadinessData)) {
@@ -888,8 +897,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     pathname,
     router,
     hasRedirectedToOnboarding,
+    isCheckingOnboardingStatus,
     onboardingStatusChecked,
     onboardingData,
+    userReadinessChecked,
     userReadinessData,
   ]);
 

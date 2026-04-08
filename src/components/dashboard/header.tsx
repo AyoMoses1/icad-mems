@@ -18,7 +18,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuthStore, useUIStore } from "@/store";
-import { isSeaFarerOnboardingComplete, getSeaFarerWorkspace } from "@/lib/utils/workspace-helpers";
+import {
+  isSeaFarerOnboardingComplete,
+  getSeaFarerWorkspace,
+} from "@/lib/utils/workspace-helpers";
 
 const getPageTitle = (pathname: string): string => {
   const routes: Record<string, string> = {
@@ -58,9 +61,12 @@ const getPageTitle = (pathname: string): string => {
   if (pathname.startsWith("/seafarer/profile/")) return "Seafarer Profile";
   if (pathname.startsWith("/seafarer/miis/")) return "MTI Details";
   if (pathname.startsWith("/training/enroll")) return "Enroll in Training";
-  if (pathname === "/institution/training-upload") return "Training Records – Bulk Upload";
-  if (pathname === "/institution/training-results/view") return "View training result";
-  if (pathname.startsWith("/institution/training-results")) return "Training results";
+  if (pathname === "/institution/training-upload")
+    return "Training Records – Bulk Upload";
+  if (pathname === "/institution/training-results/view")
+    return "View training result";
+  if (pathname.startsWith("/institution/training-results"))
+    return "Training results";
   if (pathname === "/employer/employ") return "Employ Seafarer";
   if (pathname === "/employer/contracts") return "Employer – Assign to Ship";
 
@@ -87,19 +93,29 @@ export function Header() {
 
   // Check if onboarding is complete - if not, don't render header
   // BUT EXCLUDE ADMINS - admins should always see the header
-  const isAdmin = userRole?.toUpperCase() === "ADMIN" || userRole?.toUpperCase() === "SUPERADMIN";
-  
+  const isAdmin =
+    userRole?.toUpperCase() === "ADMIN" ||
+    userRole?.toUpperCase() === "SUPERADMIN";
+
   // Skip onboarding check for admins
   if (!isAdmin) {
     const seaFarerWorkspace = getSeaFarerWorkspace(user);
     const hasSeaFarerWorkspace = seaFarerWorkspace !== null;
-    const isOnboardingComplete = isSeaFarerOnboardingComplete(user) ?? user?.is_onboarding_complete ?? false;
-    const isOnboardingPage = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+    const isOnboardingComplete =
+      isSeaFarerOnboardingComplete(user) ??
+      user?.is_onboarding_complete ??
+      false;
+    const isOnboardingPage =
+      pathname === "/onboarding" || pathname.startsWith("/onboarding/");
     const isRootPage = pathname === "/" || pathname === "";
-    
+
     // Don't render header if user has Sea Farer workspace but onboarding is not complete
     // Allow root page for role selection, but hide header on onboarding pages
-    if (hasSeaFarerWorkspace && !isOnboardingComplete && (isOnboardingPage || isRootPage)) {
+    if (
+      hasSeaFarerWorkspace &&
+      !isOnboardingComplete &&
+      (isOnboardingPage || isRootPage)
+    ) {
       return null;
     }
   }
@@ -151,7 +167,10 @@ export function Header() {
 
       {/* Role Badge */}
       {roleLabel && (
-        <Badge variant="outline" className="hidden md:flex items-center gap-1.5 px-2.5 py-1">
+        <Badge
+          variant="outline"
+          className="hidden md:flex items-center gap-1.5 px-2.5 py-1"
+        >
           <Shield className="h-3.5 w-3.5" />
           <span className="text-xs font-medium">{roleLabel}</span>
         </Badge>
