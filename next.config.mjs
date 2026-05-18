@@ -6,6 +6,15 @@ const nextConfig = {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2,
   },
+  async redirects() {
+    return [
+      {
+        source: "/onboarding/verification/status",
+        destination: "/onboarding/status/pending",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -31,6 +31,7 @@ import {
   OnboardingStatus,
 } from "@/lib/services/onboarding-service";
 import { refreshSessionAfterOnboarding } from "@/lib/services/auth-session-service";
+import { getUserReadinessStatus } from "@/lib/services/user-readiness-service";
 interface OnboardingPendingPageProps {
   /** Optional callback when status changes */
   onStatusChange?: (status: string) => void;
@@ -49,6 +50,16 @@ export function OnboardingPendingPage({
     navigateToAppropriateRoute,
   } = useOnboardingStatus(true);
   const isHandlingRefreshRef = useRef(false);
+  const readinessSyncedRef = useRef(false);
+
+  // Sync User Readiness when landing on pending (e.g. after Veriff or legacy redirect)
+  useEffect(() => {
+    if (readinessSyncedRef.current) return;
+    readinessSyncedRef.current = true;
+    void getUserReadinessStatus().catch(() => {
+      /* non-fatal */
+    });
+  }, []);
 
   // Handle status changes (rejected, no_onboarding). Skip "approved" when user clicked Check Status - handleRefresh does that redirect.
   useEffect(() => {

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import Script from "next/script";
-import { useRouter } from "next/navigation";
 import { Shield, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import {
   Card,
@@ -16,7 +15,7 @@ import {
   getUserReadinessStatus,
   UserReadinessOnboardingStatus,
 } from "@/lib/services/user-readiness-service";
-import { refreshSessionAfterOnboarding } from "@/lib/services/auth-session-service";
+import { finalizeVerificationAndGoToPending } from "@/lib/verification-completion";
 import { createVeriffFrame, MESSAGES } from "@veriff/incontext-sdk";
 
 declare global {
@@ -62,23 +61,6 @@ function isOnboardingDraftStatus(
   return false;
 }
 
-async function completeVerificationFlow(
-  router: ReturnType<typeof useRouter>,
-  onVerified?: () => void
-) {
-  try {
-    await getUserReadinessStatus();
-  } catch {
-    // Still redirect — readiness is best-effort after Veriff
-  }
-  await refreshSessionAfterOnboarding();
-  if (onVerified) {
-    onVerified();
-  } else {
-    router.push("/onboarding/status/pending");
-  }
-}
-
 const VERIFF_JS_SDK = "https://cdn.veriff.me/sdk/js/1.5/veriff.min.js";
 const VERIFF_INCONTEXT_SDK = "https://cdn.veriff.me/incontext/js/v1/veriff.js";
 
@@ -93,7 +75,6 @@ export function IdentityVerificationStep({
   onVerified,
   onVerificationStatusChange,
 }: IdentityVerificationStepProps) {
-  const router = useRouter();
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(true);
   const [isCompletingVerification, setIsCompletingVerification] =
@@ -199,7 +180,18 @@ export function IdentityVerificationStep({
                 veriffInitializedRef.current = false;
                 if (isCompletingVerification) return;
                 setIsCompletingVerification(true);
-                void completeVerificationFlow(router, onVerified);
+                if (onVerified) {
+                  void (async () => {
+                    try {
+                      await getUserReadinessStatus();
+                    } catch {
+                      /* ignore */
+                    }
+                    onVerified();
+                  })();
+                } else {
+                  void finalizeVerificationAndGoToPending();
+                }
               }
             },
           });
@@ -236,7 +228,6 @@ export function IdentityVerificationStep({
     lastName,
     isVerified,
     isCompletingVerification,
-    router,
     onVerified,
   ]);
 
