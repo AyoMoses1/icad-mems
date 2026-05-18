@@ -31,7 +31,11 @@ import {
   OnboardingStatus,
 } from "@/lib/services/onboarding-service";
 import { refreshSessionAfterOnboarding } from "@/lib/services/auth-session-service";
-import { getUserReadinessStatus } from "@/lib/services/user-readiness-service";
+import {
+  getUserReadinessStatus,
+  isUserReadyFromReadiness,
+  getDashboardRoleFromReadiness,
+} from "@/lib/services/user-readiness-service";
 interface OnboardingPendingPageProps {
   /** Optional callback when status changes */
   onStatusChange?: (status: string) => void;
@@ -50,23 +54,62 @@ export function OnboardingPendingPage({
     navigateToAppropriateRoute,
   } = useOnboardingStatus(true);
   const isHandlingRefreshRef = useRef(false);
-  const readinessSyncedRef = useRef(false);
+  const initialSyncDoneRef = useRef(false);
 
-  // Sync User Readiness when landing on pending (e.g. after Veriff or legacy redirect)
+  /** Refresh JWT (role/menu claims) then check if admin has approved. */
+  const syncSessionAndCheckApproval = async (): Promise<boolean> => {
+    await refreshSessionAfterOnboarding();
+
+    try {
+      const readinessRes = await getUserReadinessStatus();
+      if (
+        readinessRes.success &&
+        readinessRes.data &&
+        isUserReadyFromReadiness(readinessRes.data)
+      ) {
+        const role =
+          getDashboardRoleFromReadiness(readinessRes.data) ?? "SEAFARER";
+        router.replace(getDashboardRoute(role));
+        return true;
+      }
+    } catch {
+      /* fall through to my-onboarding */
+    }
+
+    const data = await refresh();
+    if (data && isOnboardingApproved(data.status)) {
+      const role = (data.role ?? "SEAFARER").toUpperCase();
+      router.replace(getDashboardRoute(role));
+      return true;
+    }
+
+    return false;
+  };
+
+  // On load / browser refresh: refresh token so menu & approval use latest claims
   useEffect(() => {
-    if (readinessSyncedRef.current) return;
-    readinessSyncedRef.current = true;
-    void getUserReadinessStatus().catch(() => {
-      /* non-fatal */
+    if (initialSyncDoneRef.current) return;
+    initialSyncDoneRef.current = true;
+    isHandlingRefreshRef.current = true;
+    void syncSessionAndCheckApproval().finally(() => {
+      isHandlingRefreshRef.current = false;
     });
   }, []);
 
-  // Handle status changes (rejected, no_onboarding). Skip "approved" when user clicked Check Status - handleRefresh does that redirect.
+  // Handle status changes (rejected, no_onboarding). Skip "approved" when sync/handleRefresh runs.
   useEffect(() => {
     if (status === "approved") {
       if (isHandlingRefreshRef.current) return;
-      onStatusChange?.("approved");
-      navigateToAppropriateRoute();
+      isHandlingRefreshRef.current = true;
+      void (async () => {
+        try {
+          await refreshSessionAfterOnboarding();
+          onStatusChange?.("approved");
+          navigateToAppropriateRoute();
+        } finally {
+          isHandlingRefreshRef.current = false;
+        }
+      })();
     } else if (status === "rejected") {
       // Status changed to rejected, navigate to rejected page
       onStatusChange?.("rejected");
@@ -82,13 +125,7 @@ export function OnboardingPendingPage({
     if (isLoading) return;
     isHandlingRefreshRef.current = true;
     try {
-      const data = await refresh();
-      if (data && isOnboardingApproved(data.status)) {
-        await refreshSessionAfterOnboarding();
-        const role = (data.role ?? "SEAFARER").toUpperCase();
-        router.replace(getDashboardRoute(role));
-        return;
-      }
+      await syncSessionAndCheckApproval();
     } finally {
       isHandlingRefreshRef.current = false;
     }
