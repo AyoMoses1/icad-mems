@@ -53,6 +53,7 @@ import {
   getDashboardRoleFromReadiness,
 } from "@/lib/services/user-readiness-service";
 import { getDashboardRoute } from "@/lib/role-routing";
+import { refreshSessionAfterOnboarding } from "@/lib/services/auth-session-service";
 import { OnboardingErrorCodes } from "@/types/errors";
 import {
   getDocumentTypes,
@@ -721,6 +722,7 @@ export function SeafarerOnboardingForm({
         if (saveAsDraft) {
           toast.info("You can continue your onboarding later.");
         } else {
+          await refreshSessionAfterOnboarding();
           // Re-fetch readiness; if backend already marks approved, hard redirect to dashboard so layout gets fresh status
           try {
             const readinessRes = await getUserReadinessStatus();

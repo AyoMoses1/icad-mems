@@ -30,6 +30,7 @@ import {
   isOnboardingApproved,
   OnboardingStatus,
 } from "@/lib/services/onboarding-service";
+import { refreshSessionAfterOnboarding } from "@/lib/services/auth-session-service";
 interface OnboardingPendingPageProps {
   /** Optional callback when status changes */
   onStatusChange?: (status: string) => void;
@@ -72,6 +73,7 @@ export function OnboardingPendingPage({
     try {
       const data = await refresh();
       if (data && isOnboardingApproved(data.status)) {
+        await refreshSessionAfterOnboarding();
         const role = (data.role ?? "SEAFARER").toUpperCase();
         router.replace(getDashboardRoute(role));
         return;

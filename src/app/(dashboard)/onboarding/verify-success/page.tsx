@@ -24,6 +24,7 @@ import {
   getDashboardRoleFromReadiness,
 } from "@/lib/services/user-readiness-service";
 import { getDashboardRoute } from "@/lib/role-routing";
+import { refreshSessionAfterOnboarding } from "@/lib/services/auth-session-service";
 import {
   Building2,
   CheckCircle2,
@@ -90,6 +91,7 @@ export default function VerifySuccessPage() {
         } catch {
           // ignore
         }
+        await refreshSessionAfterOnboarding();
         // First status check: User Readiness may not be updated yet by the backend
         try {
           const readinessRes = await getUserReadinessStatus();

@@ -38,6 +38,7 @@ import {
   type InstitutionDocumentRequest,
 } from "@/lib/services/comprehensive-onboarding-service";
 import { handleApiError } from "@/lib/error-handler";
+import { refreshSessionAfterOnboarding } from "@/lib/services/auth-session-service";
 import {
   getDocumentTypes,
   getAccreditedInstitutions,
@@ -238,6 +239,7 @@ export function TrainingInstitutionOnboardingForm({
           // For drafts, stay on the page or redirect to a draft view
           toast.info("You can continue your onboarding later.");
         } else {
+          await refreshSessionAfterOnboarding();
           // Full page load so the app re-fetches user readiness and shows updated status
           window.location.href = "/onboarding/status/pending";
         }

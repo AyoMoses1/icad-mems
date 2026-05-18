@@ -1,0 +1,420 @@
+================================================================================
+MEMS SEAFARER FRONTEND — APPLICATION TESTING REPORT
+================================================================================
+
+Application:  mems-seafarer-frontend
+Environment:   Development (api-dev.mems.ng / localhost)
+Test date:     15 May 2026
+Report type:   QA / UAT defect log
+
+================================================================================
+EXECUTIVE SUMMARY
+================================================================================
+
+Seven defects were identified during end-to-end testing of seafarer-related
+flows. Failures span onboarding (seafarer, employer, training institution),
+employer employment operations (employ, assign to ship), employer-initiated
+seafarer onboarding, and seafarer profile document download.
+
+Severity breakdown:
+  - Critical (blocks core workflows):     6
+  - High (feature non-functional in UI):  1
+
+Root-cause categories:
+  - Backend / infrastructure:             4  (Issues 1–3, 4–5, 7 partial)
+  - Frontend (missing wiring / stub API): 2  (Issues 6, 7)
+
+================================================================================
+ISSUE #1 — COMPREHENSIVE SEAFARER ONBOARDING FAILED
+================================================================================
+
+ID:           SEA-001
+Severity:     Critical
+Status:       Failed
+Module:       Onboarding → Seafarer comprehensive onboarding
+UI route:     /onboarding/seafarer/setup (SeafarerOnboardingForm)
+API:          POST /seafarer/api/v1/.../onboarding/comprehensive
+              (via submitComprehensiveOnboarding in comprehensive-onboarding-service.ts)
+
+Description:
+  Submitting the full seafarer comprehensive onboarding form fails. The
+  transaction is rolled back on the server; no seafarer record is persisted.
+
+Steps to reproduce:
+  1. Log in as a user completing seafarer onboarding.
+  2. Navigate to seafarer onboarding setup and complete all required sections
+     (contact, education, training, voyage, documents, etc.).
+  3. Submit the comprehensive onboarding form.
+
+Expected result:
+  HTTP 200/201 with success payload; onboarding completed; user can proceed
+  in the application.
+
+Actual result:
+  HTTP 400 with generic failure response.
+
+API response (observed):
+  {
+    "apiVersion": "v1",
+    "success": false,
+    "code": "400",
+    "message": "Unsuccessful.",
+    "requestId": null,
+    "data": null,
+    "error": {
+      "message": "An error occurred during comprehensive onboarding. All changes have been rolled back.",
+      "code": "ONBOARDING_FAILED"
+    }
+  }
+
+Frontend notes:
+  - Submission is implemented in SeafarerOnboardingForm.tsx via
+    submitComprehensiveOnboarding().
+  - The frontend surfaces the API error; the failure originates on the backend
+    during the transactional comprehensive onboarding operation.
+
+Recommended actions:
+  - Backend: Inspect server logs for the specific exception behind
+    ONBOARDING_FAILED (validation, FK constraints, file upload, IMS sync, etc.).
+  - QA: Capture requestId when available; retry with minimal required fields to
+    isolate failing section.
+  - DevOps: Confirm dev API and storage (document upload) are healthy.
+
+================================================================================
+ISSUE #2 — SEAFARER EMPLOYER ONBOARDING FAILED (PERMIT VERIFICATION)
+================================================================================
+
+ID:           SEA-002
+Severity:     Critical
+Status:       Failed
+Module:       Onboarding → Seafarer Employer (Agent)
+UI route:     /onboarding/verify-identity → Agent onboarding flow
+API:          GET /verify/permit/{permitNumber}/service-type/SEAFARER_EMPLOYER
+              (permit-validation-service.ts → NEXT_PUBLIC_PERMIT_VERIFY_BASE_URL)
+
+Description:
+  Onboarding as a Seafarer Employer cannot proceed because permit verification
+  returns an internal server error before employer onboarding can complete.
+
+Steps to reproduce:
+  1. Start employer (agent) onboarding.
+  2. Enter permit number (e.g. PERMIT-TRAINING_INSTITUTIONS-2026-000001 or
+     employer permit as applicable).
+  3. Submit permit verification for service type SEAFARER_EMPLOYER.
+
+Expected result:
+  Permit validated; user proceeds to employer onboarding steps.
+
+Actual result:
+  HTTP 500 Internal Server Error.
+
+API response (observed):
+  {
+    "type": "https://api-dev.mems.ng/errors/INTERNAL/SERVER_ERROR",
+    "title": "Internal Server Error",
+    "status": 500,
+    "detail": "no pg_hba.conf entry for host \"10.0.11.162\", user \"mems\", database \"mems\", no encryption",
+    "instance": "/verify/permit/PERMIT-TRAINING_INSTITUTIONS-2026-000001/service-type/SEAFARER_EMPLOYER",
+    "code": "INTERNAL/SERVER_ERROR",
+    "correlationId": "req-1778849496726-0pkiy5w4n",
+    "timestamp": "2026-05-15T12:51:36.726Z"
+  }
+
+Root cause (inferred):
+  PostgreSQL client host 10.0.11.162 is not allowed in pg_hba.conf for user
+  "mems" on database "mems" without SSL. This is an infrastructure / database
+  configuration issue on api-dev, not a frontend logic defect.
+
+Frontend notes:
+  - validatePermit() in permit-validation-service.ts calls the external verify
+    endpoint; the UI correctly displays failure when the API returns 500.
+
+Recommended actions:
+  - DevOps/DBA: Add pg_hba.conf entry for application host 10.0.11.162 (or
+    require SSL and configure client accordingly).
+  - Backend: Ensure permit verification service can reach PostgreSQL in dev.
+  - QA: Re-test after infra fix; confirm correct permit prefix for employer
+    (PERMIT-SEAFARER_EMPLOYER-...) vs training institution permit used in test.
+
+================================================================================
+ISSUE #3 — TRAINING INSTITUTION ONBOARDING FAILED (PERMIT VERIFICATION)
+================================================================================
+
+ID:           SEA-003
+Severity:     Critical
+Status:       Failed
+Module:       Onboarding → Training Institution
+UI route:     /onboarding/verify-identity → Training institution onboarding
+API:          GET /verify/permit/{permitNumber}/service-type/TRAINING_INSTITUTIONS
+
+Description:
+  Training institution onboarding fails at the same permit verification step
+  with the same database connectivity error as Issue #2.
+
+Steps to reproduce:
+  1. Start training institution onboarding.
+  2. Enter permit PERMIT-TRAINING_INSTITUTIONS-2026-000001 (or valid TI permit).
+  3. Verify permit for service type TRAINING_INSTITUTIONS.
+
+Expected result:
+  Permit validated; onboarding continues.
+
+Actual result:
+  HTTP 500 — same pg_hba.conf / no encryption error.
+
+API response (observed):
+  {
+    "type": "https://api-dev.mems.ng/errors/INTERNAL/SERVER_ERROR",
+    "title": "Internal Server Error",
+    "status": 500,
+    "detail": "no pg_hba.conf entry for host \"10.0.11.162\", user \"mems\", database \"mems\", no encryption",
+    "instance": "/verify/permit/PERMIT-TRAINING_INSTITUTIONS-2026-000001/service-type/TRAINING_INSTITUTIONS",
+    "code": "INTERNAL/SERVER_ERROR",
+    "correlationId": "req-1778849543401-gbm3lnp6f",
+    "timestamp": "2026-05-15T12:52:23.401Z"
+  }
+
+Recommended actions:
+  - Same as Issue #2 (shared infrastructure root cause).
+  - Issues #2 and #3 should be resolved with a single environment fix.
+
+================================================================================
+ISSUE #4 — UNABLE TO ASSIGN SEAFARER TO A SHIP
+================================================================================
+
+ID:           SEA-004
+Severity:     Critical
+Status:       Failed
+Module:       Employer → Assign to Ship / Contracts
+UI route:     /employer/contracts
+API:          POST /seafarer/api/v1/seafarer-employment/{employmentId}/ship-assignments
+              (createShipAssignment in seafarer-employment-training-service.ts)
+
+Description:
+  A seafarer employer cannot assign an accepted employment to a vessel. The
+  assign-to-ship action fails with a generic server error.
+
+Steps to reproduce:
+  1. Log in as Seafarer Employer.
+  2. Go to Employer → Assign to Ship / Contracts (/employer/contracts).
+  3. Select an employment (ideally with acceptance status Accepted).
+  4. Open “Assign to ship”, enter vessel details, and submit.
+
+Expected result:
+  Ship assignment created; assignment appears in the list; success toast.
+
+Actual result:
+  HTTP 500; generic error message shown to user.
+
+API response (observed):
+  {
+    "apiVersion": "v1",
+    "success": false,
+    "code": "500",
+    "message": "Unsuccessful.",
+    "requestId": null,
+    "data": null,
+    "error": {
+      "message": "Error! Unable to process your request at this time.",
+      "code": "500"
+    }
+  }
+
+Frontend notes:
+  - UI and service integration exist (employer/contracts/page.tsx).
+  - Requires SEAFARER_EMPLOYER permit on the backend.
+  - Failure is returned from seafarer API; backend logs needed for root cause
+    (employment state, vessel validation, DB, etc.).
+
+Recommended actions:
+  - Backend: Debug POST .../ship-assignments with employmentId and payload.
+  - QA: Confirm employment is Accepted before assign; document employmentId used.
+  - Verify employer permit and company context are valid in dev.
+
+================================================================================
+ISSUE #5 — EMPLOY SEAFARER NOT WORKING
+================================================================================
+
+ID:           SEA-005
+Severity:     Critical
+Status:       Failed (regression — “not working again”)
+Module:       Employer → Employ Seafarer
+UI route:     /employer/employ
+API:          POST /seafarer/api/v1/seafarer-employment
+              (createSeafarerEmployment in seafarer-employment-training-service.ts)
+
+Description:
+  Creating a new employment offer for a seafarer fails. This blocks the
+  employer workflow that precedes ship assignment.
+
+Steps to reproduce:
+  1. Log in as Seafarer Employer.
+  2. Go to Employer → Employ Seafarer (/employer/employ).
+  3. Search/select seafarer by SIN or RN.
+  4. Fill contract details and submit employment creation.
+
+Expected result:
+  Employment record created (Draft/Sent per workflow); appears in employment pool.
+
+Actual result:
+  HTTP 500 with generic error.
+
+API response (observed):
+  {
+    "apiVersion": "v1",
+    "success": false,
+    "code": "500",
+    "message": "Unsuccessful.",
+    "requestId": null,
+    "data": null,
+    "error": {
+      "message": "Error! Unable to process your request at this time.",
+      "code": "500"
+    }
+  }
+
+Frontend notes:
+  - employ/page.tsx calls createSeafarerEmployment() with validated form data.
+  - Error handling shows toast from API message; no client-side bug identified
+    for the request itself.
+
+Recommended actions:
+  - Backend: Trace create seafarer-employment endpoint (auth, permit, seafarer RN).
+  - QA: Confirm seafarer exists and is searchable before employ.
+  - Check correlation with Issue #4 (same API base / employer context).
+
+================================================================================
+ISSUE #6 — SEAFARER PROFILE DOCUMENT DOWNLOAD NOT RESPONSIVE
+================================================================================
+
+ID:           SEA-006
+Severity:     High
+Status:       Failed
+Module:       Seafarer Management → Seafarer Profile → Document tab
+UI route:     /seafarer/profile/[id]  (e.g. /seafarer/profile/SEA-2026-0057)
+
+Description:
+  On the Seafarer Profile page, Document tab, each uploaded document shows a
+  Download button that does nothing when clicked.
+
+Steps to reproduce:
+  1. Log in (e.g. as employer or admin with access to seafarer profiles).
+  2. Open My Seafarers / registry and open a seafarer profile.
+  3. Select the “Document” tab.
+  4. Click Download on any listed document (Passport, CDC, Medical, etc.).
+
+Expected result:
+  File downloads or opens in a new tab from document storage URL.
+
+Actual result:
+  No action, no download, no error message.
+
+Frontend root cause (confirmed in code):
+  - File: src/app/(dashboard)/seafarer/profile/[id]/page.tsx
+  - Documents are hardcoded mock data (static array, not from API).
+  - Download <Button> has no onClick handler and no href.
+  - Profile page is largely placeholder UI (mock licenses, employment, John Doe).
+
+Contrast:
+  - Working download pattern exists in profile-documents/page.tsx and
+    admin/applications/review/page.tsx (handleDownloadDocument with fetch/blob).
+
+Recommended actions:
+  - Frontend: Wire profile page to real seafarer/document API; implement
+    handleDownloadDocument consistent with profile-documents page.
+  - Backend: Expose document list + signed URL or file path for profile by RN/id.
+  - Replace mock profile data with API-driven seafarer detail.
+
+================================================================================
+ISSUE #7 — ONBOARD SEAFARER (EMPLOYER) NOT GOING THROUGH
+================================================================================
+
+ID:           SEA-007
+Severity:     Critical
+Status:       Failed
+Module:       Seafarer Management → Onboard Seafarer (employer on behalf of)
+UI route:     /seafarer/add
+API:          Intended: create seafarer record (employer-initiated registration)
+              Current: createSeafarer() in lib/services/seafarers.ts
+
+Description:
+  Seafarer employers cannot onboard a new seafarer via “Onboard Seafarer” in the
+  sidebar (Seafarer Management → Onboard Seafarer).
+
+Steps to reproduce:
+  1. Log in as Seafarer Employer.
+  2. Navigate to Onboard Seafarer (/seafarer/add).
+  3. Complete User Information form and submit.
+
+Expected result:
+  Seafarer created in registry; redirect or success confirmation.
+
+Actual result:
+  Submission does not complete successfully (user report: “not going through”).
+
+Frontend root cause (confirmed in code):
+  - add/page.tsx calls createSeafarer(payload) from @/lib/services.
+  - createSeafarer() is explicitly DEPRECATED and stubbed: it does NOT call the
+    network and always returns:
+      success: false
+      error.code: "ENDPOINT_NOT_FOUND"
+      error.message: "Endpoint /api/Seafarers does not exist in the API"
+  - Comment in seafarers.ts: legacy /api/Seafarers returns 404; not in swagger.
+
+Recommended actions:
+  - Frontend: Point /seafarer/add to the correct supported API endpoint from
+    current swagger (e.g. seafarer registry/onboarding API used elsewhere).
+  - Backend: Confirm canonical endpoint for employer-initiated seafarer creation.
+  - Remove or replace deprecated stub so users get a clear error if API is missing.
+  - Align with comprehensive onboarding or simplified create flow per product spec.
+
+================================================================================
+AFFECTED UI NAVIGATION (REFERENCE)
+================================================================================
+
+Sidebar (Seafarer Employer role):
+  - Employer
+      • Assign to Ship / Contracts     → Issue #4
+      • Employ Seafarer                → Issue #5
+  - Seafarer Management
+      • Onboard Seafarer               → Issue #7
+      • My Seafarers → Profile → Document tab → Issue #6
+
+Onboarding flows:
+  - Seafarer comprehensive onboarding    → Issue #1
+  - Seafarer Employer permit verify      → Issue #2
+  - Training Institution permit verify   → Issue #3
+
+================================================================================
+TEST ENVIRONMENT NOTES
+================================================================================
+
+  - Frontend dev server observed at localhost:3001.
+  - API host: api-dev.mems.ng (permit verify and seafarer APIs).
+  - Correlation IDs captured for Issues #2–#3 (permit verify).
+  - Issues #4–#5 return no requestId in envelope — limits traceability.
+
+================================================================================
+PRIORITIZED REMEDIATION
+================================================================================
+
+  P0 — Infrastructure (unblocks Issues #2, #3):
+        Fix PostgreSQL pg_hba.conf / SSL for host 10.0.11.162 on api-dev.
+
+  P0 — Backend (Issues #1, #4, #5):
+        Resolve ONBOARDING_FAILED root cause; fix seafarer-employment and
+        ship-assignments 500 errors with server-side logging.
+
+  P1 — Frontend (Issues #6, #7):
+        Implement document download on profile page; connect Onboard Seafarer
+        to live API instead of deprecated createSeafarer stub.
+
+================================================================================
+SIGN-OFF
+================================================================================
+
+Prepared for:  QA / Development / DevOps triage
+Application:   mems-seafarer-frontend
+Document:      SEAFARER_APPLICATION_TESTING_REPORT.txt
+
+End of report.

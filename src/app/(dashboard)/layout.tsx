@@ -209,8 +209,16 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       setIsInitializing(true);
       setInitializationError(null);
 
-      // Step 1: Check for token in URL (from IMS redirect)
+      // Step 1: Check for token / refresh token in URL (from IMS redirect)
       const tokenFromUrl = searchParams.get("token");
+      const refreshTokenFromUrl =
+        searchParams.get("refreshToken")?.trim() ||
+        searchParams.get("refresh_token")?.trim() ||
+        "";
+      const storedRefreshToken =
+        useAuthStore.getState().refreshToken?.trim() || "";
+      const sessionRefreshToken =
+        refreshTokenFromUrl || storedRefreshToken || "";
       // If we have a token from URL, this is a new login — clear any previous user's caches so we never show their role/menu
       if (tokenFromUrl && typeof window !== "undefined") {
         const { clearSessionCaches } = await import("@/lib/session-clear");
@@ -280,7 +288,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             updatedAt: new Date().toISOString(),
           },
           token: tokenFromUrl,
-          refreshToken: "",
+          refreshToken: sessionRefreshToken,
           expiresAt: expiresAt,
         };
 
@@ -292,7 +300,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           state: {
             user: tempSession.user,
             token: tokenFromUrl,
-            refreshToken: "",
+            refreshToken: sessionRefreshToken,
             expiresAt: expiresAt,
             isAuthenticated: true,
           },
@@ -456,7 +464,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       const finalSession = {
         user: userData,
         token: currentToken,
-        refreshToken: "", // Will be set if available
+        refreshToken: sessionRefreshToken,
         expiresAt: expiresAt,
       };
 
@@ -468,7 +476,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         state: {
           user: userData,
           token: currentToken,
-          refreshToken: "",
+          refreshToken: sessionRefreshToken,
           expiresAt: expiresAt,
           isAuthenticated: true,
         },
@@ -480,10 +488,15 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       setPrimaryRole(role);
       setUserRole(role);
 
-      // Step 11: Remove token from URL if present (keep URL clean; keep workspaceId for menu)
-      if (tokenFromUrl && typeof window !== "undefined") {
+      // Step 11: Remove token / refresh token from URL (keep workspaceId for menu)
+      if (
+        (tokenFromUrl || refreshTokenFromUrl) &&
+        typeof window !== "undefined"
+      ) {
         const url = new URL(window.location.href);
         url.searchParams.delete("token");
+        url.searchParams.delete("refreshToken");
+        url.searchParams.delete("refresh_token");
         window.history.replaceState({}, "", url.toString());
       }
 

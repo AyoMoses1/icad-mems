@@ -56,6 +56,7 @@ import {
   type WorkspaceMenuDto,
   type MenuItemDto,
 } from "@/lib/services/menu-service";
+import { SESSION_REFRESHED_EVENT } from "@/lib/services/auth-session-service";
 import {
   isSeaFarerOnboardingComplete,
   getSeaFarerWorkspace,
@@ -1037,6 +1038,15 @@ export function Sidebar() {
     };
 
     fetchMenuAndPermissions();
+
+    const onSessionRefreshed = () => {
+      void fetchMenuAndPermissions();
+    };
+    window.addEventListener(SESSION_REFRESHED_EVENT, onSessionRefreshed);
+
+    return () => {
+      window.removeEventListener(SESSION_REFRESHED_EVENT, onSessionRefreshed);
+    };
     // Re-fetch when workspaceId from URL or store changes (e.g. landing from IMS with ?workspaceId=...)
   }, [user, currentWorkspaceId, workspaceIdFromUrl]);
 

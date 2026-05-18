@@ -82,6 +82,18 @@ function getBaseUrlForEndpoint(endpoint: string): string {
     return ssoUrl;
   }
 
+  // IMS/IAM auth endpoints (e.g. POST /api/auth/refresh) use SSO base URL
+  if (pathname.startsWith("/api/auth/")) {
+    const ssoUrl = getSsoBaseUrl();
+    if (!ssoUrl) {
+      throw new Error(
+        "NEXT_PUBLIC_SSO_BASE_URL is not configured for auth endpoints. " +
+          "Please add it to your .env.local file."
+      );
+    }
+    return ssoUrl;
+  }
+
   // Menu endpoint is served from SSO base URL (IMS/auth service), not main API
   if (
     pathname === "/api/menu" ||

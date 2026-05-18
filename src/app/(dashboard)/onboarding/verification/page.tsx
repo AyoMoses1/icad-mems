@@ -61,7 +61,6 @@ export default function OnboardingVerificationPage() {
               userId={userId}
               firstName={user?.firstName}
               lastName={user?.lastName}
-              redirectToStatusPage
             />
           </CardContent>
         </Card>

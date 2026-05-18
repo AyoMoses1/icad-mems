@@ -12,7 +12,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { getVerificationStatus } from "@/lib/services/verification-service";
+import {
+  getUserReadinessStatus,
+  UserReadinessOnboardingStatus,
+} from "@/lib/services/user-readiness-service";
+import { refreshSessionAfterOnboarding } from "@/lib/services/auth-session-service";
 import { createVeriffFrame, MESSAGES } from "@veriff/incontext-sdk";
 
 declare global {
@@ -45,10 +49,34 @@ interface IdentityVerificationStepProps {
   firstName?: string;
   lastName?: string;
   onVerified?: () => void;
-  /** If true, redirect to status page after verification flow. If false, call onVerified */
-  redirectToStatusPage?: boolean;
-  /** Called when verification status is checked - verified: true if already approved */
+  /** Called when verification status is checked - verified: true if identity step is complete */
   onVerificationStatusChange?: (verified: boolean) => void;
+}
+
+function isOnboardingDraftStatus(
+  status: UserReadinessOnboardingStatus | number | string | null | undefined
+): boolean {
+  if (status == null) return true;
+  if (status === UserReadinessOnboardingStatus.DRAFT || status === 0) return true;
+  if (typeof status === "string" && status.toUpperCase() === "DRAFT") return true;
+  return false;
+}
+
+async function completeVerificationFlow(
+  router: ReturnType<typeof useRouter>,
+  onVerified?: () => void
+) {
+  try {
+    await getUserReadinessStatus();
+  } catch {
+    // Still redirect — readiness is best-effort after Veriff
+  }
+  await refreshSessionAfterOnboarding();
+  if (onVerified) {
+    onVerified();
+  } else {
+    router.push("/onboarding/status/pending");
+  }
 }
 
 const VERIFF_JS_SDK = "https://cdn.veriff.me/sdk/js/1.5/veriff.min.js";
@@ -64,11 +92,12 @@ export function IdentityVerificationStep({
   lastName,
   onVerified,
   onVerificationStatusChange,
-  redirectToStatusPage = true,
 }: IdentityVerificationStepProps) {
   const router = useRouter();
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(true);
+  const [isCompletingVerification, setIsCompletingVerification] =
+    useState(false);
   const [scriptsReady, setScriptsReady] = useState(false);
   const veriffInitializedRef = useRef(false);
 
@@ -81,8 +110,13 @@ export function IdentityVerificationStep({
 
     const checkStatus = async () => {
       try {
-        const response = await getVerificationStatus(userId);
-        if (response.success && response.data?.isVerified === true) {
+        const response = await getUserReadinessStatus();
+        const readiness = response.success ? response.data : null;
+        const identityStepComplete =
+          readiness?.source === "onboarding" &&
+          !isOnboardingDraftStatus(readiness.onboardingStatus);
+
+        if (identityStepComplete) {
           setIsVerified(true);
           onVerificationStatusChange?.(true);
         } else {
@@ -91,6 +125,7 @@ export function IdentityVerificationStep({
         }
       } catch {
         setIsVerified(false);
+        onVerificationStatusChange?.(false);
       } finally {
         setIsCheckingStatus(false);
       }
@@ -162,13 +197,9 @@ export function IdentityVerificationStep({
               if (msg === MESSAGES.FINISHED || msg === MESSAGES.CANCELED) {
                 veriffFrame?.close?.();
                 veriffInitializedRef.current = false;
-                if (redirectToStatusPage) {
-                  router.push(
-                    `/onboarding/verification/status?userId=${encodeURIComponent(userId)}`
-                  );
-                } else {
-                  onVerified?.();
-                }
+                if (isCompletingVerification) return;
+                setIsCompletingVerification(true);
+                void completeVerificationFlow(router, onVerified);
               }
             },
           });
@@ -204,18 +235,20 @@ export function IdentityVerificationStep({
     firstName,
     lastName,
     isVerified,
-    redirectToStatusPage,
+    isCompletingVerification,
     router,
     onVerified,
   ]);
 
-  if (isCheckingStatus) {
+  if (isCheckingStatus || isCompletingVerification) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           <span className="ml-2 text-muted-foreground">
-            Checking verification status...
+            {isCompletingVerification
+              ? "Completing verification..."
+              : "Checking verification status..."}
           </span>
         </CardContent>
       </Card>
