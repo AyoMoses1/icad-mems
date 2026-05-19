@@ -5,17 +5,54 @@
 
 const PRODUCTION_IMS = "https://ims.mems.ng";
 const DEFAULT_LOCAL_IMS = "http://localhost:3000";
+const LOCAL_IMS_PORT = "3000";
+const LOCAL_SEAFARER_PORT = "3001";
 
 function stripTrailingSlash(url: string): string {
   return url.replace(/\/$/, "");
 }
 
-function isLocalHostname(hostname: string): boolean {
+/**
+ * When dev servers grab the wrong port (Seafarer on 3000, IMS on 3001), redirects
+ * must not send the user back to the same origin as the current app.
+ */
+function avoidLocalSelfRedirect(imsUrl: string): string {
+  if (typeof window === "undefined") return imsUrl;
+
+  const normalized = stripTrailingSlash(imsUrl);
+  if (normalized !== window.location.origin) return imsUrl;
+
+  try {
+    const current = new URL(window.location.origin);
+    if (!isLocalHostname(current.hostname)) return imsUrl;
+
+    if (current.port === LOCAL_IMS_PORT) {
+      current.port = LOCAL_SEAFARER_PORT;
+    } else if (current.port === LOCAL_SEAFARER_PORT) {
+      current.port = LOCAL_IMS_PORT;
+    } else {
+      return imsUrl;
+    }
+    return stripTrailingSlash(current.origin);
+  } catch {
+    return imsUrl;
+  }
+}
+
+export function isLocalHostname(hostname: string): boolean {
   return (
     hostname === "localhost" ||
     hostname === "127.0.0.1" ||
     hostname.endsWith(".localhost")
   );
+}
+
+/** True when the Seafarer app is running on localhost (local dev only). */
+export function isLocalFrontendDev(): boolean {
+  if (typeof window === "undefined") {
+    return process.env.NODE_ENV === "development";
+  }
+  return isLocalHostname(window.location.hostname);
 }
 
 function configuredImsUrl(): string {
@@ -32,7 +69,7 @@ function configuredImsUrl(): string {
 export function getImsUrl(): string {
   const localOverride = process.env.NEXT_PUBLIC_IMS_LOCAL_URL?.trim();
   if (localOverride) {
-    return stripTrailingSlash(localOverride);
+    return avoidLocalSelfRedirect(stripTrailingSlash(localOverride));
   }
 
   const configured = configuredImsUrl();
@@ -43,9 +80,9 @@ export function getImsUrl(): string {
     if (isLocalHostname(hostname)) {
       // Local Seafarer dev: use local IMS unless a non-production URL is explicitly set
       if (!configured || configured.includes("ims.mems.ng")) {
-        return DEFAULT_LOCAL_IMS;
+        return avoidLocalSelfRedirect(DEFAULT_LOCAL_IMS);
       }
-      return stripTrailingSlash(configured);
+      return avoidLocalSelfRedirect(stripTrailingSlash(configured));
     }
   }
 

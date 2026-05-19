@@ -37,13 +37,15 @@ import {
   getTokenFromUrl,
   getTokenFromUrlOrStorage,
   getRefreshTokenFromUrl,
+  getTokenFromLocalStorage,
 } from "@/lib/auth-token-utils";
 import {
-  markSsoHandoffInProgress,
-  clearSsoHandoffInProgress,
+  markSsoInitStarted,
+  wasSsoInitStarted,
+  clearSsoInitStarted,
   isSsoHandoffInProgress,
 } from "@/lib/auth-sso-state";
-import { getImsUrl } from "@/lib/ims-url";
+import { getImsUrl, isLocalFrontendDev } from "@/lib/ims-url";
 
 /**
  * Roles that require onboarding status check via the my-onboarding endpoint
@@ -172,7 +174,19 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isInitializingUser) return;
 
-    const delay = urlToken ? 0 : 400;
+    const tokenInUrl =
+      urlToken ||
+      searchParams.get("refreshToken")?.trim() ||
+      getRefreshTokenFromUrl(searchParams);
+
+    if (tokenInUrl) {
+      markSsoInitStarted();
+    } else if (wasSsoInitStarted()) {
+      // React Strict Mode remounts after URL tokens are stripped — do not re-init
+      return;
+    }
+
+    const delay = tokenInUrl ? 0 : 400;
     const timer = setTimeout(() => {
       void initializeUser();
     }, delay);
@@ -229,7 +243,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         getRefreshTokenFromUrl(searchParams) || "";
 
       if (tokenFromUrl) {
-        markSsoHandoffInProgress();
+        markSsoInitStarted();
       }
       const storedRefreshToken =
         useAuthStore.getState().refreshToken?.trim() || "";
@@ -270,12 +284,22 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        // Strict Mode remount: token already saved to localStorage, URL cleaned
+        if (wasSsoInitStarted() && getTokenFromLocalStorage()) {
+          keepSsoHandoffActive = true;
+          setIsInitializingUser(false);
+          setTimeout(() => void initializeUser(), 100);
+          return;
+        }
+
         setInitializationError("No authentication token found");
         setIsInitializing(false);
         setIsInitializingUser(false);
-        setTimeout(() => {
-          window.location.href = getImsUrl();
-        }, 1500);
+        if (!isLocalFrontendDev()) {
+          setTimeout(() => {
+            window.location.href = getImsUrl();
+          }, 1500);
+        }
         return;
       }
 
@@ -588,9 +612,12 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       if (isAuthError && !isSsoHandoffInProgress() && !getTokenFromUrl()) {
         setInitializationError("Authentication failed");
         toast.error("Authentication failed. Please sign in again.");
-        setTimeout(() => {
-          window.location.href = getImsUrl();
-        }, 1500);
+        clearSsoInitStarted();
+        if (!isLocalFrontendDev()) {
+          setTimeout(() => {
+            window.location.href = getImsUrl();
+          }, 1500);
+        }
       } else if (isAuthError) {
         setInitializationError(
           "Authentication failed. Open Seafarer from IMS after signing in (link must include ?token=)."
@@ -605,7 +632,13 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       }
     } finally {
       if (!keepSsoHandoffActive) {
-        clearSsoHandoffInProgress();
+        const { isAuthenticated: authed, token: sessionToken } =
+          useAuthStore.getState();
+        if (authed && sessionToken) {
+          clearSsoInitStarted();
+        } else if (!getTokenFromUrlOrStorage(searchParams) && !wasSsoInitStarted()) {
+          clearSsoInitStarted();
+        }
       }
     }
   };
@@ -671,11 +704,12 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Skip if already on onboarding status pages
-      if (pathname.startsWith("/onboarding/status/")) {
+      // Rejected page is terminal until user refreshes from elsewhere
+      if (pathname.startsWith("/onboarding/status/rejected")) {
         setOnboardingStatusChecked(true);
         return;
       }
+      // Pending page must still run checks so APPROVED users can reach the dashboard
 
       setIsCheckingOnboardingStatus(true);
 
@@ -795,7 +829,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!userReadinessChecked || onboardingStatusChecked) return;
     if (isInitializing || !userRole) return;
-    if (pathname.startsWith("/onboarding/status/")) {
+    if (pathname.startsWith("/onboarding/status/rejected")) {
       setOnboardingStatusChecked(true);
       return;
     }
@@ -971,10 +1005,12 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   ]);
 
   // Redirect to IMS when not authenticated (SSO only – no local login page).
-  // Skip when token is in URL/storage or user init is still running (common on localhost SSO handoff).
+  // Disabled on localhost: IMS and Seafarer use separate origins so bouncing to IMS
+  // always looks logged-out and breaks local dev (production uses real IMS URLs).
   useEffect(() => {
+    if (isLocalFrontendDev()) return;
     if (authLoading || isInitializing || isInitializingUser) return;
-    if (isSsoHandoffInProgress()) return;
+    if (isSsoHandoffInProgress() || wasSsoInitStarted()) return;
 
     const pendingToken = getTokenFromUrlOrStorage(searchParams);
     if (pendingToken) return;
@@ -985,7 +1021,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     if (tokenStillInAddressBar) return;
 
     const currentState = useAuthStore.getState();
-    if (!currentState.isAuthenticated || !currentState.token) {
+    const sessionToken =
+      currentState.token || getTokenFromLocalStorage();
+    if (!currentState.isAuthenticated || !sessionToken) {
       window.location.href = getImsUrl();
     }
   }, [

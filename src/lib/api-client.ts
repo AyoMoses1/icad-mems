@@ -2,7 +2,7 @@
  * API Client for making requests to the backend API
  */
 
-import { getImsUrl } from "@/lib/ims-url";
+import { getImsUrl, isLocalFrontendDev } from "@/lib/ims-url";
 import { getTokenFromUrl } from "@/lib/auth-token-utils";
 import { isSsoHandoffInProgress } from "@/lib/auth-sso-state";
 
@@ -287,6 +287,15 @@ function clearSessionAndRedirectToIms(): void {
     return;
   }
 
+  // Local dev: IMS (port 3000) does not share auth storage with Seafarer (3001).
+  // Auto-redirect looks like a broken bounce; keep the session and surface errors in-app.
+  if (isLocalFrontendDev()) {
+    console.warn(
+      "[local dev] Session expired or unauthorized — not redirecting to IMS."
+    );
+    return;
+  }
+
   const { useAuthStore } = require("@/store");
   useAuthStore.getState().logout();
   window.location.href = getImsUrl();
@@ -296,6 +305,15 @@ function shouldRedirectToImsOn401(): boolean {
   if (typeof window === "undefined") return true;
   if (isSsoHandoffInProgress()) return false;
   if (getTokenFromUrl()) return false;
+  try {
+    const authStorage = localStorage.getItem("auth-storage");
+    if (authStorage) {
+      const parsed = JSON.parse(authStorage);
+      if (parsed?.state?.token) return false;
+    }
+  } catch {
+    // ignore
+  }
   return true;
 }
 

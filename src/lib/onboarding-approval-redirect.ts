@@ -21,7 +21,13 @@ function redirectToDashboardWithRole(role: string): boolean {
     return false;
   }
 
-  if (sessionStorage.getItem(REDIRECT_GUARD_KEY) === "1") {
+  const onPendingPage = window.location.pathname.includes(
+    "/onboarding/status/pending"
+  );
+  const guardActive = sessionStorage.getItem(REDIRECT_GUARD_KEY) === "1";
+
+  // Guard prevents pending ↔ dashboard loops; do not block leaving pending when approved
+  if (guardActive && !onPendingPage) {
     return true;
   }
 

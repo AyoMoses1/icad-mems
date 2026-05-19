@@ -30,7 +30,10 @@ import {
   OnboardingStatus,
 } from "@/lib/services/onboarding-service";
 import { refreshSessionAfterOnboarding } from "@/lib/services/auth-session-service";
-import { getUserReadinessStatus } from "@/lib/services/user-readiness-service";
+import {
+  getUserReadinessStatus,
+  isUserReadyFromReadiness,
+} from "@/lib/services/user-readiness-service";
 import {
   clearApprovalRedirectGuard,
   redirectToDashboardAfterApproval,
@@ -58,13 +61,13 @@ export function OnboardingPendingPage({
     setIsChecking(true);
 
     try {
-      await refreshSessionAfterOnboarding();
-
+      // Check approval first (does not require token refresh)
       try {
         const readinessRes = await getUserReadinessStatus();
         if (
           readinessRes.success &&
           readinessRes.data &&
+          isUserReadyFromReadiness(readinessRes.data) &&
           redirectToDashboardAfterApproval(
             readinessRes.data,
             onboardingData?.role,
@@ -78,9 +81,12 @@ export function OnboardingPendingPage({
 
       const data = await refresh();
       if (data && isOnboardingApproved(data.status)) {
+        await refreshSessionAfterOnboarding();
         redirectToDashboardAfterApproval(null, data.role);
         return;
       }
+
+      await refreshSessionAfterOnboarding();
     } finally {
       setIsChecking(false);
       syncInFlightRef.current = false;
@@ -95,6 +101,11 @@ export function OnboardingPendingPage({
   }, []);
 
   useEffect(() => {
+    if (status === "approved") {
+      clearApprovalRedirectGuard();
+      redirectToDashboardAfterApproval(null, onboardingData?.role);
+      return;
+    }
     if (status === "rejected") {
       onStatusChange?.("rejected");
       router.replace("/onboarding/status/rejected");
@@ -102,7 +113,7 @@ export function OnboardingPendingPage({
       onStatusChange?.("no_onboarding");
       router.replace("/onboarding");
     }
-  }, [status, onStatusChange, router]);
+  }, [status, onboardingData?.role, onStatusChange, router]);
 
   const handleRefresh = () => {
     if (isChecking || syncInFlightRef.current) return;
@@ -142,14 +153,20 @@ export function OnboardingPendingPage({
         return { label: "Submitted", color: "bg-blue-50 text-blue-700" };
       case "UNDER_REVIEW":
         return { label: "Under Review", color: "bg-amber-50 text-amber-700" };
+      case "APPROVED":
+        return { label: "Approved", color: "bg-green-50 text-green-700" };
       default:
         return { label: status, color: "bg-gray-50 text-gray-700" };
     }
   };
 
+  const normalizedOnboardingStatus = onboardingData?.status?.toUpperCase();
+  const isApproved =
+    status === "approved" ||
+    isOnboardingApproved(onboardingData?.status) ||
+    onboardingData?.isOnboardingComplete === true;
   const statusInfo = getStatusInfo(onboardingData?.status);
-  const isDraft =
-    onboardingData?.status?.toUpperCase() === OnboardingStatus.DRAFT;
+  const isDraft = normalizedOnboardingStatus === OnboardingStatus.DRAFT;
   const showChecking = isChecking || isLoading;
 
   return (
@@ -168,14 +185,18 @@ export function OnboardingPendingPage({
             )}
           </div>
           <h1 className="text-3xl font-bold tracking-tight">
-            {isDraft
-              ? "Complete Identity Verification"
-              : "Application Under Review"}
+            {isApproved
+              ? "Application Approved"
+              : isDraft
+                ? "Complete Identity Verification"
+                : "Application Under Review"}
           </h1>
           <p className="text-muted-foreground max-w-md mx-auto">
-            {isDraft
-              ? `Your ${getRoleDisplayName(onboardingData?.role)} onboarding has been saved as a draft. Complete identity verification to submit your application for review.`
-              : `Your ${getRoleDisplayName(onboardingData?.role)} onboarding application has been submitted and is currently being reviewed by our team.`}
+            {isApproved
+              ? `Your ${getRoleDisplayName(onboardingData?.role)} application has been approved. Taking you to your dashboard…`
+              : isDraft
+                ? `Your ${getRoleDisplayName(onboardingData?.role)} onboarding has been saved as a draft. Complete identity verification to submit your application for review.`
+                : `Your ${getRoleDisplayName(onboardingData?.role)} onboarding application has been submitted and is currently being reviewed by our team.`}
           </p>
         </div>
 
@@ -244,13 +265,17 @@ export function OnboardingPendingPage({
                   { label: "Application Submitted", completed: true },
                   {
                     label: "Document Verification",
-                    completed: (() => {
-                      const s = onboardingData?.status?.toUpperCase();
-                      return s === "PENDING" || s === "UNDER_REVIEW";
-                    })(),
+                    completed:
+                      isApproved ||
+                      normalizedOnboardingStatus === "PENDING" ||
+                      normalizedOnboardingStatus === "UNDER_REVIEW",
                   },
-                  { label: "Admin Review", completed: false },
-                  { label: "Approval Decision", completed: false },
+                  {
+                    label: "Admin Review",
+                    completed:
+                      isApproved || normalizedOnboardingStatus === "UNDER_REVIEW",
+                  },
+                  { label: "Approval Decision", completed: isApproved },
                 ].map((step, index) => (
                   <div
                     key={step.label}
