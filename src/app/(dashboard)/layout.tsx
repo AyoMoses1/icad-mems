@@ -712,6 +712,27 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             }
             setOnboardingStatusChecked(true);
           } else if (isOnboardingPendingReview(status)) {
+            // User Readiness may be approved before my-onboarding catches up — avoid pending loop
+            try {
+              const readinessRes = await getUserReadinessStatus();
+              if (
+                readinessRes.success &&
+                readinessRes.data &&
+                isUserReadyFromReadiness(readinessRes.data)
+              ) {
+                setUserReadinessData(readinessRes.data);
+                setOnboardingStatusChecked(true);
+                const dashboardRole =
+                  getDashboardRoleFromReadiness(readinessRes.data) ??
+                  onboardingRole ??
+                  "SEAFARER";
+                router.replace(getDashboardRoute(dashboardRole));
+                return;
+              }
+            } catch {
+              /* use my-onboarding status below */
+            }
+
             // User is pending - redirect to pending page
             if (!pathname.startsWith("/onboarding/status/pending")) {
               router.replace("/onboarding/status/pending");

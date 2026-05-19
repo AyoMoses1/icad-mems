@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -25,19 +25,18 @@ import Link from "next/link";
 import { useAuthStore } from "@/store";
 import { useOnboardingStatus } from "@/hooks/use-onboarding-status";
 import { formatDate } from "@/lib/utils";
-import { getDashboardRoute } from "@/lib/role-routing";
 import {
   isOnboardingApproved,
   OnboardingStatus,
 } from "@/lib/services/onboarding-service";
 import { refreshSessionAfterOnboarding } from "@/lib/services/auth-session-service";
+import { getUserReadinessStatus } from "@/lib/services/user-readiness-service";
 import {
-  getUserReadinessStatus,
-  isUserReadyFromReadiness,
-  getDashboardRoleFromReadiness,
-} from "@/lib/services/user-readiness-service";
+  clearApprovalRedirectGuard,
+  redirectToDashboardAfterApproval,
+} from "@/lib/onboarding-approval-redirect";
+
 interface OnboardingPendingPageProps {
-  /** Optional callback when status changes */
   onStatusChange?: (status: string) => void;
 }
 
@@ -46,97 +45,75 @@ export function OnboardingPendingPage({
 }: OnboardingPendingPageProps) {
   const router = useRouter();
   const { user, logout } = useAuthStore();
-  const {
-    status,
-    onboardingData,
-    isLoading,
-    refresh,
-    navigateToAppropriateRoute,
-  } = useOnboardingStatus(true);
-  const isHandlingRefreshRef = useRef(false);
+  const { status, onboardingData, isLoading, refresh } =
+    useOnboardingStatus(true);
+  const [isChecking, setIsChecking] = useState(false);
+  const syncInFlightRef = useRef(false);
   const initialSyncDoneRef = useRef(false);
 
-  /** Refresh JWT (role/menu claims) then check if admin has approved. */
-  const syncSessionAndCheckApproval = async (): Promise<boolean> => {
-    await refreshSessionAfterOnboarding();
+  const syncSessionAndCheckApproval = async (): Promise<void> => {
+    if (syncInFlightRef.current) return;
+    syncInFlightRef.current = true;
+    setIsChecking(true);
 
     try {
-      const readinessRes = await getUserReadinessStatus();
-      if (
-        readinessRes.success &&
-        readinessRes.data &&
-        isUserReadyFromReadiness(readinessRes.data)
-      ) {
-        const role =
-          getDashboardRoleFromReadiness(readinessRes.data) ?? "SEAFARER";
-        router.replace(getDashboardRoute(role));
-        return true;
+      await refreshSessionAfterOnboarding();
+
+      try {
+        const readinessRes = await getUserReadinessStatus();
+        if (
+          readinessRes.success &&
+          readinessRes.data &&
+          redirectToDashboardAfterApproval(
+            readinessRes.data,
+            onboardingData?.role
+          )
+        ) {
+          return;
+        }
+      } catch {
+        /* fall through to my-onboarding */
       }
-    } catch {
-      /* fall through to my-onboarding */
-    }
 
-    const data = await refresh();
-    if (data && isOnboardingApproved(data.status)) {
-      const role = (data.role ?? "SEAFARER").toUpperCase();
-      router.replace(getDashboardRoute(role));
-      return true;
+      const data = await refresh();
+      if (data && isOnboardingApproved(data.status)) {
+        redirectToDashboardAfterApproval(null, data.role);
+        return;
+      }
+    } finally {
+      setIsChecking(false);
+      syncInFlightRef.current = false;
     }
-
-    return false;
   };
 
-  // On load / browser refresh: refresh token so menu & approval use latest claims
+  // Browser refresh / first visit: refresh token + check approval once
   useEffect(() => {
     if (initialSyncDoneRef.current) return;
     initialSyncDoneRef.current = true;
-    isHandlingRefreshRef.current = true;
-    void syncSessionAndCheckApproval().finally(() => {
-      isHandlingRefreshRef.current = false;
-    });
+    void syncSessionAndCheckApproval();
   }, []);
 
-  // Handle status changes (rejected, no_onboarding). Skip "approved" when sync/handleRefresh runs.
   useEffect(() => {
-    if (status === "approved") {
-      if (isHandlingRefreshRef.current) return;
-      isHandlingRefreshRef.current = true;
-      void (async () => {
-        try {
-          await refreshSessionAfterOnboarding();
-          onStatusChange?.("approved");
-          navigateToAppropriateRoute();
-        } finally {
-          isHandlingRefreshRef.current = false;
-        }
-      })();
-    } else if (status === "rejected") {
-      // Status changed to rejected, navigate to rejected page
+    if (status === "rejected") {
       onStatusChange?.("rejected");
       router.replace("/onboarding/status/rejected");
     } else if (status === "no_onboarding") {
-      // No onboarding found, navigate to onboarding form
       onStatusChange?.("no_onboarding");
       router.replace("/onboarding");
     }
-  }, [status, onStatusChange, navigateToAppropriateRoute, router]);
+  }, [status, onStatusChange, router]);
 
-  const handleRefresh = async () => {
-    if (isLoading) return;
-    isHandlingRefreshRef.current = true;
-    try {
-      await syncSessionAndCheckApproval();
-    } finally {
-      isHandlingRefreshRef.current = false;
-    }
+  const handleRefresh = () => {
+    if (isChecking || syncInFlightRef.current) return;
+    void syncSessionAndCheckApproval();
   };
 
   const handleLogout = () => {
+    clearApprovalRedirectGuard();
     logout();
     window.location.href = "https://ims.mems.ng";
   };
 
-  // Get role display name
   const getRoleDisplayName = (role?: string | null) => {
     if (!role) return "User";
     const normalizedRole = role.toUpperCase();
@@ -152,7 +129,6 @@ export function OnboardingPendingPage({
     }
   };
 
-  // Get status display info
   const getStatusInfo = (status?: string | null) => {
     if (!status)
       return { label: "Pending", color: "bg-amber-50 text-amber-700" };
@@ -173,11 +149,11 @@ export function OnboardingPendingPage({
   const statusInfo = getStatusInfo(onboardingData?.status);
   const isDraft =
     onboardingData?.status?.toUpperCase() === OnboardingStatus.DRAFT;
+  const showChecking = isChecking || isLoading;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-6">
-        {/* Header */}
         <div className="text-center space-y-2">
           <div
             className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
@@ -202,7 +178,6 @@ export function OnboardingPendingPage({
           </p>
         </div>
 
-        {/* Proceed to verification CTA (DRAFT only) */}
         {isDraft && (
           <Card className="border-l-4 border-l-blue-500">
             <CardHeader>
@@ -226,7 +201,6 @@ export function OnboardingPendingPage({
           </Card>
         )}
 
-        {/* Status Card */}
         <Card className="border-l-4 border-l-amber-500">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -243,7 +217,6 @@ export function OnboardingPendingPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Application Details */}
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="p-3 rounded-lg bg-muted/50 border">
                 <p className="text-xs text-muted-foreground">
@@ -263,7 +236,6 @@ export function OnboardingPendingPage({
               </div>
             </div>
 
-            {/* Progress Steps */}
             <div className="space-y-3 pt-4">
               <p className="text-sm font-medium">Progress</p>
               <div className="space-y-2">
@@ -273,7 +245,6 @@ export function OnboardingPendingPage({
                     label: "Document Verification",
                     completed: (() => {
                       const s = onboardingData?.status?.toUpperCase();
-                      // PENDING = submitted and docs verified; UNDER_REVIEW = in admin review
                       return s === "PENDING" || s === "UNDER_REVIEW";
                     })(),
                   },
@@ -313,7 +284,6 @@ export function OnboardingPendingPage({
           </CardContent>
         </Card>
 
-        {/* Info Card */}
         <Card>
           <CardContent className="p-6">
             <div className="flex items-start gap-4">
@@ -339,15 +309,14 @@ export function OnboardingPendingPage({
           </CardContent>
         </Card>
 
-        {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button
             variant="outline"
             onClick={handleRefresh}
-            disabled={isLoading}
+            disabled={showChecking}
             className="min-w-[140px]"
           >
-            {isLoading ? (
+            {showChecking ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
             ) : (
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -364,7 +333,6 @@ export function OnboardingPendingPage({
           </Button>
         </div>
 
-        {/* User Info */}
         {user && (
           <p className="text-center text-xs text-muted-foreground">
             Signed in as {user.email || user.firstName || "User"}
