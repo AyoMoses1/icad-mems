@@ -67,7 +67,7 @@ export function OnboardingPendingPage({
           readinessRes.data &&
           redirectToDashboardAfterApproval(
             readinessRes.data,
-            onboardingData?.role
+            onboardingData?.role,
           )
         ) {
           return;
