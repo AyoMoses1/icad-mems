@@ -271,12 +271,14 @@ function isTokenExpired(): boolean {
   }
 }
 
-/** IMS logout URL - used when session is invalid or user logs out */
-const IMS_LOGOUT_URL =
-  typeof process !== "undefined" &&
-  process.env?.NEXT_PUBLIC_IMS_LOGOUT_URL?.trim()
-    ? process.env.NEXT_PUBLIC_IMS_LOGOUT_URL.trim()
-    : "https://ims.mems.ng";
+/** IMS URL used when session is invalid or user logs out */
+function getImsRedirectUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_IMS_LOGOUT_URL?.trim() ||
+    process.env.NEXT_PUBLIC_IMS_URL?.trim() ||
+    "https://ims.mems.ng"
+  ).replace(/\/$/, "");
+}
 
 /**
  * Clears full session (auth + role + workspace + UI caches) and redirects to IMS.
@@ -286,7 +288,7 @@ function clearSessionAndRedirectToIms(): void {
   if (typeof window === "undefined") return;
   const { useAuthStore } = require("@/store");
   useAuthStore.getState().logout();
-  window.location.href = IMS_LOGOUT_URL;
+  window.location.href = getImsRedirectUrl();
 }
 
 /**

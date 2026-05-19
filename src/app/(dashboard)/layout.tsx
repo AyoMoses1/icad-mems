@@ -33,6 +33,7 @@ import {
   type UserReadinessStatusDto,
 } from "@/lib/services/user-readiness-service";
 import { ApiError } from "@/lib/api-client";
+import { getTokenFromUrlOrStorage } from "@/lib/auth-token-utils";
 
 /**
  * Roles that require onboarding status check via the my-onboarding endpoint
@@ -939,19 +940,27 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   ]);
 
   // Redirect to IMS when not authenticated (SSO only – no local login page).
-  // Skip when token is in URL (SSO callback) or still initializing to avoid redirecting right after login.
+  // Skip when token is in URL/storage or user init is still running (common on localhost SSO handoff).
   useEffect(() => {
-    if (authLoading || isInitializing) return;
-    const tokenInUrl =
-      (typeof window !== "undefined" && searchParams.get("token")) ||
-      (typeof window !== "undefined" && /[?&]token=/.test(window.location.search));
-    if (tokenInUrl) return; // SSO callback in progress
+    if (authLoading || isInitializing || isInitializingUser) return;
+
+    const pendingToken = getTokenFromUrlOrStorage(searchParams);
+    if (pendingToken) return;
+
     const currentState = useAuthStore.getState();
     if (!currentState.isAuthenticated || !currentState.token) {
-      const imsUrl = process.env.NEXT_PUBLIC_IMS_URL?.trim() || "https://ims.mems.ng";
-      window.location.href = imsUrl;
+      const imsUrl =
+        process.env.NEXT_PUBLIC_IMS_URL?.trim() || "https://ims.mems.ng";
+      window.location.href = imsUrl.replace(/\/$/, "");
     }
-  }, [authLoading, isInitializing, searchParams]);
+  }, [
+    authLoading,
+    isInitializing,
+    isInitializingUser,
+    searchParams,
+    isAuthenticated,
+    token,
+  ]);
 
   // Show unauthorized screen if user doesn't have required role
   if (isUnauthorized) {
@@ -1020,9 +1029,16 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Don't render if not authenticated
+  // Don't render if not authenticated (allow SSO callback to finish first)
   if (!isAuthenticated || !token) {
-    return <LoadingPage message="Redirecting to login..." />;
+    const pendingToken = getTokenFromUrlOrStorage(searchParams);
+    return (
+      <LoadingPage
+        message={
+          pendingToken ? "Signing you in..." : "Redirecting to login..."
+        }
+      />
+    );
   }
 
   // Check if user has completed onboarding for Sea Farer workspace

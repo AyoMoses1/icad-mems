@@ -5,8 +5,6 @@
 import {
   apiGetMain,
   apiPostMain,
-  apiDeleteMain,
-  apiPutMain,
   type ApiResponse,
 } from "@/lib/api-client";
 import type {
@@ -17,11 +15,10 @@ import type {
   PaginatedResponse,
 } from "@/types/payment";
 
-const API_BASE = "/api/Payments";
 const SEAFARER_API_BASE = "/seafarer/api/v1";
 
 // ============================================================================
-// Seafarer Invoice Types
+// Seafarer Invoice Types (API-aligned)
 // ============================================================================
 
 export interface InvoiceLineItem {
@@ -46,20 +43,67 @@ export interface SeafarerInvoiceDto {
   issuedAt?: string | null;
   createdAt?: string | null;
   lineItems?: InvoiceLineItem[] | null;
+  payments?: ApiSeafarerPaymentDto[] | null;
+}
+
+export interface ApiSeafarerPaymentDto {
+  paymentRef?: string | null;
+  invoiceId?: string;
+  amount?: number;
+  paymentDate?: string | null;
+  paymentServiceProviderId?: string;
+  paymentServiceProvider?: string | null;
+  paymentStatusId?: string;
+  paymentStatus?: string | null;
+  dateCreated?: string | null;
+}
+
+export interface ApiApplicationInvoiceDto {
+  invoiceId?: string;
+  applicationId?: string;
+  serviceId?: string;
+  serviceName?: string | null;
+  invoiceStatusId?: string;
+  invoiceStatus?: string | null;
+  invoiceDate?: string | null;
+  amount?: number;
+  hasPayment?: boolean;
+  paymentRef?: string | null;
+  paymentStatus?: string | null;
+  dateCreated?: string | null;
+  invoiceNumber?: string | null;
+  currency?: string | null;
+  payments?: ApiSeafarerPaymentDto[] | null;
+}
+
+export interface PagedInvoicesDto {
+  items?: ApiApplicationInvoiceDto[] | null;
+  totalCount?: number;
+  pageNumber?: number;
+  pageSize?: number;
+  totalPages?: number;
+}
+
+export interface MyInvoicesQuery {
+  serviceId?: string;
+  statusId?: string;
+  fromDate?: string;
+  toDate?: string;
+  pageNumber?: number;
+  pageSize?: number;
 }
 
 export interface PaymentStatusDto {
   status?: string | null;
   paymentReference?: string | null;
-  paymentRef?: string | null; // Alternative field name
+  paymentRef?: string | null;
   paidDate?: string | null;
-  paymentDate?: string | null; // Alternative field name
+  paymentDate?: string | null;
   amount?: number;
   currency?: string | null;
   hasPayment?: boolean | null;
 }
 
-// Alias for backward compatibility
 export type PaymentStatusResponse = PaymentStatusDto;
 
 export interface InitiatePaymentResponseDto {
@@ -69,102 +113,287 @@ export interface InitiatePaymentResponseDto {
   transactionId?: string | null;
 }
 
-// Alias for backward compatibility
 export type InitiatePaymentResponse = InitiatePaymentResponseDto;
 
+function isApiSuccess(response: ApiResponse<unknown>): boolean {
+  return (
+    response.success === true ||
+    (response as { successful?: boolean }).successful === true
+  );
+}
+
+function buildMyInvoicesQuery(query: MyInvoicesQuery = {}): string {
+  const params = new URLSearchParams();
+  if (query.serviceId) params.set("serviceId", query.serviceId);
+  if (query.statusId) params.set("statusId", query.statusId);
+  if (query.fromDate) params.set("fromDate", query.fromDate);
+  if (query.toDate) params.set("toDate", query.toDate);
+  if (query.pageNumber != null) params.set("pageNumber", String(query.pageNumber));
+  if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
+export function mapInvoiceToSeafarerDto(
+  invoice: ApiApplicationInvoiceDto
+): SeafarerInvoiceDto {
+  return {
+    id: invoice.invoiceId || "",
+    invoiceNumber: invoice.invoiceNumber,
+    applicationId: invoice.applicationId,
+    serviceName: invoice.serviceName,
+    amount: invoice.amount,
+    totalAmount: invoice.amount,
+    currency: invoice.currency,
+    status: invoice.invoiceStatus,
+    paymentReference: invoice.paymentRef,
+    issuedAt: invoice.invoiceDate,
+    createdAt: invoice.dateCreated,
+    payments: invoice.payments,
+  };
+}
+
+function paymentRowId(paymentRef: string, index: number): number {
+  let hash = 0;
+  for (let i = 0; i < paymentRef.length; i++) {
+    hash = (hash << 5) - hash + paymentRef.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) || index + 1;
+}
+
+export function mapPaymentFromInvoice(
+  payment: ApiSeafarerPaymentDto,
+  invoice: ApiApplicationInvoiceDto,
+  index: number
+): PaymentDto {
+  const ref =
+    payment.paymentRef?.trim() ||
+    invoice.paymentRef?.trim() ||
+    `payment-${index}`;
+  return {
+    id: paymentRowId(ref, index),
+    paymentReference: ref,
+    amount: payment.amount ?? invoice.amount ?? 0,
+    currency: invoice.currency,
+    status: payment.paymentStatus || invoice.paymentStatus || undefined,
+    paymentStatus: payment.paymentStatus || invoice.paymentStatus || undefined,
+    paymentMethod: payment.paymentServiceProvider || undefined,
+    paymentDate: payment.paymentDate || payment.dateCreated || undefined,
+    invoiceNumber: invoice.invoiceNumber ?? undefined,
+    createdAt: payment.dateCreated || invoice.dateCreated || undefined,
+    isManual: false,
+  };
+}
+
+function mapInvoiceSummaryPayment(
+  invoice: ApiApplicationInvoiceDto,
+  index: number
+): PaymentDto {
+  const ref = invoice.paymentRef?.trim() || `invoice-${invoice.invoiceId}`;
+  return {
+    id: paymentRowId(ref, index),
+    paymentReference: ref,
+    amount: invoice.amount ?? 0,
+    currency: invoice.currency,
+    status: invoice.paymentStatus || undefined,
+    paymentStatus: invoice.paymentStatus || undefined,
+    paymentDate: invoice.invoiceDate || invoice.dateCreated || undefined,
+    invoiceNumber: invoice.invoiceNumber ?? undefined,
+    createdAt: invoice.dateCreated || undefined,
+    isManual: false,
+  };
+}
+
+export function extractPaymentsFromInvoices(
+  invoices: ApiApplicationInvoiceDto[]
+): PaymentDto[] {
+  const payments: PaymentDto[] = [];
+  let index = 0;
+
+  for (const invoice of invoices) {
+    if (invoice.payments?.length) {
+      for (const payment of invoice.payments) {
+        payments.push(mapPaymentFromInvoice(payment, invoice, index++));
+      }
+    } else if (invoice.hasPayment && invoice.paymentRef) {
+      payments.push(mapInvoiceSummaryPayment(invoice, index++));
+    }
+  }
+
+  return payments;
+}
+
 /**
- * Get paginated list of payments with optional filtering
- * ⚠️ DEPRECATED: The /api/Payments endpoint does not exist in swagger.json
- * 
- * @deprecated This endpoint does not exist in the API
+ * GET /seafarer/api/v1/Invoices/my-invoices
  */
-export async function getPayments(
+export async function getMyInvoices(
+  query: MyInvoicesQuery = {}
+): Promise<ApiResponse<PagedInvoicesDto>> {
+  return apiGetMain<PagedInvoicesDto>(
+    `${SEAFARER_API_BASE}/Invoices/my-invoices${buildMyInvoicesQuery(query)}`
+  );
+}
+
+/**
+ * Payment history for the current user — derived from my-invoices (each invoice includes payments[]).
+ */
+export async function getMyPayments(
   filters: PaymentFilters = {}
 ): Promise<ApiResponse<PaginatedResponse<PaymentDto>>> {
-  // Endpoint /api/Payments does not exist in swagger.json
   const pageNumber = filters.pageNumber || 1;
-  const pageSize = filters.pageSize || 20;
+  const pageSize = filters.pageSize || 50;
+
+  const response = await getMyInvoices({ pageNumber, pageSize });
+
+  if (!isApiSuccess(response) || !response.data) {
+    return {
+      success: false,
+      message: response.message || response.error?.message,
+      error: response.error,
+      data: {
+        items: [],
+        pageNumber,
+        pageSize,
+        totalCount: 0,
+        totalPages: 0,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    };
+  }
+
+  let items = extractPaymentsFromInvoices(response.data.items || []);
+
+  if (filters.status) {
+    const status = filters.status.toLowerCase();
+    items = items.filter(
+      (p) =>
+        (p.status || p.paymentStatus || "").toLowerCase() === status
+    );
+  }
+
+  if (filters.searchTerm?.trim()) {
+    const term = filters.searchTerm.trim().toLowerCase();
+    items = items.filter(
+      (p) =>
+        (p.paymentReference || "").toLowerCase().includes(term) ||
+        (p.invoiceNumber || "").toLowerCase().includes(term)
+    );
+  }
+
+  const totalCount = items.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const start = (pageNumber - 1) * pageSize;
+  const pagedItems = items.slice(start, start + pageSize);
+
   return {
-    success: false,
-    error: { message: "Endpoint /api/Payments does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
+    success: true,
     data: {
-      items: [],
+      items: pagedItems,
       pageNumber,
       pageSize,
-      totalCount: 0,
-      totalPages: 0,
-      hasPreviousPage: false,
-      hasNextPage: false,
+      totalCount,
+      totalPages,
+      hasPreviousPage: pageNumber > 1,
+      hasNextPage: pageNumber < totalPages,
     },
   };
 }
 
 /**
- * Get payment by ID
- * ⚠️ DEPRECATED: The /api/Payments/{id} endpoint does not exist in swagger.json
- * 
- * @deprecated This endpoint does not exist in the API
+ * @deprecated Use getMyPayments() — no global /api/Payments list in Seafarer API
+ */
+export async function getPayments(
+  filters: PaymentFilters = {}
+): Promise<ApiResponse<PaginatedResponse<PaymentDto>>> {
+  return getMyPayments(filters);
+}
+
+/**
+ * @deprecated No payment-by-id endpoint; use verifyPayment(reference) or invoice payments[]
  */
 export async function getPaymentById(
   paymentId: number
 ): Promise<ApiResponse<PaymentDto>> {
-  // Endpoint /api/Payments/{id} does not exist in swagger.json
+  const response = await getMyPayments({ pageSize: 200 });
+  const match = response.data?.items.find((p) => p.id === paymentId);
+  if (match) {
+    return { success: true, data: match };
+  }
   return {
     success: false,
-    error: { message: "Endpoint /api/Payments/{id} does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: undefined,
+    error: {
+      message: "Payment not found",
+      code: "NOT_FOUND",
+    },
   };
 }
 
 /**
- * Initiate payment for an invoice
- * ⚠️ DEPRECATED: The /api/Payments/invoices/{invoiceId}/pay endpoint does not exist in swagger.json
- * Use initiateApplicationPayment() instead which calls /seafarer/api/v1/Payment/applications/{id}/payment/initiate
- * 
- * @deprecated Use initiateApplicationPayment() instead
+ * @deprecated Use initiateApplicationPayment()
  */
 export async function initiatePayment(
-  invoiceId: number,
-  paymentData: InitiatePaymentDto
+  _invoiceId: number,
+  _paymentData: InitiatePaymentDto
 ): Promise<ApiResponse<PaymentDto>> {
-  // Endpoint /api/Payments/invoices/{invoiceId}/pay does not exist in swagger.json
-  // Use initiateApplicationPayment() instead
   return {
     success: false,
-    error: { message: "Endpoint /api/Payments/invoices/{invoiceId}/pay does not exist. Use initiateApplicationPayment() instead.", code: "ENDPOINT_NOT_FOUND" },
-    data: undefined,
+    error: {
+      message:
+        "Use initiateApplicationPayment() for Seafarer payments.",
+      code: "ENDPOINT_NOT_FOUND",
+    },
   };
 }
 
 /**
- * Verify payment status by payment reference
- * ⚠️ DEPRECATED: The /api/Payments/verify/{reference} endpoint does not exist in swagger.json
- * Use verifyApplicationPayment() from application-service.ts or the Payment service verify endpoint instead.
- * 
- * @deprecated Use verifyApplicationPayment() or Payment service verify endpoint instead
+ * GET /seafarer/api/v1/Payment/payments/{reference}/verify
  */
 export async function verifyPayment(
   paymentReference: string
 ): Promise<ApiResponse<PaymentDto>> {
-  // Endpoint /api/Payments/verify/{reference} does not exist in swagger.json
-  // The correct endpoint is /seafarer/api/v1/Payment/payments/{reference}/verify
-  return apiGetMain<PaymentDto>(`${SEAFARER_API_BASE}/Payment/payments/${paymentReference}/verify`);
+  const response = await apiGetMain<ApiSeafarerPaymentDto>(
+    `${SEAFARER_API_BASE}/Payment/payments/${encodeURIComponent(paymentReference)}/verify`
+  );
+
+  if (!isApiSuccess(response) || !response.data) {
+    return {
+      success: false,
+      message: response.message,
+      error: response.error,
+    };
+  }
+
+  const p = response.data;
+  const ref = p.paymentRef || paymentReference;
+  return {
+    success: true,
+    data: {
+      id: paymentRowId(ref, 0),
+      paymentReference: ref,
+      amount: p.amount ?? 0,
+      status: p.paymentStatus || undefined,
+      paymentStatus: p.paymentStatus || undefined,
+      paymentMethod: p.paymentServiceProvider || undefined,
+      paymentDate: p.paymentDate || p.dateCreated || undefined,
+      isManual: false,
+    },
+  };
 }
 
 /**
- * Record manual payment (Officer/Admin only)
- * ⚠️ DEPRECATED: The /api/Payments endpoint does not exist in swagger.json
- * 
- * @deprecated This endpoint does not exist in the API
+ * @deprecated Not exposed in Seafarer API for end users
  */
 export async function recordManualPayment(
-  paymentData: RecordManualPaymentDto
+  _paymentData: RecordManualPaymentDto
 ): Promise<ApiResponse<PaymentDto>> {
-  // Endpoint /api/Payments does not exist in swagger.json
   return {
     success: false,
-    error: { message: "Endpoint /api/Payments does not exist in the API", code: "ENDPOINT_NOT_FOUND" },
-    data: undefined,
+    error: {
+      message: "Manual payment recording is not available in the Seafarer API",
+      code: "ENDPOINT_NOT_FOUND",
+    },
   };
 }
 
@@ -204,10 +433,6 @@ export interface PaymentSimulateResponse {
   paymentReference?: string;
 }
 
-/**
- * Payment webhook endpoint (for production payment gateways)
- * POST /seafarer/api/v1/Payment/webhook
- */
 export async function paymentWebhook(
   data: PaymentWebhookRequest
 ): Promise<ApiResponse<PaymentWebhookResponse>> {
@@ -217,10 +442,6 @@ export async function paymentWebhook(
   );
 }
 
-/**
- * Simulate payment (for non-production environments)
- * POST /seafarer/api/v1/Payment/applications/{id}/payment/simulate
- */
 export async function simulatePayment(
   applicationId: string,
   data: PaymentSimulateRequest
@@ -231,25 +452,7 @@ export async function simulatePayment(
   );
 }
 
-// ============================================================================
-// Seafarer Invoice and Payment Functions
-// ============================================================================/**
- /* Get invoices for the current seafarer user
- * ⚠️ DEPRECATED: The /seafarer/api/v1/invoices/me endpoint does not exist in swagger.json
- * Use getApplicationInvoice() from application-service.ts for application-specific invoices instead.
- * 
- * @deprecated This endpoint does not exist in the API
- */
-export async function getMyInvoices(): Promise<ApiResponse<SeafarerInvoiceDto[]>> {
-  // Endpoint /seafarer/api/v1/invoices/me does not exist in swagger.json
-  // Use getApplicationInvoice() from application-service.ts for application-specific invoices
-  return {
-    success: false,
-    error: { message: "Endpoint /seafarer/api/v1/invoices/me does not exist in the API. Use getApplicationInvoice() from application-service.ts instead.", code: "ENDPOINT_NOT_FOUND" },
-    data: undefined,
-  };
-}/**
- * Initiate payment for an application
+/**
  * POST /seafarer/api/v1/Payment/applications/{id}/payment/initiate
  */
 export async function initiateApplicationPayment(
@@ -259,8 +462,9 @@ export async function initiateApplicationPayment(
     `${SEAFARER_API_BASE}/Payment/applications/${applicationId}/payment/initiate`,
     {}
   );
-}/**
- * Get payment status for an application
+}
+
+/**
  * GET /seafarer/api/v1/Payment/applications/{id}/payment-status
  */
 export async function getApplicationPaymentStatus(
@@ -269,13 +473,13 @@ export async function getApplicationPaymentStatus(
   return apiGetMain<PaymentStatusDto>(
     `${SEAFARER_API_BASE}/Payment/applications/${applicationId}/payment-status`
   );
-}/**
- * Download invoice as PDF blob
- * ⚠️ DEPRECATED: The /seafarer/api/v1/invoices/{invoiceId}/download endpoint does not exist in swagger.json
- * 
- * @deprecated This endpoint does not exist in the API
+}
+
+/**
+ * Invoice PDF download is not in the current OpenAPI spec.
  */
-export async function downloadInvoice(invoiceId: string): Promise<Blob> {
-  // Endpoint /seafarer/api/v1/invoices/{invoiceId}/download does not exist in swagger.json
-  throw new Error("Endpoint /seafarer/api/v1/invoices/{invoiceId}/download does not exist in the API");
+export async function downloadInvoice(_invoiceId: string): Promise<Blob> {
+  throw new Error(
+    "Invoice download is not available in the Seafarer API specification"
+  );
 }

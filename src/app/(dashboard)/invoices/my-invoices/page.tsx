@@ -30,8 +30,8 @@ import {
 import { LoadingSpinner, PageHeader, EmptyState } from "@/components/shared";
 import {
   getMyInvoices,
+  mapInvoiceToSeafarerDto,
   initiateApplicationPayment,
-  getApplicationPaymentStatus,
   downloadInvoice,
   type SeafarerInvoiceDto,
 } from "@/lib/services/payment-service";
@@ -61,16 +61,13 @@ export default function MyInvoicesPage() {
   const loadInvoices = async () => {
     try {
       setIsLoading(true);
-      const response = await getMyInvoices();
-      const ok = response.success ?? (response as any).successful;
-      
-      if (ok && response.data) {
-        // Handle both array and single item responses
-        const items = Array.isArray(response.data) ? response.data : [response.data];
-        setInvoices(items);
+      const response = await getMyInvoices({ pageNumber: 1, pageSize: 100 });
+      const ok = response.success ?? (response as { successful?: boolean }).successful;
+
+      if (ok && response.data?.items) {
+        setInvoices(response.data.items.map(mapInvoiceToSeafarerDto));
       } else {
-        // If endpoint doesn't exist yet, show empty state
-      setInvoices([]);
+        setInvoices([]);
       }
     } catch (error) {
       console.error("Failed to load invoices:", error);
