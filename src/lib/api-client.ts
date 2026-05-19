@@ -2,6 +2,10 @@
  * API Client for making requests to the backend API
  */
 
+import { getImsUrl } from "@/lib/ims-url";
+import { getTokenFromUrl } from "@/lib/auth-token-utils";
+import { isSsoHandoffInProgress } from "@/lib/auth-sso-state";
+
 // Get SSO/OAuth base URL for authentication endpoints
 // All /connect/* endpoints should use this base URL
 function getSsoBaseUrl(): string {
@@ -271,24 +275,28 @@ function isTokenExpired(): boolean {
   }
 }
 
-/** IMS URL used when session is invalid or user logs out */
-function getImsRedirectUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_IMS_LOGOUT_URL?.trim() ||
-    process.env.NEXT_PUBLIC_IMS_URL?.trim() ||
-    "https://ims.mems.ng"
-  ).replace(/\/$/, "");
-}
-
 /**
  * Clears full session (auth + role + workspace + UI caches) and redirects to IMS.
  * Call on 401 or when refresh token fails so the next login never sees stale data.
  */
 function clearSessionAndRedirectToIms(): void {
   if (typeof window === "undefined") return;
+
+  // SSO callback in progress — let dashboard layout finish init instead of bouncing to IMS
+  if (isSsoHandoffInProgress() || getTokenFromUrl()) {
+    return;
+  }
+
   const { useAuthStore } = require("@/store");
   useAuthStore.getState().logout();
-  window.location.href = getImsRedirectUrl();
+  window.location.href = getImsUrl();
+}
+
+function shouldRedirectToImsOn401(): boolean {
+  if (typeof window === "undefined") return true;
+  if (isSsoHandoffInProgress()) return false;
+  if (getTokenFromUrl()) return false;
+  return true;
 }
 
 /**
@@ -905,8 +913,7 @@ export async function apiGetAuth<T>(endpoint: string): Promise<T> {
     });
 
     if (!response.ok) {
-      // 401: clear all session caches and redirect so next user never sees this session's data
-      if (response.status === 401) {
+      if (response.status === 401 && shouldRedirectToImsOn401()) {
         clearSessionAndRedirectToIms();
       }
       const errorData = await response.json().catch(() => ({
@@ -963,8 +970,7 @@ export async function apiPostAuth<T>(
     });
 
     if (!response.ok) {
-      // 401: clear all session caches and redirect so next user never sees this session's data
-      if (response.status === 401) {
+      if (response.status === 401 && shouldRedirectToImsOn401()) {
         clearSessionAndRedirectToIms();
       }
       const errorData = await response.json().catch(() => ({

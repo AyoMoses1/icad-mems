@@ -2,6 +2,7 @@ import { ShieldX, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { getImsUrl } from "@/lib/ims-url";
 
 interface UnauthorizedScreenProps {
   className?: string;
@@ -35,14 +36,7 @@ export function UnauthorizedScreen({
       }
     }
     
-    // Otherwise, redirect to IMS URL or fallback
-    // In local development, use localhost:3001 (seafarer app port)
-    // In staging/prod, use the workspace URL from env or fallback
-    const isLocalDev = window.location.origin.includes("localhost");
-    const imsUrl = isLocalDev 
-      ? "http://localhost:3001"
-      : (process.env.NEXT_PUBLIC_IMS_URL || "/");
-    window.location.href = imsUrl;
+    window.location.href = getImsUrl();
   };
 
   return (

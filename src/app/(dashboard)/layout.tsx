@@ -33,7 +33,17 @@ import {
   type UserReadinessStatusDto,
 } from "@/lib/services/user-readiness-service";
 import { ApiError } from "@/lib/api-client";
-import { getTokenFromUrlOrStorage } from "@/lib/auth-token-utils";
+import {
+  getTokenFromUrl,
+  getTokenFromUrlOrStorage,
+  getRefreshTokenFromUrl,
+} from "@/lib/auth-token-utils";
+import {
+  markSsoHandoffInProgress,
+  clearSsoHandoffInProgress,
+  isSsoHandoffInProgress,
+} from "@/lib/auth-sso-state";
+import { getImsUrl } from "@/lib/ims-url";
 
 /**
  * Roles that require onboarding status check via the my-onboarding endpoint
@@ -155,20 +165,20 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const [onboardingData, setOnboardingData] =
     useState<UserSeafarerOnboardingDto | null>(null);
 
-  // Initialize user on mount - check for token from IMS and fetch user info
-  useEffect(() => {
-    // Don't run if already initializing
-    if (isInitializingUser) {
-      return;
-    }
+  const urlToken =
+    searchParams.get("token")?.trim() || getTokenFromUrl() || "";
 
-    // Wait a bit for searchParams to be available, then initialize
+  // Initialize user when URL carries SSO params (searchParams can lag on first paint)
+  useEffect(() => {
+    if (isInitializingUser) return;
+
+    const delay = urlToken ? 0 : 400;
     const timer = setTimeout(() => {
-      initializeUser();
-    }, 100);
+      void initializeUser();
+    }, delay);
 
     return () => clearTimeout(timer);
-  }, []); // Only run once on mount
+  }, [urlToken, searchParams.get("refreshToken")]);
 
   const initializeUser = async () => {
     // Prevent multiple simultaneous initializations
@@ -205,17 +215,22 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       }
     }
 
+    let keepSsoHandoffActive = false;
+
     try {
       setIsInitializingUser(true);
       setIsInitializing(true);
       setInitializationError(null);
 
       // Step 1: Check for token / refresh token in URL (from IMS redirect)
-      const tokenFromUrl = searchParams.get("token");
+      const tokenFromUrl =
+        searchParams.get("token")?.trim() || getTokenFromUrl() || null;
       const refreshTokenFromUrl =
-        searchParams.get("refreshToken")?.trim() ||
-        searchParams.get("refresh_token")?.trim() ||
-        "";
+        getRefreshTokenFromUrl(searchParams) || "";
+
+      if (tokenFromUrl) {
+        markSsoHandoffInProgress();
+      }
       const storedRefreshToken =
         useAuthStore.getState().refreshToken?.trim() || "";
       const sessionRefreshToken =
@@ -244,13 +259,22 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       const currentToken = tokenFromUrl || storedToken;
 
       if (!currentToken) {
+        // searchParams can be empty while ?token= is still in the address bar
+        const tokenStillInAddressBar =
+          typeof window !== "undefined" &&
+          /[?&]token=/.test(window.location.search);
+        if (tokenStillInAddressBar) {
+          keepSsoHandoffActive = true;
+          setIsInitializingUser(false);
+          setTimeout(() => void initializeUser(), 250);
+          return;
+        }
+
         setInitializationError("No authentication token found");
         setIsInitializing(false);
         setIsInitializingUser(false);
-        // SSO: redirect to IMS to sign in (no local login page)
-        const imsUrl = process.env.NEXT_PUBLIC_IMS_URL?.trim() || "https://ims.mems.ng";
         setTimeout(() => {
-          window.location.href = imsUrl;
+          window.location.href = getImsUrl();
         }, 1500);
         return;
       }
@@ -561,20 +585,27 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         errorMessage.includes("403") ||
         errorMessage.includes("Authentication required");
 
-      if (isAuthError) {
-        // SSO: redirect to IMS to sign in again
+      if (isAuthError && !isSsoHandoffInProgress() && !getTokenFromUrl()) {
         setInitializationError("Authentication failed");
         toast.error("Authentication failed. Please sign in again.");
-        const imsUrl = process.env.NEXT_PUBLIC_IMS_URL?.trim() || "https://ims.mems.ng";
         setTimeout(() => {
-          window.location.href = imsUrl;
+          window.location.href = getImsUrl();
         }, 1500);
+      } else if (isAuthError) {
+        setInitializationError(
+          "Authentication failed. Open Seafarer from IMS after signing in (link must include ?token=)."
+        );
+        toast.error("Could not complete sign-in. Try opening Seafarer from IMS again.");
       } else {
         // For other errors (like network issues), show error but don't redirect
         setInitializationError(
           "Failed to load user information. Please refresh the page."
         );
         toast.error("Failed to load user information. Please try again.");
+      }
+    } finally {
+      if (!keepSsoHandoffActive) {
+        clearSsoHandoffInProgress();
       }
     }
   };
@@ -943,15 +974,19 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // Skip when token is in URL/storage or user init is still running (common on localhost SSO handoff).
   useEffect(() => {
     if (authLoading || isInitializing || isInitializingUser) return;
+    if (isSsoHandoffInProgress()) return;
 
     const pendingToken = getTokenFromUrlOrStorage(searchParams);
     if (pendingToken) return;
 
+    const tokenStillInAddressBar =
+      typeof window !== "undefined" &&
+      /[?&]token=/.test(window.location.search);
+    if (tokenStillInAddressBar) return;
+
     const currentState = useAuthStore.getState();
     if (!currentState.isAuthenticated || !currentState.token) {
-      const imsUrl =
-        process.env.NEXT_PUBLIC_IMS_URL?.trim() || "https://ims.mems.ng";
-      window.location.href = imsUrl.replace(/\/$/, "");
+      window.location.href = getImsUrl();
     }
   }, [
     authLoading,
@@ -960,6 +995,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     searchParams,
     isAuthenticated,
     token,
+    urlToken,
   ]);
 
   // Show unauthorized screen if user doesn't have required role

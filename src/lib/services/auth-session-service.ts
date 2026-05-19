@@ -65,7 +65,7 @@ function normalizeUserStatus(status?: string): UserStatus {
 
 function mapRefreshUserToStoreUser(
   refreshUser: AuthRefreshUserDto,
-  currentUser: UserWithFullName
+  currentUser: UserWithFullName,
 ): UserWithFullName {
   return {
     ...currentUser,
@@ -91,12 +91,12 @@ function mapRefreshUserToStoreUser(
 }
 
 async function postAuthRefresh(
-  refreshToken: string
+  refreshToken: string,
 ): Promise<AuthRefreshResponse> {
   const baseUrl = getSsoBaseUrl();
   if (!baseUrl) {
     throw new Error(
-      "NEXT_PUBLIC_SSO_BASE_URL is not configured for auth refresh."
+      "NEXT_PUBLIC_SSO_BASE_URL is not configured for auth refresh.",
     );
   }
 
@@ -109,7 +109,7 @@ async function postAuthRefresh(
   const text = await response.text();
   if (!text) {
     throw new Error(
-      `Auth refresh failed (${response.status} ${response.statusText})`
+      `Auth refresh failed (${response.status} ${response.statusText})`,
     );
   }
 
@@ -124,7 +124,7 @@ async function postAuthRefresh(
     throw new Error(
       payload.error?.message ||
         payload.message ||
-        `Auth refresh failed (${response.status})`
+        `Auth refresh failed (${response.status})`,
     );
   }
 
@@ -135,9 +135,11 @@ function extractRolesFromUserInfo(userInfo: UserInfo): string[] {
   const extractedRoles: string[] = [];
 
   if (userInfo.roles && Array.isArray(userInfo.roles)) {
-    (userInfo.roles as Array<{
-      tenants?: Array<{ roles?: Array<{ role?: string }> }>;
-    }>).forEach((workspaceRole) => {
+    (
+      userInfo.roles as Array<{
+        tenants?: Array<{ roles?: Array<{ role?: string }> }>;
+      }>
+    ).forEach((workspaceRole) => {
       workspaceRole.tenants?.forEach((tenant) => {
         tenant.roles?.forEach((roleObj) => {
           if (roleObj.role && typeof roleObj.role === "string") {
@@ -159,7 +161,9 @@ function resolvePrimaryRole(userInfo: UserInfo, uniqueRoles: string[]): string {
   const adminDetails = userInfo.adminDetails as
     | { isSystemAdmin?: boolean; isWorkspaceAdmin?: boolean }
     | undefined;
-  const ownerDetails = userInfo.ownerDetails as { isOwner?: boolean } | undefined;
+  const ownerDetails = userInfo.ownerDetails as
+    | { isOwner?: boolean }
+    | undefined;
 
   const isAdmin =
     userInfo.isAdmin === true ||
@@ -190,8 +194,11 @@ function resolvePrimaryRole(userInfo: UserInfo, uniqueRoles: string[]): string {
  * Workspace roles are only available from userinfo, not the refresh payload.
  */
 export async function syncSessionFromUserInfo(): Promise<void> {
-  const { user: currentUser, setSession, setPrimaryRole } =
-    useAuthStore.getState();
+  const {
+    user: currentUser,
+    setSession,
+    setPrimaryRole,
+  } = useAuthStore.getState();
   const token = useAuthStore.getState().token;
   if (!token || !currentUser) return;
 
@@ -257,7 +264,7 @@ export async function refreshSessionAfterOnboarding(options?: {
   if (!refreshToken) {
     if (process.env.NODE_ENV === "development") {
       console.warn(
-        "refreshSessionAfterOnboarding: no refresh token stored — menu may show all resources until re-login."
+        "refreshSessionAfterOnboarding: no refresh token stored — menu may show all resources until re-login.",
       );
     }
     return false;
@@ -277,7 +284,7 @@ export async function refreshSessionAfterOnboarding(options?: {
 
     const expiresIn = data.expiresIn;
     const expiresAt = new Date(
-      Date.now() + (expiresIn && expiresIn > 0 ? expiresIn : 86400) * 1000
+      Date.now() + (expiresIn && expiresIn > 0 ? expiresIn : 86400) * 1000,
     ).toISOString();
 
     const updatedUser = data.user

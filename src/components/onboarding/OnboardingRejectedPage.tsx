@@ -22,6 +22,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useAuthStore } from "@/store";
+import { getImsUrl } from "@/lib/ims-url";
 import { useOnboardingStatus } from "@/hooks/use-onboarding-status";
 import { formatDate } from "@/lib/utils";
 
@@ -65,7 +66,7 @@ export function OnboardingRejectedPage({
 
   const handleLogout = () => {
     logout();
-    window.location.href = "https://ims.mems.ng";
+    window.location.href = getImsUrl();
   };
 
   const handleReapply = () => {

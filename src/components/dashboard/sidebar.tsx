@@ -57,6 +57,7 @@ import {
   type MenuItemDto,
 } from "@/lib/services/menu-service";
 import { SESSION_REFRESHED_EVENT } from "@/lib/services/auth-session-service";
+import { getImsUrl } from "@/lib/ims-url";
 import {
   isSeaFarerOnboardingComplete,
   getSeaFarerWorkspace,
@@ -1105,7 +1106,7 @@ export function Sidebar() {
     } finally {
       // logout() clears auth store and calls clearSessionCaches (role, workspace, sessionStorage)
       logout();
-      window.location.href = "https://ims.mems.ng";
+      window.location.href = getImsUrl();
     }
   };
 
@@ -1338,10 +1339,7 @@ export function Sidebar() {
           variant="ghost"
           className="w-full justify-start gap-3 px-3 py-2.5 text-sm hover:bg-sidebar-muted text-sidebar-foreground"
           onClick={() => {
-            const imsUrl = process.env.NEXT_PUBLIC_IMS_URL;
-            if (imsUrl) {
-              window.location.href = imsUrl;
-            }
+            window.location.href = getImsUrl();
           }}
         >
           <ArrowLeft className="h-4 w-4" />

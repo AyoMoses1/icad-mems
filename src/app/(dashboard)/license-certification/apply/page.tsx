@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuthStore } from "@/store";
+import { getImsUrl } from "@/lib/ims-url";
 import {
   getServices,
   getServiceRequirements,
@@ -106,8 +107,7 @@ export default function ApplyCertificateLicensePage() {
     // SSO: redirect to IMS to sign in (no local login page)
     if (!isAuthenticated || !token) {
       toast.error("Please sign in to continue");
-      const imsUrl = process.env.NEXT_PUBLIC_IMS_URL?.trim() || "https://ims.mems.ng";
-      window.location.href = imsUrl;
+      window.location.href = getImsUrl();
       return;
     }
 

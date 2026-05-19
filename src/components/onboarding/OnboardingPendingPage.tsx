@@ -35,6 +35,7 @@ import {
   clearApprovalRedirectGuard,
   redirectToDashboardAfterApproval,
 } from "@/lib/onboarding-approval-redirect";
+import { getImsUrl } from "@/lib/ims-url";
 
 interface OnboardingPendingPageProps {
   onStatusChange?: (status: string) => void;
@@ -111,7 +112,7 @@ export function OnboardingPendingPage({
   const handleLogout = () => {
     clearApprovalRedirectGuard();
     logout();
-    window.location.href = "https://ims.mems.ng";
+    window.location.href = getImsUrl();
   };
 
   const getRoleDisplayName = (role?: string | null) => {
