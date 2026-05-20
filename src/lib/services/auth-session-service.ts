@@ -8,6 +8,7 @@ import { apiGetAuth, apiPostForm } from "@/lib/api-client";
 import { useAuthStore } from "@/store";
 import type { UserInfo, UserWithFullName } from "@/types";
 import type { TokenResponse } from "@/types";
+import { invalidateUserReadinessCache } from "@/lib/services/user-readiness-service";
 
 export const SESSION_REFRESHED_EVENT = "session-refreshed";
 
@@ -196,6 +197,9 @@ export async function refreshSessionAfterOnboarding(options?: {
       refreshToken: tokenResponse.refresh_token || refreshToken,
       expiresAt,
     });
+
+    // Role/claims may have changed after token refresh — drop cached readiness
+    invalidateUserReadinessCache();
 
     if (options?.syncUserInfo !== false) {
       try {

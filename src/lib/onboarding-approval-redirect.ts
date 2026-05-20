@@ -21,19 +21,27 @@ function redirectToDashboardWithRole(role: string): boolean {
     return false;
   }
 
-  const onPendingPage = window.location.pathname.includes(
-    "/onboarding/status/pending"
-  );
-  const guardActive = sessionStorage.getItem(REDIRECT_GUARD_KEY) === "1";
+  const normalized = role.toUpperCase();
+  const target = getDashboardRoute(normalized);
+  const currentPath = window.location.pathname;
 
-  // Guard prevents pending ↔ dashboard loops; do not block leaving pending when approved
-  if (guardActive && !onPendingPage) {
+  if (currentPath === target || currentPath.startsWith(`${target}/`)) {
     return true;
   }
 
-  const normalized = role.toUpperCase();
+  const guardActive = sessionStorage.getItem(REDIRECT_GUARD_KEY) === "1";
+  const stuckOnOnboarding = currentPath.startsWith("/onboarding");
+
+  // Stale guard from a previous attempt must not block leaving onboarding routes
+  if (guardActive && !stuckOnOnboarding) {
+    return true;
+  }
+  if (guardActive && stuckOnOnboarding) {
+    sessionStorage.removeItem(REDIRECT_GUARD_KEY);
+  }
+
   sessionStorage.setItem(REDIRECT_GUARD_KEY, "1");
-  window.location.replace(getDashboardRoute(normalized));
+  window.location.replace(target);
   return true;
 }
 

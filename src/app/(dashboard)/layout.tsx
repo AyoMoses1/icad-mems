@@ -46,6 +46,7 @@ import {
   isSsoHandoffInProgress,
 } from "@/lib/auth-sso-state";
 import { getImsUrl, isLocalFrontendDev } from "@/lib/ims-url";
+import { redirectToDashboardAfterApproval } from "@/lib/onboarding-approval-redirect";
 
 /**
  * Roles that require onboarding status check via the my-onboarding endpoint
@@ -751,7 +752,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             const isOnOnboardingPage = pathname.startsWith("/onboarding");
 
             if (isOnRootPage || isOnOnboardingPage) {
-              router.replace(correctDashboard);
+              redirectToDashboardAfterApproval(
+                userReadinessData,
+                onboardingRole || "SEAFARER"
+              );
             } else {
               const isOnWrongDashboard =
                 (onboardingRole === "AGENT" &&
@@ -768,7 +772,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                   pathname.startsWith("/agent"));
 
               if (isOnWrongDashboard) {
-                router.replace(correctDashboard);
+                redirectToDashboardAfterApproval(
+                  userReadinessData,
+                  onboardingRole || "SEAFARER"
+                );
               }
             }
           } else if (isOnboardingRejected(status)) {
@@ -792,7 +799,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                   getDashboardRoleFromReadiness(readinessRes.data) ??
                   onboardingRole ??
                   "SEAFARER";
-                router.replace(getDashboardRoute(dashboardRole));
+                redirectToDashboardAfterApproval(
+                  readinessRes.data,
+                  onboardingRole ?? "SEAFARER"
+                );
                 return;
               }
             } catch {
@@ -852,10 +862,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       const isRootPath = pathname === "/" || pathname === "";
       const isOnboardingPath = pathname.startsWith("/onboarding");
       if (isRootPath || isOnboardingPath) {
-        const dashboardRole =
-          getDashboardRoleFromReadiness(userReadinessData) ?? "SEAFARER";
-        const targetRoute = getDashboardRoute(dashboardRole);
-        router.replace(targetRoute);
+        redirectToDashboardAfterApproval(userReadinessData, userRole);
       }
       return;
     }
@@ -1154,6 +1161,15 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const isOnboardingWelcomeOrRoot =
     pathname === "/onboarding" || pathname === "/onboarding/welcome";
   const isRootPage = pathname === "/" || pathname === "";
+  const onboardingChecksSettled =
+    userReadinessChecked &&
+    onboardingStatusChecked &&
+    !isCheckingOnboardingStatus;
+  const isRoleDashboardRoute =
+    pathname.startsWith("/seafarer/") ||
+    pathname.startsWith("/agent/") ||
+    pathname.startsWith("/institution/") ||
+    pathname.startsWith("/admin/");
 
   // If on onboarding status pages (pending/rejected), show without sidebar/header
   if (isOnboardingStatusPage) {
@@ -1178,6 +1194,16 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     // If on root page, show role selection (for owners) - NO SIDEBAR, NO HEADER
     if (isRootPage) {
       return <div className="min-h-screen bg-background">{children}</div>;
+    }
+
+    // Do not redirect until User Readiness / my-onboarding checks finish
+    if (!onboardingChecksSettled) {
+      if (isRoleDashboardRoute) {
+        return <LoadingPage message="Loading..." />;
+      }
+      if (isOnboardingPage || isOnboardingStatusPage) {
+        return <div className="min-h-screen bg-background">{children}</div>;
+      }
     }
 
     // If not on onboarding page or root page, redirect to onboarding

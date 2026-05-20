@@ -12,6 +12,24 @@ import { apiGetMain, type ApiResponse } from "@/lib/api-client";
 
 const API_STATUS = "/seafarer/api/v1/UserReadiness/status";
 
+/**
+ * Deduplicate concurrent UserReadiness/status calls and cache the result briefly.
+ * Many components/effects can ask for readiness at once (layout, dashboard page,
+ * onboarding pages, status pages). Without this, a quick redirect chain can issue
+ * dozens of calls per second and trip the backend's 60-req/min rate limit.
+ */
+const READINESS_CACHE_TTL_MS = 5_000;
+let cachedResponse: ApiResponse<UserReadinessStatusDto> | null = null;
+let cachedAt = 0;
+let inFlight: Promise<ApiResponse<UserReadinessStatusDto>> | null = null;
+
+/** Clear cached readiness — call after onboarding submit/refresh/logout. */
+export function invalidateUserReadinessCache(): void {
+  cachedResponse = null;
+  cachedAt = 0;
+  inFlight = null;
+}
+
 /** Onboarding status enum (numeric, matches backend) */
 export enum UserReadinessOnboardingStatus {
   DRAFT = 0,
@@ -48,10 +66,31 @@ export const READINESS_NOT_FOUND_CODE = "READINESS_NOT_FOUND";
  * - 200 + source "onboarding" → use hasOnboarded / onboardingStatus; call my-onboarding for details.
  * - 400 + error.code READINESS_NOT_FOUND → show onboarding role selection (welcome).
  */
-export async function getUserReadinessStatus(): Promise<
-  ApiResponse<UserReadinessStatusDto>
-> {
-  return apiGetMain<UserReadinessStatusDto>(API_STATUS);
+export async function getUserReadinessStatus(options?: {
+  force?: boolean;
+}): Promise<ApiResponse<UserReadinessStatusDto>> {
+  const force = options?.force === true;
+
+  if (!force) {
+    if (inFlight) {
+      return inFlight;
+    }
+    if (cachedResponse && Date.now() - cachedAt < READINESS_CACHE_TTL_MS) {
+      return cachedResponse;
+    }
+  }
+
+  inFlight = apiGetMain<UserReadinessStatusDto>(API_STATUS)
+    .then((res) => {
+      cachedResponse = res;
+      cachedAt = Date.now();
+      return res;
+    })
+    .finally(() => {
+      inFlight = null;
+    });
+
+  return inFlight;
 }
 
 /**

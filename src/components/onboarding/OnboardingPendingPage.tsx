@@ -32,6 +32,7 @@ import {
 import { refreshSessionAfterOnboarding } from "@/lib/services/auth-session-service";
 import {
   getUserReadinessStatus,
+  invalidateUserReadinessCache,
   isUserReadyFromReadiness,
 } from "@/lib/services/user-readiness-service";
 import {
@@ -55,15 +56,23 @@ export function OnboardingPendingPage({
   const syncInFlightRef = useRef(false);
   const initialSyncDoneRef = useRef(false);
 
-  const syncSessionAndCheckApproval = async (): Promise<void> => {
+  const syncSessionAndCheckApproval = async (
+    options: { force?: boolean } = {},
+  ): Promise<void> => {
     if (syncInFlightRef.current) return;
     syncInFlightRef.current = true;
     setIsChecking(true);
 
     try {
-      // Check approval first (does not require token refresh)
+      // Bypass cache only on explicit user action (Check Status button)
+      if (options.force) {
+        invalidateUserReadinessCache();
+      }
+
       try {
-        const readinessRes = await getUserReadinessStatus();
+        const readinessRes = await getUserReadinessStatus({
+          force: options.force,
+        });
         if (
           readinessRes.success &&
           readinessRes.data &&
@@ -117,7 +126,7 @@ export function OnboardingPendingPage({
 
   const handleRefresh = () => {
     if (isChecking || syncInFlightRef.current) return;
-    void syncSessionAndCheckApproval();
+    void syncSessionAndCheckApproval({ force: true });
   };
 
   const handleLogout = () => {

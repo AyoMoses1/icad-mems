@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   getUserReadinessStatus,
   isUserReadyFromReadiness,
-  getDashboardRoleFromReadiness,
 } from "@/lib/services/user-readiness-service";
-import { getDashboardRoute } from "@/lib/role-routing";
+import { redirectToDashboardAfterApproval } from "@/lib/onboarding-approval-redirect";
 import {
   Card,
   CardContent,
@@ -67,9 +66,7 @@ export default function OnboardingWelcomePage() {
         const res = await getUserReadinessStatus();
         if (cancelled) return;
         if (res.success && res.data && isUserReadyFromReadiness(res.data)) {
-          const dashboardRole =
-            getDashboardRoleFromReadiness(res.data) ?? "SEAFARER";
-          router.replace(getDashboardRoute(dashboardRole));
+          redirectToDashboardAfterApproval(res.data);
           return;
         }
       } catch {

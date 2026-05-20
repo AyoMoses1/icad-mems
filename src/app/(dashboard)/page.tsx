@@ -2,10 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  getDashboardRouteFromRoles,
-  getDashboardRoute,
-} from "@/lib/role-routing";
+import { getDashboardRouteFromRoles } from "@/lib/role-routing";
 import { useAuthStore } from "@/store";
 import { LoadingSpinner } from "@/components/shared";
 import {
@@ -20,10 +17,10 @@ import {
 import {
   getUserReadinessStatus,
   isUserReadyFromReadiness,
-  getDashboardRoleFromReadiness,
   READINESS_NOT_FOUND_CODE,
 } from "@/lib/services/user-readiness-service";
 import { ApiError } from "@/lib/api-client";
+import { redirectToDashboardAfterApproval } from "@/lib/onboarding-approval-redirect";
 
 /** SessionStorage key set by verify-success after permit record; root does one refresh for second status call */
 const PERMIT_JUST_RECORDED_KEY = "permitJustRecorded";
@@ -71,9 +68,7 @@ export default function DashboardRedirectPage() {
             const readiness = readinessRes.data;
 
             if (isUserReadyFromReadiness(readiness)) {
-              const dashboardRole =
-                getDashboardRoleFromReadiness(readiness) ?? "SEAFARER";
-              router.replace(getDashboardRoute(dashboardRole));
+              redirectToDashboardAfterApproval(readiness, userRole);
               return;
             }
 
@@ -123,7 +118,7 @@ export default function DashboardRedirectPage() {
                 isOnboardingApproved(data.status)
               ) {
                 const role = data.role?.toUpperCase() ?? "SEAFARER";
-                router.replace(getDashboardRoute(role));
+                redirectToDashboardAfterApproval(null, role);
                 return;
               }
             }
@@ -140,7 +135,7 @@ export default function DashboardRedirectPage() {
                 : primaryRole === "Training Institution"
                   ? "TRAINING_INSTITUTION"
                   : "SEAFARER";
-            router.replace(getDashboardRoute(roleForRoute));
+            redirectToDashboardAfterApproval(null, roleForRoute);
             return;
           }
 

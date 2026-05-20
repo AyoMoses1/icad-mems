@@ -12,6 +12,7 @@
 import { safeLocalStorage } from "@/lib/utils";
 import { useWorkspaceStore } from "@/store/workspace-store";
 import { useUIStore } from "@/store/ui-store";
+import { invalidateUserReadinessCache } from "@/lib/services/user-readiness-service";
 
 const USER_ROLE_KEY = "userRole";
 const AUTH_STORAGE_KEY = "auth-storage";
@@ -48,6 +49,9 @@ export function clearSessionCaches(): void {
   } catch {
     // Ignore if sessionStorage is unavailable (e.g. private mode)
   }
+
+  // Drop in-memory readiness cache so new user does not inherit previous status
+  invalidateUserReadinessCache();
 }
 
 /**
