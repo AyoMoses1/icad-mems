@@ -21,8 +21,66 @@ import {
   apiDeleteMain,
   type ApiResponse,
 } from "@/lib/api-client";
+import { getMyOnboarding } from "@/lib/services/onboarding-service";
 
 const API_BASE = "/seafarer/api/v1/documents";
+
+function isApiSuccess(response: ApiResponse<unknown>): boolean {
+  return (
+    response.success === true ||
+    (response as { successful?: boolean }).successful === true ||
+    response.code === "200"
+  );
+}
+
+/** Swagger uses date-time; send ISO midnight UTC for date-only values */
+export function formatProfileDocumentDate(
+  value: string | undefined
+): string | undefined {
+  const v = value?.trim();
+  if (!v) return undefined;
+  if (v.includes("T")) return v;
+  return `${v}T00:00:00.000Z`;
+}
+
+/**
+ * Resolve seafarer RN for profile document upload/get.
+ * Do not use deprecated getMySeafarer() — RN comes from onboarding or auth user.
+ */
+export async function resolveProfileRegistrationNumber(options?: {
+  cachedRn?: string | null;
+}): Promise<string> {
+  const cached = options?.cachedRn?.trim();
+  if (cached) return cached;
+
+  try {
+    const onboardingRes = await getMyOnboarding();
+    if (isApiSuccess(onboardingRes) && onboardingRes.data?.rn?.trim()) {
+      return onboardingRes.data.rn.trim();
+    }
+  } catch (e) {
+    console.error("resolveProfileRegistrationNumber: onboarding lookup failed", e);
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const { useAuthStore } = require("@/store/auth-store");
+      const user = useAuthStore.getState().user as {
+        rn?: string | null;
+        registrationNumber?: string | null;
+      } | null;
+      const fromUser =
+        user?.rn?.trim() || user?.registrationNumber?.trim() || "";
+      if (fromUser) return fromUser;
+    } catch {
+      // ignore
+    }
+  }
+
+  throw new Error(
+    "Registration Number (RN) not found. Please complete onboarding before uploading documents.",
+  );
+}
 
 /**
  * Education Document DTO
@@ -173,20 +231,32 @@ export async function uploadProfileDocument(
   if (request.documentNumber) {
     formData.append("DocumentNumber", request.documentNumber);
   }
-  if (request.issueDate) {
-    formData.append("IssueDate", request.issueDate);
+  const issueDate = formatProfileDocumentDate(request.issueDate);
+  const expiryDate = formatProfileDocumentDate(request.expiryDate);
+  if (issueDate) {
+    formData.append("IssueDate", issueDate);
   }
-  if (request.expiryDate) {
-    formData.append("ExpiryDate", request.expiryDate);
+  if (expiryDate) {
+    formData.append("ExpiryDate", expiryDate);
   }
   if (request.issuingAuthority) {
     formData.append("IssuingAuthority", request.issuingAuthority);
   }
 
-  return apiPostMultipartMain<DocumentUploadDto>(
+  const response = await apiPostMultipartMain<DocumentUploadDto>(
     `${API_BASE}/profile/upload`,
     formData
   );
+
+  if (!isApiSuccess(response)) {
+    throw new Error(
+      response.error?.message ||
+        response.message ||
+        "Failed to upload profile document"
+    );
+  }
+
+  return response;
 }
 
 /**

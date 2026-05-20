@@ -13,7 +13,6 @@ import {
   Globe,
   User,
   FileText,
-  Calendar,
   Building,
   Hash,
 } from "lucide-react";
@@ -43,6 +42,7 @@ import {
 import { useUser, useAuthStore } from "@/store/auth-store";
 import { toast } from "sonner";
 import { apiGetMain, ApiResponse } from "@/lib/api-client";
+import { ProfileDatePickerField } from "@/components/profile/ProfileDatePickerField";
 import { formatDate } from "@/lib/utils";
 import {
   getDocumentTypes,
@@ -51,6 +51,7 @@ import {
 import { getMySeafarer, type SeafarerDto } from "@/lib/services/seafarers";
 import {
   getProfileDocuments,
+  resolveProfileRegistrationNumber,
   type EducationDocumentDto,
 } from "@/lib/services/document-service";
 import { getRanks, type RankDto } from "@/lib/services/ranks";
@@ -124,6 +125,13 @@ const saveToStorage = <T,>(key: string, data: T): void => {
     console.error("Error saving to localStorage:", error);
   }
 };
+
+/** API expects YYYY-MM-DD; strip time if legacy values exist */
+function toApiDateValue(value: string | undefined): string | undefined {
+  const v = value?.trim();
+  if (!v) return undefined;
+  return v.includes("T") ? v.slice(0, 10) : v;
+}
 
 interface UploadDocumentFormData {
   file: File | null;
@@ -223,83 +231,35 @@ export default function ProfileDocumentsPage() {
   >([]);
 
   const uploadDocument = async (uploadData: UploadDocumentFormData) => {
-    // Get RN from seafarer or user
-    let rn: string | null = null;
-
-    try {
-      const seafarerResponse = await getMySeafarer();
-      const seafarerOk =
-        seafarerResponse.success ?? (seafarerResponse as any).successful;
-
-      if (seafarerOk && seafarerResponse.data) {
-        rn =
-          (seafarerResponse.data as any).rn ||
-          (seafarerResponse.data as any).registrationNumber ||
-          null;
-      }
-
-      if (!rn) {
-        const currentUser = useAuthStore.getState().user;
-        rn =
-          (currentUser as any)?.rn ||
-          (currentUser as any)?.registrationNumber ||
-          null;
-      }
-
-      if (!rn) {
-        throw new Error(
-          "Registration Number (RN) not found. Please complete onboarding first.",
-        );
-      }
-    } catch (error) {
-      console.error("Error getting RN:", error);
-      throw new Error(
-        "Failed to get registration number. Please complete onboarding first.",
-      );
-    }
-
-    // Use document-service uploadProfileDocument
-    const { uploadProfileDocument } =
-      await import("@/lib/services/document-service");
-
     if (!uploadData.file || !uploadData.documentTypeId) {
       throw new Error("File and Document Type are required");
     }
+
+    const rn = await resolveProfileRegistrationNumber({
+      cachedRn: onboardingRn,
+    });
+
+    const { uploadProfileDocument } =
+      await import("@/lib/services/document-service");
 
     return await uploadProfileDocument({
       file: uploadData.file,
       rn,
       documentTypesId: uploadData.documentTypeId,
       documentNumber: uploadData.documentNumber || undefined,
-      issueDate: uploadData.issueDate || undefined,
-      expiryDate: uploadData.expiryDate || undefined,
+      issueDate: toApiDateValue(uploadData.issueDate),
+      expiryDate: toApiDateValue(uploadData.expiryDate),
       issuingAuthority: uploadData.issuingAuthority || undefined,
     });
   };
 
   const getUserDocuments = async () => {
     try {
-      // First get seafarer profile to get RN
-      const seafarerResponse = await getMySeafarer();
-      const seafarerOk =
-        seafarerResponse.success ?? (seafarerResponse as any).successful;
-
       let rn: string | null = null;
-
-      if (seafarerOk && seafarerResponse.data) {
-        // Try to get RN from seafarer data
-        const seafarer = seafarerResponse.data;
-        rn =
-          (seafarer as any).rn || (seafarer as any).registrationNumber || null;
-      }
-
-      // If no RN from seafarer, try to get from user
-      if (!rn) {
-        const currentUser = useAuthStore.getState().user;
-        rn =
-          (currentUser as any)?.rn ||
-          (currentUser as any)?.registrationNumber ||
-          null;
+      try {
+        rn = await resolveProfileRegistrationNumber({ cachedRn: onboardingRn });
+      } catch {
+        rn = null;
       }
 
       if (rn) {
@@ -919,7 +879,10 @@ export default function ProfileDocumentsPage() {
       // Call the upload API using document-service
       const response = await uploadDocument(uploadFormData);
 
-      const ok = response.success ?? (response as any).successful;
+      const ok =
+        response.success ??
+        (response as { successful?: boolean }).successful ??
+        response.code === "200";
       if (ok) {
         toast.success("Document uploaded successfully!");
 
@@ -943,7 +906,11 @@ export default function ProfileDocumentsPage() {
       }
     } catch (error) {
       console.error("Error uploading document:", error);
-      toast.error("Failed to upload document. Please try again.");
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to upload document. Please try again.";
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -1552,9 +1519,9 @@ export default function ProfileDocumentsPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Sea Service Record</CardTitle>
-                <Button className="bg-[#3EADC0] hover:bg-[#35a0b3]">
+                {/* <Button className="bg-[#3EADC0] hover:bg-[#35a0b3]">
                   Add Record
-                </Button>
+                </Button> */}
               </div>
             </CardHeader>
             <CardContent>
@@ -1633,7 +1600,11 @@ export default function ProfileDocumentsPage() {
       </Tabs>
 
       {/* Upload Document Modal */}
-      <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
+      <Dialog
+        modal={false}
+        open={isUploadModalOpen}
+        onOpenChange={setIsUploadModalOpen}
+      >
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Upload Document</DialogTitle>
@@ -1697,50 +1668,30 @@ export default function ProfileDocumentsPage() {
             </div>
 
             {/* Issue Date */}
-            <div className="space-y-2">
-              <Label htmlFor="issueDate">Issue Date</Label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="issueDate"
-                  type="datetime-local"
-                  value={uploadFormData.issueDate}
-                  onChange={(e) =>
-                    setUploadFormData({
-                      ...uploadFormData,
-                      issueDate: e.target.value,
-                    })
-                  }
-                  className="pl-10"
-                />
-              </div>
-            </div>
+            <ProfileDatePickerField
+              id="issueDate"
+              label="Issue Date"
+              value={uploadFormData.issueDate}
+              onChange={(issueDate) =>
+                setUploadFormData({ ...uploadFormData, issueDate })
+              }
+            />
 
             {/* Expiry Date */}
-            <div className="space-y-2">
-              <Label htmlFor="expiryDate">Expiry Date</Label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="expiryDate"
-                  type="datetime-local"
-                  value={uploadFormData.expiryDate}
-                  onChange={(e) =>
-                    setUploadFormData({
-                      ...uploadFormData,
-                      expiryDate: e.target.value,
-                    })
-                  }
-                  className="pl-10"
-                />
-              </div>
-            </div>
+            <ProfileDatePickerField
+              id="expiryDate"
+              label="Expiry Date"
+              value={uploadFormData.expiryDate}
+              onChange={(expiryDate) =>
+                setUploadFormData({ ...uploadFormData, expiryDate })
+              }
+            />
 
             {/* Issuing Authority */}
             <div className="space-y-2">
               <Label htmlFor="issuingAuthority">Issuing Authority</Label>
               <div className="relative">
-                <Building className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Building className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="issuingAuthority"
                   value={uploadFormData.issuingAuthority}
@@ -1760,7 +1711,7 @@ export default function ProfileDocumentsPage() {
             <div className="space-y-2">
               <Label htmlFor="documentNumber">Document Number</Label>
               <div className="relative">
-                <Hash className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Hash className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="documentNumber"
                   value={uploadFormData.documentNumber}
@@ -1780,7 +1731,7 @@ export default function ProfileDocumentsPage() {
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>
               <div className="relative">
-                <FileText className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <FileText className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Textarea
                   id="notes"
                   value={uploadFormData.notes}

@@ -64,6 +64,7 @@ import { formatDate } from "@/lib/utils";
 import {
   getAllowedDocumentTypes,
   getAllowedDocumentTypeIds,
+  getRequirementStableId,
   isDocumentRequirement,
   hasAllDocumentUploads,
 } from "@/lib/utils/requirement-helpers";
@@ -148,7 +149,7 @@ export default function ServiceApplicationPage() {
               
               // Initialize requirement values from application requirements
               const initialValues: RequirementValue[] = appReqs.map((req: any) => ({
-                requirementId: req.applicationRequirementId || req.requirementListId || req.id || "",
+                requirementId: getRequirementStableId(req),
                 value: req.actualValue || "",
                 notes: "",
               }));
@@ -200,7 +201,7 @@ export default function ServiceApplicationPage() {
           
           // Initialize requirement values
           const initialValues: RequirementValue[] = reqs.map(req => ({
-            requirementId: req.applicationRequirementId || req.requirementListId || req.id || "",
+            requirementId: getRequirementStableId(req),
             value: "",
             notes: "",
           }));
@@ -263,21 +264,22 @@ export default function ServiceApplicationPage() {
             }
           } catch (fetchError) {
             console.error("Error fetching application requirements:", fetchError);
-            // Continue with empty requirements - will show "No requirements" message
+            // finalReqs will fall back to the service checklist loaded on the info step
           }
         }
         
-        // Set requirements
-        setRequirements(appReqs);
-        
-        // Initialize requirement values from application requirements
-        const initialValues: RequirementValue[] = appReqs.map((req: any) => ({
-          requirementId: req.applicationRequirementId || req.requirementListId || req.id || "",
+        // Prefer application-scoped requirements when the API returns them; otherwise keep
+        // the service checklist already loaded (create/get-by-id often omit requirements).
+        const finalReqs = appReqs.length > 0 ? appReqs : requirements;
+        setRequirements(finalReqs);
+
+        const initialValues: RequirementValue[] = finalReqs.map((req: any) => ({
+          requirementId: getRequirementStableId(req),
           value: req.actualValue || "",
           notes: "",
         }));
         setRequirementValues(initialValues);
-        
+
         setCurrentStep("requirements");
         toast.success("Application created successfully");
       } else {
@@ -304,7 +306,7 @@ export default function ServiceApplicationPage() {
     // Find requirement directly
     const requirement = requirements.find(
       req => {
-        const reqId = req.applicationRequirementId || req.requirementListId || req.id || "";
+        const reqId = getRequirementStableId(req);
         return reqId === requirementId;
       }
     );
@@ -375,7 +377,7 @@ export default function ServiceApplicationPage() {
     // Find requirement directly
     const requirement = requirements.find(
       req => {
-        const reqId = req.applicationRequirementId || req.requirementListId || req.id || "";
+        const reqId = getRequirementStableId(req);
         return reqId === selectedRequirementId;
       }
     );
@@ -528,7 +530,7 @@ export default function ServiceApplicationPage() {
     const allowedTypeIds = (() => {
       const req = requirements.find(
         r => {
-          const reqId = r.applicationRequirementId || r.requirementListId || r.id || "";
+          const reqId = getRequirementStableId(r);
           return reqId === requirementId;
         }
       );
@@ -558,7 +560,7 @@ export default function ServiceApplicationPage() {
     // Check document requirements: each must have at least one upload with an allowed type
     const docReqs = requiredReqs.filter((req: any) => isDocumentRequirement(req));
     const missingUploadReqs = docReqs.filter((req: any) => {
-      const reqId = req.applicationRequirementId || req.requirementListId || req.id;
+      const reqId = getRequirementStableId(req);
       return !requirementHasUpload(reqId);
     });
     if (missingUploadReqs.length > 0) {
@@ -588,7 +590,7 @@ export default function ServiceApplicationPage() {
     const missingRequired = requiredReqs
       .filter((req: any) => !isDocumentRequirement(req))
       .filter((req: any) => {
-        const reqId = req.applicationRequirementId || req.requirementListId || req.id;
+        const reqId = getRequirementStableId(req);
         const metricType = req.metricDescription || req.metricType || "Text";
         const isDate = metricType === "Date";
         const isYesNo = metricType === "Yes/No";
@@ -622,7 +624,7 @@ export default function ServiceApplicationPage() {
       // V2: Document requirements are handled through ApplicationDocument records (uploaded separately)
       const submitRequirementValues = requirements
         .map((req: any) => {
-          const reqId = req.applicationRequirementId || req.requirementListId || req.id;
+          const reqId = getRequirementStableId(req);
           // Skip document requirements - they're handled via ApplicationDocument
           if (isDocumentRequirement(req)) {
             return null;
@@ -636,7 +638,7 @@ export default function ServiceApplicationPage() {
           }
           
           return {
-            requirementListId: req.requirementListId || reqId,
+            requirementListId: req.requirementListId || getRequirementStableId(req),
             actualValue: value.value,
           };
         })
@@ -866,7 +868,7 @@ export default function ServiceApplicationPage() {
             // If already submitted, it's completed
             if (req.isSubmitted) return true;
             
-            const reqId = req.applicationRequirementId || req.requirementListId || req.id;
+            const reqId = getRequirementStableId(req);
             const metricType = req.metricDescription || req.metricType || "Text";
             const isDocument = isDocumentRequirement(req);
             const isDate = metricType === "Date";
@@ -1001,7 +1003,7 @@ export default function ServiceApplicationPage() {
                     const metricType = req.metricDescription || req.metricType || "Text";
                     const isRequired = req.requiredValue === "Required" || req.isRequired;
                     return (
-                      <div key={req.applicationRequirementId || req.requirementListId || req.id || ""} className="flex items-start gap-2 text-sm">
+                      <div key={getRequirementStableId(req)} className="flex items-start gap-2 text-sm">
                         <span className={isRequired ? "text-red-500" : "text-muted-foreground"}>
                           {isRequired ? "•" : "○"}
                         </span>
@@ -1091,7 +1093,7 @@ export default function ServiceApplicationPage() {
                     req.requiredValue === "Required" || req.isRequired
                   ).length;
                   const completed = requirements.filter((req: any) => {
-                    const reqId = req.applicationRequirementId || req.requirementListId || req.id;
+                    const reqId = getRequirementStableId(req);
                     const isDocument = isDocumentRequirement(req);
                     
                     if (req.isSubmitted) return true;
@@ -1133,7 +1135,7 @@ export default function ServiceApplicationPage() {
                 
                 <div className="space-y-6">
                 {requirements.map((req: any) => {
-                  const reqId = req.applicationRequirementId || req.requirementListId || req.id || "";
+                  const reqId = getRequirementStableId(req);
                   
                   // Determine metric type
                   const metricType = req.metricDescription || req.metricType || "Text";
@@ -1452,7 +1454,7 @@ export default function ServiceApplicationPage() {
                 <h4 className="font-medium mb-2">Requirements ({requirements.length})</h4>
                 <div className="space-y-2">
                   {requirements.map((req: any) => {
-                    const reqId = req.applicationRequirementId || req.requirementListId || req.id || "";
+                    const reqId = getRequirementStableId(req);
                     const value = requirementValues.find(rv => rv.requirementId === reqId);
                     const hasUpload = requirementHasUpload(reqId);
                     const metricType = req.metricDescription || req.metricType || "Text";
@@ -1712,7 +1714,7 @@ export default function ServiceApplicationPage() {
             <DialogDescription>
               {selectedRequirementId && requirements.find(
                 req => {
-                  const reqId = req.applicationRequirementId || req.requirementListId || req.id || "";
+                  const reqId = getRequirementStableId(req);
                   return reqId === selectedRequirementId;
                 }
               )?.requirementName}
@@ -1722,7 +1724,7 @@ export default function ServiceApplicationPage() {
           {selectedFile && selectedRequirementId && (() => {
             const requirement = requirements.find(
               req => {
-                const reqId = req.applicationRequirementId || req.requirementListId || req.id || "";
+                const reqId = getRequirementStableId(req);
                 return reqId === selectedRequirementId;
               }
             );

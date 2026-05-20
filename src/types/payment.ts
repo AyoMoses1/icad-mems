@@ -10,11 +10,23 @@ export interface PaymentDto {
   applicationId?: number;
   applicationNumber?: string | null;
   invoiceId?: number | null;
+  /** Seafarer my-invoices: invoice UUID */
+  seafarerInvoiceId?: string | null;
+  /** Seafarer my-invoices: application UUID */
+  seafarerApplicationId?: string | null;
+  serviceName?: string | null;
+  /** Application reference (e.g. SEA-2026-0071) from my-invoices */
+  applicationRn?: string | null;
+  applicationStatus?: string | null;
+  applicationDate?: string | null;
+  invoiceStatus?: string | null;
+  invoiceDate?: string | null;
+  paymentStatusId?: string | null;
   invoiceNumber?: string | null;
   userProfileId?: number | null;
   userName?: string | null;
   userEmail?: string | null;
-  paymentServiceProviderId?: number | null;
+  paymentServiceProviderId?: string | number | null;
   paymentServiceProviderName?: string | null;
   amount: number;
   currency?: string | null;

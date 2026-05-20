@@ -74,6 +74,9 @@ export interface ApiApplicationInvoiceDto {
   invoiceNumber?: string | null;
   currency?: string | null;
   payments?: ApiSeafarerPaymentDto[] | null;
+  rn?: string | null;
+  applicationStatus?: string | null;
+  applicationDate?: string | null;
 }
 
 export interface PagedInvoicesDto {
@@ -183,6 +186,16 @@ export function mapPaymentFromInvoice(
     invoiceNumber: invoice.invoiceNumber ?? undefined,
     createdAt: payment.dateCreated || invoice.dateCreated || undefined,
     isManual: false,
+    seafarerInvoiceId: invoice.invoiceId ?? null,
+    seafarerApplicationId: invoice.applicationId ?? null,
+    serviceName: invoice.serviceName ?? null,
+    applicationRn: invoice.rn ?? null,
+    applicationStatus: invoice.applicationStatus ?? null,
+    applicationDate: invoice.applicationDate ?? null,
+    invoiceStatus: invoice.invoiceStatus ?? null,
+    invoiceDate: invoice.invoiceDate ?? null,
+    paymentStatusId: payment.paymentStatusId ?? null,
+    paymentServiceProviderId: payment.paymentServiceProviderId ?? null,
   };
 }
 
@@ -202,6 +215,14 @@ function mapInvoiceSummaryPayment(
     invoiceNumber: invoice.invoiceNumber ?? undefined,
     createdAt: invoice.dateCreated || undefined,
     isManual: false,
+    seafarerInvoiceId: invoice.invoiceId ?? null,
+    seafarerApplicationId: invoice.applicationId ?? null,
+    serviceName: invoice.serviceName ?? null,
+    applicationRn: invoice.rn ?? null,
+    applicationStatus: invoice.applicationStatus ?? null,
+    applicationDate: invoice.applicationDate ?? null,
+    invoiceStatus: invoice.invoiceStatus ?? null,
+    invoiceDate: invoice.invoiceDate ?? null,
   };
 }
 
@@ -222,6 +243,96 @@ export function extractPaymentsFromInvoices(
   }
 
   return payments;
+}
+
+export interface InvoicePaymentDetailResult {
+  invoice: ApiApplicationInvoiceDto;
+  payment: ApiSeafarerPaymentDto;
+  /** All payments recorded on this invoice */
+  invoicePayments: ApiSeafarerPaymentDto[];
+}
+
+/**
+ * Resolve invoice + payment row from my-invoices using payment reference (e.g. TXN-…).
+ * Paginates until found or invoices are exhausted.
+ */
+export async function getInvoicePaymentDetailByRef(
+  paymentRef: string
+): Promise<ApiResponse<InvoicePaymentDetailResult>> {
+  const normalized = paymentRef.trim();
+  if (!normalized) {
+    return {
+      success: false,
+      error: { message: "Payment reference is required", code: "INVALID" },
+    };
+  }
+
+  let pageNumber = 1;
+  const pageSize = 50;
+  const maxPages = 50;
+
+  for (let page = 0; page < maxPages; page++) {
+    const response = await getMyInvoices({ pageNumber, pageSize });
+    if (!isApiSuccess(response) || !response.data?.items) {
+      return {
+        success: false,
+        message: response.message || response.error?.message,
+        error: response.error || {
+          message: "Failed to load invoices",
+          code: "LOAD_ERROR",
+        },
+      };
+    }
+
+    const { items, totalPages = 1 } = response.data;
+
+    for (const invoice of items) {
+      const list = invoice.payments || [];
+      const match = list.find((p) => (p.paymentRef || "").trim() === normalized);
+      if (match) {
+        return {
+          success: true,
+          data: {
+            invoice,
+            payment: match,
+            invoicePayments: list,
+          },
+        };
+      }
+      if (
+        list.length === 0 &&
+        invoice.hasPayment &&
+        (invoice.paymentRef || "").trim() === normalized
+      ) {
+        const synthetic: ApiSeafarerPaymentDto = {
+          paymentRef: invoice.paymentRef,
+          invoiceId: invoice.invoiceId,
+          amount: invoice.amount,
+          paymentDate: invoice.invoiceDate,
+          paymentStatus: invoice.paymentStatus,
+          dateCreated: invoice.dateCreated,
+        };
+        return {
+          success: true,
+          data: {
+            invoice,
+            payment: synthetic,
+            invoicePayments: [synthetic],
+          },
+        };
+      }
+    }
+
+    if (pageNumber >= totalPages || items.length < pageSize) {
+      break;
+    }
+    pageNumber++;
+  }
+
+  return {
+    success: false,
+    error: { message: "Payment not found", code: "NOT_FOUND" },
+  };
 }
 
 /**

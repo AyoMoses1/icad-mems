@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Eye, MoreHorizontal, CheckCircle2, Search } from "lucide-react";
 import { toast } from "sonner";
 
@@ -40,7 +41,6 @@ import type { PaymentDto } from "@/types/payment";
 import { formatDate } from "@/lib/utils";
 import {
   getMyPayments,
-  getPaymentById,
   verifyPayment,
 } from "@/lib/services/payment-service";
 
@@ -60,12 +60,10 @@ const statusConfig: Record<
 };
 
 export default function PaymentsPage() {
+  const router = useRouter();
   const [payments, setPayments] = useState<PaymentDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifyDialogOpen, setIsVerifyDialogOpen] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<PaymentDto | null>(
-    null,
-  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -122,7 +120,6 @@ export default function PaymentsPage() {
       const response = await verifyPayment(paymentReference.trim());
       if (response.success && response.data) {
         toast.success("Payment verified successfully");
-        setSelectedPayment(response.data);
         setIsVerifyDialogOpen(false);
         setPaymentReference("");
         loadPayments();
@@ -137,19 +134,13 @@ export default function PaymentsPage() {
     }
   };
 
-  const handleViewPayment = async (payment: PaymentDto) => {
-    try {
-      const response = await getPaymentById(payment.id);
-      if (response.success && response.data) {
-        setSelectedPayment(response.data);
-        toast.info(
-          `Payment ${response.data.paymentReference || payment.id} — ${response.data.paymentStatus || response.data.status || "status unknown"}`,
-        );
-      }
-    } catch (error) {
-      console.error("Error loading payment details:", error);
-      toast.error("Failed to load payment details");
+  const handleViewPayment = (payment: PaymentDto) => {
+    const ref = payment.paymentReference?.trim();
+    if (!ref) {
+      toast.error("This payment has no reference to open details");
+      return;
     }
+    router.push(`/invoices/payments/${encodeURIComponent(ref)}`);
   };
 
   const columns: DataTableColumn<PaymentDto>[] = [

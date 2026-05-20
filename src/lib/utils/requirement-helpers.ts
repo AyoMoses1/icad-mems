@@ -8,6 +8,8 @@ import type {
   ServiceRequirementDto,
 } from "@/lib/services/application-service";
 
+const NIL_APPLICATION_REQUIREMENT_ID = "00000000-0000-0000-0000-000000000000";
+
 /** Requirement-like shape (document type fields + metricDescription). */
 export type RequirementLike =
   | ApplicationRequirementDto
@@ -19,6 +21,26 @@ export type RequirementLike =
       documentTypes?: { documentTypesId: string; description: string }[] | null;
       metricDescription?: string | null;
     };
+
+/**
+ * Row id for matching UI state (requirementValues, uploads) to a requirement row.
+ * Service checklist rows often use a nil GUID for applicationRequirementId until
+ * the application row exists; in that case use requirementListId so multiple rows stay distinct.
+ */
+export function getRequirementStableId(req: {
+  applicationRequirementId?: string | null;
+  requirementListId?: string | null;
+  id?: string | null;
+}): string {
+  const appReqId = req.applicationRequirementId?.trim();
+  if (
+    appReqId &&
+    appReqId.toLowerCase() !== NIL_APPLICATION_REQUIREMENT_ID.toLowerCase()
+  ) {
+    return appReqId;
+  }
+  return (req.requirementListId || req.id || "").trim();
+}
 
 /**
  * DocumentTypeDto interface (re-exported for convenience)
