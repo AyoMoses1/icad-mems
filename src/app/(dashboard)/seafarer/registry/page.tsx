@@ -38,9 +38,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/shared";
-import { getAllOnboardings, type UserSeafarerOnboardingDto } from "@/lib/services/onboarding-service";
 import {
   getSeafarerEmployments,
+  type GetSeafarerEmploymentsParams,
   type SeafarerEmploymentDto,
 } from "@/lib/services/seafarer-employment-training-service";
 import { updateUserStatus } from "@/lib/services/user-service";
@@ -78,57 +78,66 @@ const statusConfig: Record<
   Sent: { label: "Sent", variant: "secondary" },
 };
 
-function mapOnboardingToRow(o: UserSeafarerOnboardingDto): RegistryRow {
-  const status = o.isActive ? "Active" : (o.status || "Pending");
+function employmentStatus(e: SeafarerEmploymentDto): string {
+  if (e.contractStatus === "Signed") return "Signed";
+  if (e.acceptanceStatus === "Accepted") return "Accepted";
+  if (e.acceptanceStatus === "Rejected") return "Rejected";
+  if (e.contractStatus === "Sent") return "Sent";
+  if (e.contractStatus === "Draft") return "Draft";
+  return e.acceptanceStatus ?? e.contractStatus ?? "Pending";
+}
+
+function mapEmploymentToRow(e: SeafarerEmploymentDto): RegistryRow {
+  const rn = e.seafarerRN?.trim() ?? "";
   return {
-    displayName: o.contactDetails?.email ?? `User ${o.userId ?? "—"}`,
-    email: o.contactDetails?.email ?? null,
-    rn: o.rn ?? "",
-    sin: o.sin ?? null,
-    role: o.roleDescription ?? o.role ?? "N/A",
-    status,
-    dateModified: o.dateModified ?? o.updatedAt ?? null,
-    userId: o.userId ?? null,
-    isEmployerPool: false,
+    displayName: e.seafarerFullName?.trim() || rn || "—",
+    email: null,
+    rn,
+    sin: e.seafarerSIN ?? null,
+    role: e.rankDescription ?? "—",
+    status: employmentStatus(e),
+    dateModified: e.acceptedAt ?? e.dateCreated ?? null,
+    userId: null,
+    isEmployerPool: true,
   };
 }
 
-/** Build unique pool seafarers from employments (one row per seafarerRN; use latest employment for display). */
-function buildPoolRowsFromEmployments(employments: SeafarerEmploymentDto[]): RegistryRow[] {
-  const byRn = new Map<string, SeafarerEmploymentDto>();
-  for (const e of employments) {
-    const rn = e.seafarerRN?.trim() || "";
-    if (!rn) continue;
-    const existing = byRn.get(rn);
-    if (!existing || (e.dateCreated && existing.dateCreated && e.dateCreated > existing.dateCreated)) {
-      byRn.set(rn, e);
+/** One row per seafarer RN (latest employment by date). */
+function dedupeRowsByRn(rows: RegistryRow[]): RegistryRow[] {
+  const byRn = new Map<string, RegistryRow>();
+  for (const row of rows) {
+    const key = row.rn?.trim() || "";
+    if (!key) continue;
+    const existing = byRn.get(key);
+    if (
+      !existing ||
+      (row.dateModified &&
+        existing.dateModified &&
+        row.dateModified > existing.dateModified)
+    ) {
+      byRn.set(key, row);
     }
   }
-  return Array.from(byRn.values()).map((e) => {
-    const status =
-      e.contractStatus === "Signed"
-        ? "Signed"
-        : e.acceptanceStatus === "Accepted"
-          ? "Accepted"
-          : e.acceptanceStatus === "Rejected"
-            ? "Rejected"
-            : e.contractStatus === "Sent"
-              ? "Sent"
-              : e.contractStatus === "Draft"
-                ? "Draft"
-                : e.acceptanceStatus ?? "Pending";
-    return {
-      displayName: e.seafarerFullName ?? e.seafarerRN ?? "—",
-      email: null,
-      rn: e.seafarerRN,
-      sin: e.seafarerSIN ?? null,
-      role: e.rankDescription ?? "N/A",
-      status,
-      dateModified: e.dateCreated ?? null,
-      userId: null,
-      isEmployerPool: true,
-    };
-  });
+  return Array.from(byRn.values());
+}
+
+function buildEmploymentQueryParams(
+  statusFilter: string,
+  pageNumber: number,
+  pageSize: number,
+  searchQuery?: string
+): GetSeafarerEmploymentsParams {
+  const params: GetSeafarerEmploymentsParams = { pageNumber, pageSize };
+  const q = searchQuery?.trim();
+  if (q && /^SEA-/i.test(q)) params.seafarerRn = q;
+  if (statusFilter === "Signed") params.contractStatus = "Signed";
+  else if (statusFilter === "Sent") params.contractStatus = "Sent";
+  else if (statusFilter === "Draft") params.contractStatus = "Draft";
+  else if (statusFilter === "Accepted") params.acceptanceStatus = "Accepted";
+  else if (statusFilter === "Rejected") params.acceptanceStatus = "Rejected";
+  else if (statusFilter === "Pending") params.acceptanceStatus = "Pending";
+  else if (statusFilter === "active") params.activeOnly = true;
+  return params;
 }
 
 export default function SeafarerRegistryPage() {
@@ -137,8 +146,7 @@ export default function SeafarerRegistryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+  const [apiTotalCount, setApiTotalCount] = useState(0);
   const [isSuspendDialogOpen, setIsSuspendDialogOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<RegistryRow | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -147,7 +155,6 @@ export default function SeafarerRegistryPage() {
   const primaryRole = useAuthStore((s) => s.primaryRole);
   const userRole = primaryRole?.toUpperCase() ?? null;
   const isAdminRole = userRole === "ADMIN" || userRole === "SUPERADMIN";
-  const isEmployerView = userRole === "AGENT" || userRole === "OWNER";
   const canModifySeafarers = isAdminRole;
 
   const [stats, setStats] = useState({
@@ -159,60 +166,40 @@ export default function SeafarerRegistryPage() {
   const loadSeafarers = useCallback(async () => {
     setIsLoading(true);
     try {
-      if (isEmployerView) {
-        // Employer: fetch only seafarers in this employer's pool (from employments)
-        const allItems: SeafarerEmploymentDto[] = [];
-        let page = 1;
-        const size = 100;
-        let totalPages = 1;
-        do {
-          const result = await getSeafarerEmployments({ pageNumber: page, pageSize: size });
-          allItems.push(...(result.items ?? []));
-          totalPages = result.totalPages ?? 1;
-          page++;
-        } while (page <= totalPages);
-        const poolRows = buildPoolRowsFromEmployments(allItems);
-        setRows(poolRows);
-        const activeCount = poolRows.filter(
-          (r) => r.status === "Signed" || r.status === "Accepted" || r.status === "Active"
-        ).length;
-        setStats({
-          totalRegistered: poolRows.length,
-          activeSeafarers: activeCount,
-          expiredLicenses: 0,
-        });
-      } else {
-        // Admin: all seafarers in the system (onboarding)
-        const response = await getAllOnboardings();
-        const ok = response.success ?? (response as { successful?: boolean }).successful;
-        if (ok && response.data && Array.isArray(response.data)) {
-          const seafarerOnly = response.data.filter(
-            (o) => (o.role?.toUpperCase?.() ?? "") === "SEAFARER"
-          );
-          const mapped = seafarerOnly.map(mapOnboardingToRow);
-          setRows(mapped);
-          const activeCount = seafarerOnly.filter(
-            (o) => (o.status?.toLowerCase?.() ?? "") === "approved" || o.isActive === true
-          ).length;
-          setStats({
-            totalRegistered: seafarerOnly.length,
-            activeSeafarers: activeCount,
-            expiredLicenses: 0,
-          });
-        } else {
-          setRows([]);
-          setStats({ totalRegistered: 0, activeSeafarers: 0, expiredLicenses: 0 });
-        }
-      }
+      const params = buildEmploymentQueryParams(
+        statusFilter,
+        currentPage,
+        pageSize,
+        searchQuery
+      );
+      const [result, signedSummary, acceptedSummary] = await Promise.all([
+        getSeafarerEmployments(params),
+        getSeafarerEmployments({ contractStatus: "Signed", pageNumber: 1, pageSize: 1 }),
+        getSeafarerEmployments({ acceptanceStatus: "Accepted", pageNumber: 1, pageSize: 1 }),
+      ]);
+
+      const items = result.items ?? [];
+      const mapped = dedupeRowsByRn(items.map(mapEmploymentToRow));
+      setRows(mapped);
+      setApiTotalCount(result.totalCount ?? mapped.length);
+
+      const activeApprox =
+        (signedSummary.totalCount ?? 0) + (acceptedSummary.totalCount ?? 0);
+      setStats({
+        totalRegistered: result.totalCount ?? mapped.length,
+        activeSeafarers: activeApprox,
+        expiredLicenses: 0,
+      });
     } catch (error) {
       console.error("Error loading seafarers:", error);
       setRows([]);
+      setApiTotalCount(0);
       setStats({ totalRegistered: 0, activeSeafarers: 0, expiredLicenses: 0 });
       toast.error("Failed to load seafarers");
     } finally {
       setIsLoading(false);
     }
-  }, [isEmployerView]);
+  }, [currentPage, pageSize, statusFilter, searchQuery]);
 
   useEffect(() => {
     loadSeafarers();
@@ -274,11 +261,7 @@ export default function SeafarerRegistryPage() {
     return matchSearch && matchStatus;
   });
   const totalFiltered = filtered.length;
-  const totalPagesComputed = Math.max(1, Math.ceil(totalFiltered / pageSize));
-  const paginated = filtered.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  );
+  const totalForTable = q || statusNorm ? totalFiltered : apiTotalCount;
 
   const columns: DataTableColumn<RegistryRow>[] = [
     {
@@ -292,7 +275,7 @@ export default function SeafarerRegistryPage() {
           <div>
             <p className="font-medium">{row.displayName}</p>
             <p className="text-sm text-muted-foreground">
-              {row.email || row.rn || "N/A"}
+              {row.sin ? `SIN: ${row.sin}` : row.rn || "—"}
             </p>
           </div>
         </div>
@@ -302,14 +285,18 @@ export default function SeafarerRegistryPage() {
       id: "registrationNumber",
       header: "RN / SIN",
       cell: ({ row }) => (
-        <span className="font-mono text-sm">
-          {row.rn || row.sin || "—"}
-        </span>
+        <div className="font-mono text-sm">
+          {row.rn && <div>{row.rn}</div>}
+          {row.sin && (
+            <div className="text-muted-foreground text-xs">{row.sin}</div>
+          )}
+          {!row.rn && !row.sin && "—"}
+        </div>
       ),
     },
     {
       id: "role",
-      header: isEmployerView ? "Rank" : "Role",
+      header: "Rank",
       cell: ({ row }) => (
         <span className="text-sm">{row.role}</span>
       ),
@@ -372,7 +359,7 @@ export default function SeafarerRegistryPage() {
     <div className="space-y-6">
       <PageHeader
         title="My Seafarers"
-        description={isEmployerView ? "Seafarers in your employment pool (employed by you)" : "Manage and view your seafarers"}
+        description="Seafarers in your employment pool (from company employments)"
       />
 
       {/* Stats Cards */}
@@ -449,29 +436,20 @@ export default function SeafarerRegistryPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                {isEmployerView ? (
-                  <>
-                    <SelectItem value="Signed">Signed</SelectItem>
-                    <SelectItem value="Accepted">Accepted</SelectItem>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="Rejected">Rejected</SelectItem>
-                    <SelectItem value="Draft">Draft</SelectItem>
-                    <SelectItem value="Sent">Sent</SelectItem>
-                  </>
-                ) : (
-                  <>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Suspended">Suspended</SelectItem>
-                    <SelectItem value="Expired">Expired</SelectItem>
-                  </>
-                )}
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="Signed">Signed</SelectItem>
+                <SelectItem value="Accepted">Accepted</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Rejected">Rejected</SelectItem>
+                <SelectItem value="Draft">Draft</SelectItem>
+                <SelectItem value="Sent">Sent</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {isLoading ? (
             <LoadingSpinner />
-          ) : paginated.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <EmptyState
               title="No seafarers found"
               description="There are no registered seafarers to display"
@@ -479,11 +457,11 @@ export default function SeafarerRegistryPage() {
           ) : (
             <DataTable
               columns={columns}
-              data={paginated}
+              data={filtered}
               isLoading={isLoading}
               searchable={false}
               pageSize={pageSize}
-              totalCount={totalFiltered}
+              totalCount={totalForTable}
               currentPage={currentPage}
               onPageChange={setCurrentPage}
             />

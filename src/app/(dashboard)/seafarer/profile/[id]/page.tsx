@@ -1,23 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft,
   Edit,
   Download,
   Ship,
   CheckCircle2,
-  XCircle,
   FileText,
-  MapPin,
-  Phone,
-  Mail,
-  Globe,
   Calendar,
   User,
+  Loader2,
+  MoreVertical,
+  History,
+  UserMinus,
 } from "lucide-react";
-import { PageHeader } from "@/components/shared";
+import { toast } from "sonner";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,13 +28,277 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ConfirmDialog } from "@/components/shared";
+import {
+  searchSeafarer,
+  getSeafarerEmployments,
+  getShipAssignments,
+  createShipAssignment,
+  endShipAssignment,
+  type SeafarerSearchResultDto,
+  type SeafarerEmploymentDto,
+  type SeafarerShipAssignmentDto,
+} from "@/lib/services/seafarer-employment-training-service";
+import { getShipByImo } from "@/lib/services/imo-ship-lookup-service";
+import { formatDate, getInitials } from "@/lib/utils";
+
+interface AssignmentWithEmployment extends SeafarerShipAssignmentDto {
+  employmentId: string;
+}
 
 export default function SeafarerProfilePage() {
   const params = useParams();
   const router = useRouter();
+  const rawId = params?.id;
+  const identification = Array.isArray(rawId) ? rawId[0] : (rawId ?? "");
+
   const [activeTab, setActiveTab] = useState("overview");
 
+  // Real seafarer + employment data (fetched from API).
+  const [seafarer, setSeafarer] = useState<SeafarerSearchResultDto | null>(null);
+  const [isLoadingSeafarer, setIsLoadingSeafarer] = useState(true);
+  const [employments, setEmployments] = useState<SeafarerEmploymentDto[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentWithEmployment[]>([]);
+  const [isLoadingAssignments, setIsLoadingAssignments] = useState(true);
+
+  // Dialog state for the three employer actions.
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [isTripHistoryDialogOpen, setIsTripHistoryDialogOpen] = useState(false);
+  const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false);
+
+  // Assign-to-ship form state.
+  const [vesselName, setVesselName] = useState("");
+  const [vesselIMO, setVesselIMO] = useState("");
+  const [vesselNameFromApi, setVesselNameFromApi] = useState(false);
+  const [imoLookupLoading, setImoLookupLoading] = useState(false);
+  const [joiningPort, setJoiningPort] = useState("");
+  const [tradingArea, setTradingArea] = useState("");
+  const [assignStartDate, setAssignStartDate] = useState("");
+  const [assignEndDate, setAssignEndDate] = useState("");
+  const [isCreatingAssignment, setIsCreatingAssignment] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  // Derive the active employment (Accepted offer for this employer).
+  const activeEmployment = useMemo<SeafarerEmploymentDto | null>(() => {
+    if (employments.length === 0) return null;
+    const accepted = employments.find((e) => e.acceptanceStatus === "Accepted");
+    if (accepted) return accepted;
+    // Fallback to the most recently created employment.
+    return [...employments].sort((a, b) => {
+      const ad = a.dateCreated ? new Date(a.dateCreated).getTime() : 0;
+      const bd = b.dateCreated ? new Date(b.dateCreated).getTime() : 0;
+      return bd - ad;
+    })[0];
+  }, [employments]);
+
+  // Derive the active ship assignment (the seafarer's current onboard vessel).
+  const currentAssignment = useMemo<AssignmentWithEmployment | null>(() => {
+    return (
+      assignments.find(
+        (a) => a.status === "Active" && a.employmentId === activeEmployment?.seafarerEmploymentId,
+      ) ?? null
+    );
+  }, [assignments, activeEmployment]);
+
+  const loadSeafarer = useCallback(async () => {
+    if (!identification) {
+      setIsLoadingSeafarer(false);
+      return;
+    }
+    setIsLoadingSeafarer(true);
+    try {
+      const data = await searchSeafarer(identification);
+      if (!data) {
+        toast.error("Seafarer not found");
+        setSeafarer(null);
+      } else {
+        setSeafarer(data);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load seafarer");
+      setSeafarer(null);
+    } finally {
+      setIsLoadingSeafarer(false);
+    }
+  }, [identification]);
+
+  const loadEmploymentsAndAssignments = useCallback(async () => {
+    if (!seafarer?.rn) {
+      setEmployments([]);
+      setAssignments([]);
+      setIsLoadingAssignments(false);
+      return;
+    }
+    setIsLoadingAssignments(true);
+    try {
+      const result = await getSeafarerEmployments({
+        seafarerRn: seafarer.rn,
+        pageNumber: 1,
+        pageSize: 50,
+      });
+      const items = result.items ?? [];
+      setEmployments(items);
+      // Aggregate ship assignments across all employments for this seafarer in
+      // this employer's pool. Trip history needs to span all employments.
+      const flat: AssignmentWithEmployment[] = [];
+      for (const emp of items) {
+        try {
+          const list = await getShipAssignments(emp.seafarerEmploymentId);
+          for (const a of list) {
+            flat.push({
+              ...a,
+              employmentId: emp.seafarerEmploymentId,
+              rankDescription: emp.rankDescription,
+            });
+          }
+        } catch (e) {
+          // Non-fatal: skip an employment whose assignments fail to load.
+          console.error("Failed to load ship assignments", emp.seafarerEmploymentId, e);
+        }
+      }
+      setAssignments(flat);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load employments");
+      setEmployments([]);
+      setAssignments([]);
+    } finally {
+      setIsLoadingAssignments(false);
+    }
+  }, [seafarer?.rn]);
+
+  useEffect(() => {
+    loadSeafarer();
+  }, [loadSeafarer]);
+
+  useEffect(() => {
+    loadEmploymentsAndAssignments();
+  }, [loadEmploymentsAndAssignments]);
+
+  const seafarerDisplayName = useMemo(() => {
+    if (!seafarer) return identification || "Seafarer";
+    const parts = [seafarer.firstName, seafarer.middleName, seafarer.lastName].filter(
+      (v) => v && String(v).trim() !== "",
+    );
+    return parts.join(" ") || identification;
+  }, [seafarer, identification]);
+
+  const handleOpenAssignDialog = useCallback(() => {
+    if (!activeEmployment) {
+      toast.info(
+        "No accepted employment yet. Create an offer first, then assign to a vessel after the seafarer accepts.",
+      );
+      router.push("/employer/employ");
+      return;
+    }
+    if (activeEmployment.acceptanceStatus !== "Accepted") {
+      toast.info(
+        `Employment is ${activeEmployment.acceptanceStatus ?? "Pending"}. The seafarer must accept the offer before being assigned to a vessel.`,
+      );
+      return;
+    }
+    if (currentAssignment) {
+      toast.info("This seafarer already has an active assignment. End it first.");
+      return;
+    }
+    setVesselName("");
+    setVesselIMO("");
+    setVesselNameFromApi(false);
+    setJoiningPort("");
+    setTradingArea("");
+    setAssignStartDate("");
+    setAssignEndDate("");
+    setIsAssignDialogOpen(true);
+  }, [activeEmployment, currentAssignment, router]);
+
+  const handleImoLookup = useCallback(async () => {
+    const imo = vesselIMO.trim();
+    if (!imo) {
+      toast.error("Enter vessel IMO first");
+      return;
+    }
+    setImoLookupLoading(true);
+    try {
+      const ship = await getShipByImo(imo);
+      if (!ship) {
+        toast.error("Vessel not found for this IMO number");
+        return;
+      }
+      setVesselName(ship.shipName);
+      setVesselNameFromApi(true);
+      toast.success("Vessel details filled from registry");
+    } catch {
+      toast.error("Failed to look up vessel by IMO");
+    } finally {
+      setImoLookupLoading(false);
+    }
+  }, [vesselIMO]);
+
+  const handleCreateAssignment = useCallback(async () => {
+    if (!activeEmployment) return;
+    if (!vesselName.trim() && !vesselIMO.trim()) {
+      toast.error("Provide a vessel name or IMO");
+      return;
+    }
+    setIsCreatingAssignment(true);
+    try {
+      await createShipAssignment(activeEmployment.seafarerEmploymentId, {
+        vesselName: vesselName || undefined,
+        vesselIMO: vesselIMO || undefined,
+        joiningPort: joiningPort || undefined,
+        tradingArea: tradingArea || undefined,
+        assignmentStartDate: assignStartDate || undefined,
+        assignmentEndDate: assignEndDate || undefined,
+      });
+      toast.success("Seafarer assigned to vessel");
+      setIsAssignDialogOpen(false);
+      loadEmploymentsAndAssignments();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Create assignment failed");
+    } finally {
+      setIsCreatingAssignment(false);
+    }
+  }, [
+    activeEmployment,
+    vesselName,
+    vesselIMO,
+    joiningPort,
+    tradingArea,
+    assignStartDate,
+    assignEndDate,
+    loadEmploymentsAndAssignments,
+  ]);
+
+  const handleRemoveFromCompany = useCallback(async () => {
+    if (!currentAssignment) {
+      toast.info("No active assignment to end.");
+      setIsRemoveConfirmOpen(false);
+      return;
+    }
+    setIsRemoving(true);
+    try {
+      await endShipAssignment(currentAssignment.seafarerShipAssignmentId);
+      toast.success("Seafarer removed from current vessel");
+      setIsRemoveConfirmOpen(false);
+      loadEmploymentsAndAssignments();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to remove from company");
+    } finally {
+      setIsRemoving(false);
+    }
+  }, [currentAssignment, loadEmploymentsAndAssignments]);
+
+  // The rest of the page (licenses, STCW, employment history, documents tabs) still uses placeholder
+  // data — replacing those with API-driven content is tracked separately and is not part of this fix.
   const licenses = [
     {
       id: "1",
@@ -94,67 +357,12 @@ export default function SeafarerProfilePage() {
     },
   ];
 
-  const employmentHistory = [
-    {
-      id: "1",
-      vessel: "MV Pacific Trader",
-      company: "Pacific Shipping Ltd",
-      vesselType: "Container Ship",
-      rank: "Master",
-      period: "Jun 2023 - Present",
-      isCurrent: true,
-    },
-    {
-      id: "2",
-      vessel: "MV Pacific Trader",
-      company: "Pacific Shipping Ltd",
-      vesselType: "Container Ship",
-      rank: "Chief Officer",
-      period: "Jan 2022 - May 2023",
-      isCurrent: false,
-    },
-    {
-      id: "3",
-      vessel: "MV Pacific Trader",
-      company: "Pacific Shipping Ltd",
-      vesselType: "Container Ship",
-      rank: "Second Officer",
-      period: "Jun 2020 - Dec 2021",
-      isCurrent: false,
-    },
-  ];
-
   const documents = [
-    {
-      id: "1",
-      name: "Passport Copy",
-      type: "PDF",
-      uploadedDate: "15 Jan 2023",
-    },
-    {
-      id: "2",
-      name: "CDC Document",
-      type: "PDF",
-      uploadedDate: "15 Jan 2023",
-    },
-    {
-      id: "3",
-      name: "Medical Certificate",
-      type: "PDF",
-      uploadedDate: "15 Jan 2023",
-    },
-    {
-      id: "4",
-      name: "STCW Certificates Bundle",
-      type: "PDF",
-      uploadedDate: "15 Jan 2023",
-    },
-    {
-      id: "5",
-      name: "COC Certificate",
-      type: "PDF",
-      uploadedDate: "15 Jan 2023",
-    },
+    { id: "1", name: "Passport Copy", type: "PDF", uploadedDate: "15 Jan 2023" },
+    { id: "2", name: "CDC Document", type: "PDF", uploadedDate: "15 Jan 2023" },
+    { id: "3", name: "Medical Certificate", type: "PDF", uploadedDate: "15 Jan 2023" },
+    { id: "4", name: "STCW Certificates Bundle", type: "PDF", uploadedDate: "15 Jan 2023" },
+    { id: "5", name: "COC Certificate", type: "PDF", uploadedDate: "15 Jan 2023" },
   ];
 
   return (
@@ -165,18 +373,26 @@ export default function SeafarerProfilePage() {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16">
-                <AvatarFallback className="text-lg">JD</AvatarFallback>
+                <AvatarFallback className="text-lg">
+                  {getInitials(seafarerDisplayName)}
+                </AvatarFallback>
               </Avatar>
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-2xl font-bold">John Doe</h1>
-                  <Badge variant="success" className="gap-1">
-                    <User className="h-3 w-3" />
-                    Active
-                  </Badge>
+                  <h1 className="text-2xl font-bold">
+                    {isLoadingSeafarer ? "Loading…" : seafarerDisplayName}
+                  </h1>
+                  {seafarer?.isApprove && (
+                    <Badge variant="success" className="gap-1">
+                      <User className="h-3 w-3" />
+                      Active
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-muted-foreground mt-1">
-                  Master Mariner • CDC-2024-0001
+                  {seafarer?.currentRankDescription ?? "—"} ·{" "}
+                  {seafarer?.rn ?? identification}
+                  {seafarer?.sin ? ` · SIN ${seafarer.sin}` : ""}
                 </p>
               </div>
             </div>
@@ -208,98 +424,94 @@ export default function SeafarerProfilePage() {
               <CardContent className="space-y-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Full Name</p>
-                  <p className="font-medium">James Okonkwo</p>
+                  <p className="font-medium">
+                    {isLoadingSeafarer ? "—" : seafarerDisplayName}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Date of Birth</p>
-                  <p className="font-medium">15 Mar 1985</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Email Address</p>
-                  <p className="font-medium">james.okonkwo@email.com</p>
+                  <p className="font-medium">
+                    {seafarer?.dob ? formatDate(seafarer.dob) : "—"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Nationality</p>
-                  <p className="font-medium">Nigerian</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Gender</p>
-                  <p className="font-medium">Male</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Phone Number</p>
-                  <p className="font-medium">+234 801 234 5678</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Place of Birth
-                  </p>
-                  <p className="font-medium">Lagos, Nigeria</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Address</p>
                   <p className="font-medium">
-                    15 Marina Road, Victoria Island, Lagos, Nigeria
+                    {seafarer?.nationalityDescription ?? "—"}
                   </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Current Rank</p>
+                  <p className="font-medium">
+                    {seafarer?.currentRankDescription ?? "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Registration Number</p>
+                  <p className="font-medium">{seafarer?.rn ?? identification}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">SIN</p>
+                  <p className="font-medium">{seafarer?.sin ?? "—"}</p>
                 </div>
               </CardContent>
             </Card>
 
-            <div className="space-y-6">
-              {/* Badge Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Badge Info</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">CDC Number</p>
-                    <p className="font-medium">CDC-2024-0001</p>
+            {/* Employment summary card */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Employment Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoadingAssignments ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading…
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Seaman Book Number
-                    </p>
-                    <p className="font-medium">SB-2020-45678</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Registration Date
-                    </p>
-                    <p className="font-medium">12 Mar 2020</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Emergency Contact */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Emergency Contact</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Name</p>
-                    <p className="font-medium">Mary Okonkwo</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Relationship
-                    </p>
-                    <p className="font-medium">Spouse</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Phone</p>
-                    <p className="font-medium">+234 802 345 6789</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Address</p>
-                    <p className="font-medium">
-                      15 Marina Road, Victoria Island, Lagos, Nigeria
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                ) : activeEmployment ? (
+                  <>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Rank on contract</p>
+                      <p className="font-medium">
+                        {activeEmployment.rankDescription ?? "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Contract type</p>
+                      <p className="font-medium">
+                        {activeEmployment.contractType ?? "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Acceptance status</p>
+                      <Badge
+                        variant={
+                          activeEmployment.acceptanceStatus === "Accepted"
+                            ? "default"
+                            : activeEmployment.acceptanceStatus === "Rejected"
+                              ? "destructive"
+                              : "secondary"
+                        }
+                      >
+                        {activeEmployment.acceptanceStatus ?? "Pending"}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Start date</p>
+                      <p className="font-medium">
+                        {activeEmployment.startDate
+                          ? formatDate(activeEmployment.startDate)
+                          : "—"}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Not currently employed by your company.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Current Assignment */}
@@ -307,63 +519,107 @@ export default function SeafarerProfilePage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Current Assignment</CardTitle>
-                <Button className="bg-[#3EADC0] hover:bg-[#35a0b3]">
+                <Button
+                  className="bg-[#3EADC0] hover:bg-[#35a0b3]"
+                  onClick={handleOpenAssignDialog}
+                  disabled={isLoadingAssignments}
+                >
+                  {isLoadingAssignments ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Ship className="mr-2 h-4 w-4" />
+                  )}
                   Assign to Shipping Company
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {employmentHistory
-                  .filter((emp) => emp.isCurrent)
-                  .map((assignment) => (
-                    <div
-                      key={assignment.id}
-                      className="flex items-center justify-between p-4 rounded-lg border"
-                    >
-                      <div className="flex items-center gap-4 flex-1">
-                        <Ship className="h-5 w-5 text-muted-foreground" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">{assignment.vessel}</p>
-                            <Badge variant="success">Currently Onboard</Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {assignment.company}
-                          </p>
-                          <div className="flex items-center gap-4 mt-2 text-sm">
-                            <span className="text-muted-foreground">
-                              Rank: {assignment.rank}
-                            </span>
-                            <span className="text-muted-foreground">
-                              Vessel Type: {assignment.vesselType}
-                            </span>
-                            <span className="text-muted-foreground">
-                              Sign On Date: {assignment.period.split(" - ")[0]}
-                            </span>
-                          </div>
-                        </div>
+              {isLoadingAssignments ? (
+                <div className="flex items-center gap-2 py-6 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading current assignment…
+                </div>
+              ) : currentAssignment ? (
+                <div className="flex items-center justify-between p-4 rounded-lg border">
+                  <div className="flex items-center gap-4 flex-1">
+                    <Ship className="h-5 w-5 text-muted-foreground" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">
+                          {currentAssignment.vesselName ?? "Unnamed vessel"}
+                        </p>
+                        <Badge variant="success">Currently Onboard</Badge>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>See Trip History</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
-                            Remove from Company
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <p className="text-sm text-muted-foreground">
+                        {activeEmployment?.companyLegalName ?? "—"}
+                      </p>
+                      <div className="flex items-center gap-4 mt-2 text-sm flex-wrap">
+                        <span className="text-muted-foreground">
+                          Rank: {activeEmployment?.rankDescription ?? "—"}
+                        </span>
+                        {currentAssignment.vesselIMO && (
+                          <span className="text-muted-foreground">
+                            IMO: {currentAssignment.vesselIMO}
+                          </span>
+                        )}
+                        {currentAssignment.joiningPort && (
+                          <span className="text-muted-foreground">
+                            Port: {currentAssignment.joiningPort}
+                          </span>
+                        )}
+                        <span className="text-muted-foreground inline-flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Sign On:{" "}
+                          {currentAssignment.assignmentStartDate
+                            ? formatDate(currentAssignment.assignmentStartDate)
+                            : "—"}
+                        </span>
+                      </div>
                     </div>
-                  ))}
-              </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => setIsTripHistoryDialogOpen(true)}
+                      >
+                        <History className="mr-2 h-4 w-4" />
+                        See Trip History
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setIsRemoveConfirmOpen(true)}
+                      >
+                        <UserMinus className="mr-2 h-4 w-4" />
+                        Remove from Company
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 gap-3 text-muted-foreground">
+                  <Ship className="h-10 w-10 opacity-50" />
+                  <p className="text-sm">
+                    {activeEmployment
+                      ? "No active vessel assignment yet."
+                      : "Not currently employed by your company."}
+                  </p>
+                  {assignments.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsTripHistoryDialogOpen(true)}
+                    >
+                      <History className="mr-2 h-4 w-4" />
+                      See Trip History ({assignments.length})
+                    </Button>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -459,38 +715,66 @@ export default function SeafarerProfilePage() {
               <CardTitle>Sea Service Record</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {employmentHistory.map((employment) => (
-                  <div
-                    key={employment.id}
-                    className="flex items-center justify-between p-4 rounded-lg border"
-                  >
-                    <div className="flex items-center gap-4 flex-1">
-                      <Ship className="h-5 w-5 text-blue-600" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{employment.vessel}</p>
-                          {employment.isCurrent && (
-                            <Badge variant="success">Current</Badge>
-                          )}
+              {isLoadingAssignments ? (
+                <div className="flex items-center gap-2 py-6 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading…
+                </div>
+              ) : assignments.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  No vessel assignments yet under your company.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {assignments
+                    .slice()
+                    .sort((a, b) => {
+                      const ad = a.assignmentStartDate
+                        ? new Date(a.assignmentStartDate).getTime()
+                        : 0;
+                      const bd = b.assignmentStartDate
+                        ? new Date(b.assignmentStartDate).getTime()
+                        : 0;
+                      return bd - ad;
+                    })
+                    .map((a) => (
+                      <div
+                        key={a.seafarerShipAssignmentId}
+                        className="flex items-center justify-between p-4 rounded-lg border"
+                      >
+                        <div className="flex items-center gap-4 flex-1">
+                          <Ship className="h-5 w-5 text-blue-600" />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">
+                                {a.vesselName ?? "Unnamed vessel"}
+                              </p>
+                              {a.status === "Active" && (
+                                <Badge variant="success">Current</Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {a.vesselIMO ? `IMO: ${a.vesselIMO}` : ""}
+                              {a.tradingArea ? ` • ${a.tradingArea}` : ""}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {employment.company}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {employment.vesselType}
-                        </p>
+                        <div className="text-right">
+                          <p className="font-medium">{a.rankDescription ?? "—"}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {a.assignmentStartDate
+                              ? formatDate(a.assignmentStartDate)
+                              : "—"}{" "}
+                            -{" "}
+                            {a.assignmentEndDate
+                              ? formatDate(a.assignmentEndDate)
+                              : "Present"}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">{employment.rank}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {employment.period}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -530,6 +814,214 @@ export default function SeafarerProfilePage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Assign-to-ship dialog */}
+      <Dialog
+        open={isAssignDialogOpen}
+        onOpenChange={(open) => {
+          if (!isCreatingAssignment) setIsAssignDialogOpen(open);
+        }}
+      >
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Assign to Shipping Company</DialogTitle>
+            <DialogDescription>
+              Assign {seafarerDisplayName} to a vessel under your company. Only one active
+              assignment per seafarer is allowed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Vessel IMO</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="e.g. 9123456"
+                  value={vesselIMO}
+                  onChange={(e) => {
+                    setVesselIMO(e.target.value);
+                    if (vesselNameFromApi) setVesselNameFromApi(false);
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleImoLookup}
+                  disabled={!vesselIMO.trim() || imoLookupLoading}
+                >
+                  {imoLookupLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Look up"
+                  )}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Vessel name</Label>
+              <Input
+                placeholder="e.g. MV Atlantic Star"
+                value={vesselName}
+                onChange={(e) => setVesselName(e.target.value)}
+                readOnly={vesselNameFromApi}
+                className={vesselNameFromApi ? "bg-muted" : undefined}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Joining port</Label>
+              <Input
+                placeholder="e.g. Apapa, Lagos"
+                value={joiningPort}
+                onChange={(e) => setJoiningPort(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Trading area</Label>
+              <Input
+                placeholder="e.g. West Africa"
+                value={tradingArea}
+                onChange={(e) => setTradingArea(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Assignment start date</Label>
+              <Input
+                type="date"
+                value={assignStartDate}
+                onChange={(e) => setAssignStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Assignment end date</Label>
+              <Input
+                type="date"
+                value={assignEndDate}
+                onChange={(e) => setAssignEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsAssignDialogOpen(false)}
+              disabled={isCreatingAssignment}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#3EADC0] hover:bg-[#35a0b3]"
+              onClick={handleCreateAssignment}
+              disabled={isCreatingAssignment}
+            >
+              {isCreatingAssignment ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Ship className="mr-2 h-4 w-4" />
+              )}
+              Create assignment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Trip history dialog */}
+      <Dialog
+        open={isTripHistoryDialogOpen}
+        onOpenChange={setIsTripHistoryDialogOpen}
+      >
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Trip History</DialogTitle>
+            <DialogDescription>
+              All vessel assignments for {seafarerDisplayName} under your company.
+            </DialogDescription>
+          </DialogHeader>
+          {assignments.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              No trips recorded yet.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {assignments
+                .slice()
+                .sort((a, b) => {
+                  const ad = a.assignmentStartDate
+                    ? new Date(a.assignmentStartDate).getTime()
+                    : 0;
+                  const bd = b.assignmentStartDate
+                    ? new Date(b.assignmentStartDate).getTime()
+                    : 0;
+                  return bd - ad;
+                })
+                .map((a) => (
+                  <li
+                    key={a.seafarerShipAssignmentId}
+                    className="rounded-lg border p-3 text-sm"
+                  >
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Ship className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="font-medium truncate">
+                          {a.vesselName ?? "Unnamed vessel"}
+                        </span>
+                        {a.vesselIMO && (
+                          <span className="text-muted-foreground">
+                            (IMO {a.vesselIMO})
+                          </span>
+                        )}
+                      </div>
+                      <Badge
+                        variant={a.status === "Active" ? "success" : "secondary"}
+                      >
+                        {a.status}
+                      </Badge>
+                    </div>
+                    <div className="mt-1 text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+                      <span>Rank: {a.rankDescription ?? "—"}</span>
+                      {a.joiningPort && <span>Port: {a.joiningPort}</span>}
+                      {a.tradingArea && <span>Area: {a.tradingArea}</span>}
+                      <span>
+                        {a.assignmentStartDate
+                          ? formatDate(a.assignmentStartDate)
+                          : "—"}{" "}
+                        -{" "}
+                        {a.assignmentEndDate
+                          ? formatDate(a.assignmentEndDate)
+                          : "Present"}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsTripHistoryDialogOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove-from-company confirmation */}
+      <ConfirmDialog
+        open={isRemoveConfirmOpen}
+        onOpenChange={setIsRemoveConfirmOpen}
+        title="Remove from company"
+        description={
+          currentAssignment
+            ? `End ${seafarerDisplayName}'s active assignment on ${
+                currentAssignment.vesselName ?? "this vessel"
+              }? This marks the assignment as ended.`
+            : "No active assignment to end."
+        }
+        confirmLabel="Remove"
+        variant="destructive"
+        isLoading={isRemoving}
+        onConfirm={handleRemoveFromCompany}
+      />
     </div>
   );
 }

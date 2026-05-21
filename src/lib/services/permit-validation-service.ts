@@ -103,9 +103,34 @@ export function getAndClearStoredPermitValidation(): StoredPermitValidation | nu
 }
 
 /** When true, use mock responses instead of calling the API (for local testing). */
-const USE_MOCK_PERMIT_VERIFY =
-  typeof process !== "undefined" &&
-  process.env.NEXT_PUBLIC_MOCK_PERMIT_VERIFY === "true";
+export function isMockPermitVerifyEnabled(): boolean {
+  return (
+    typeof process !== "undefined" &&
+    process.env.NEXT_PUBLIC_MOCK_PERMIT_VERIFY === "true"
+  );
+}
+
+/** Show the "Simulate verification" control on verify-identity (dev or explicit flag). */
+export function isPermitSimulateUiEnabled(): boolean {
+  return (
+    typeof process !== "undefined" &&
+    (process.env.NODE_ENV === "development" ||
+      process.env.NEXT_PUBLIC_SHOW_PERMIT_SIMULATE === "true" ||
+      isMockPermitVerifyEnabled())
+  );
+}
+
+/**
+ * Simulated permit validation — same shape as the reg & cert API, no network call.
+ * Use when the verify endpoint is down or for local onboarding testing.
+ * Enter "MOCK-INVALID" as the permit number to test the failure path.
+ */
+export function simulatePermitValidation(
+  permitNumber: string,
+  onboardingRole: "AGENT" | "TRAINING_INSTITUTION"
+): Promise<PermitValidationResult> {
+  return mockValidatePermit(permitNumber, onboardingRole);
+}
 
 function mockValidatePermit(
   permitNumber: string,
@@ -168,14 +193,15 @@ function mockValidatePermit(
  */
 export async function validatePermit(
   permitNumber: string,
-  onboardingRole: "AGENT" | "TRAINING_INSTITUTION"
+  onboardingRole: "AGENT" | "TRAINING_INSTITUTION",
+  options?: { useMock?: boolean }
 ): Promise<PermitValidationResult> {
   const trimmed = permitNumber.trim();
   if (!trimmed) {
     throw new Error("Please enter your permit number.");
   }
 
-  if (USE_MOCK_PERMIT_VERIFY) {
+  if (options?.useMock || isMockPermitVerifyEnabled()) {
     return mockValidatePermit(trimmed, onboardingRole);
   }
 

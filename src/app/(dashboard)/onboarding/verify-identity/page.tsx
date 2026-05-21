@@ -21,6 +21,8 @@ import {
 } from "@/lib/services/domain-roles-service";
 import {
   validatePermit,
+  isPermitSimulateUiEnabled,
+  isMockPermitVerifyEnabled,
   PERMIT_VALIDATION_STORAGE_KEY,
   type PermitValidationResult,
 } from "@/lib/services/permit-validation-service";
@@ -37,11 +39,18 @@ export default function VerifyIdentityPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleVerify = async () => {
+  const showSimulate = isPermitSimulateUiEnabled();
+  const mockEnvEnabled = isMockPermitVerifyEnabled();
+
+  const runVerification = async (useMock: boolean) => {
     setError(null);
     setIsVerifying(true);
     try {
-      const result: PermitValidationResult = await validatePermit(permitNumber, role);
+      const result: PermitValidationResult = await validatePermit(
+        permitNumber.trim() || `PERMIT-MOCK-${role === "AGENT" ? "SEAFARER_EMPLOYER" : "TRAINING_INSTITUTIONS"}-2026-000001`,
+        role,
+        useMock ? { useMock: true } : undefined
+      );
       if (result.valid) {
         const workspaceRoles = await getDomainRoles(SEA_FARER_WORKSPACE_ID);
         const options = getOnboardingRoleOptions(workspaceRoles);
@@ -85,6 +94,9 @@ export default function VerifyIdentityPage() {
       setIsVerifying(false);
     }
   };
+
+  const handleVerify = () => runVerification(false);
+  const handleSimulate = () => runVerification(true);
 
   const title =
     role === "AGENT"
@@ -133,6 +145,11 @@ export default function VerifyIdentityPage() {
             Enter the permit number exactly as shown on your NIMASA Service Type
             Permit certificate. We will verify it with the registry before continuing.
           </p>
+          {mockEnvEnabled && (
+            <p className="text-xs text-amber-700 dark:text-amber-400 rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
+              Mock permit verification is enabled (<code className="text-[11px]">NEXT_PUBLIC_MOCK_PERMIT_VERIFY=true</code>). All verifications use simulated data until you turn this off.
+            </p>
+          )}
           <div className="flex flex-col sm:flex-row gap-3">
             <Button
               variant="outline"
@@ -145,7 +162,7 @@ export default function VerifyIdentityPage() {
             <Button
               className="flex-1"
               onClick={handleVerify}
-              disabled={!permitNumber.trim() || isVerifying}
+              disabled={(!permitNumber.trim() && !mockEnvEnabled) || isVerifying}
             >
               {isVerifying ? (
                 <>
@@ -157,6 +174,30 @@ export default function VerifyIdentityPage() {
               )}
             </Button>
           </div>
+          {showSimulate && !mockEnvEnabled && (
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              onClick={handleSimulate}
+              disabled={isVerifying}
+            >
+              {isVerifying ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Simulating...
+                </>
+              ) : (
+                "Simulate verification (skip API)"
+              )}
+            </Button>
+          )}
+          {showSimulate && !mockEnvEnabled && (
+            <p className="text-xs text-muted-foreground text-center">
+              Use simulate while the permit registry API is unavailable. Remove or set{" "}
+              <code className="text-[11px]">NEXT_PUBLIC_SHOW_PERMIT_SIMULATE=false</code> before production.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
