@@ -68,10 +68,12 @@ export function requiresOnboardingCheck(role?: string | null): boolean {
  * Hook to manage and check user's onboarding status
  *
  * @param autoFetch - Whether to automatically fetch status on mount (default: true)
+ *                   Set to false when you want to manually control when fetch happens
+ *                   (e.g., in OnboardingPendingPage where syncSessionAndCheckApproval drives fetches)
  * @returns OnboardingStatusResult
  */
 export function useOnboardingStatus(
-  autoFetch: boolean = true
+  autoFetch: boolean = true,
 ): OnboardingStatusResult {
   const router = useRouter();
   const [status, setStatus] = useState<OnboardingStatusType>("loading");
@@ -175,12 +177,15 @@ export function useOnboardingStatus(
     }
   }, [status, onboardingData, router]);
 
-  // Auto-fetch once on mount if enabled (guard against Strict Mode double-mount / re-runs)
+  // FIXED: Auto-fetch once on mount if enabled, but guard against Strict Mode double-mount
+  // Only call fetchOnboardingStatus once, regardless of dependency changes
   useEffect(() => {
     if (!autoFetch || initialFetchDoneRef.current) return;
     initialFetchDoneRef.current = true;
-    fetchOnboardingStatus();
-  }, [autoFetch, fetchOnboardingStatus]);
+    // Call fetch immediately without adding it to dependencies to prevent re-runs
+    void fetchOnboardingStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFetch]);
 
   return {
     status,
