@@ -20,7 +20,7 @@ import {
   READINESS_NOT_FOUND_CODE,
 } from "@/lib/services/user-readiness-service";
 import { ApiError } from "@/lib/api-client";
-import { redirectToDashboardAfterApproval } from "@/lib/onboarding-approval-redirect";
+import { redirectToDashboardAfterApprovalWithSessionRefresh } from "@/lib/onboarding-approval-redirect";
 
 /** SessionStorage key set by verify-success after permit record; root does one refresh for second status call */
 const PERMIT_JUST_RECORDED_KEY = "permitJustRecorded";
@@ -68,7 +68,10 @@ export default function DashboardRedirectPage() {
             const readiness = readinessRes.data;
 
             if (isUserReadyFromReadiness(readiness)) {
-              redirectToDashboardAfterApproval(readiness, userRole);
+              await redirectToDashboardAfterApprovalWithSessionRefresh(
+                readiness,
+                userRole
+              );
               return;
             }
 
@@ -118,7 +121,10 @@ export default function DashboardRedirectPage() {
                 isOnboardingApproved(data.status)
               ) {
                 const role = data.role?.toUpperCase() ?? "SEAFARER";
-                redirectToDashboardAfterApproval(null, role);
+                await redirectToDashboardAfterApprovalWithSessionRefresh(
+                  null,
+                  role
+                );
                 return;
               }
             }
@@ -135,7 +141,10 @@ export default function DashboardRedirectPage() {
                 : primaryRole === "Training Institution"
                   ? "TRAINING_INSTITUTION"
                   : "SEAFARER";
-            redirectToDashboardAfterApproval(null, roleForRoute);
+            await redirectToDashboardAfterApprovalWithSessionRefresh(
+              null,
+              roleForRoute
+            );
             return;
           }
 

@@ -16,8 +16,6 @@ import {
 import {
   isSeaFarerOnboardingComplete,
   getSeaFarerWorkspace,
-  getSeaFarerPrimaryRole,
-  type UserWithWorkspaceRoles,
 } from "@/lib/utils/workspace-helpers";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,40 +46,13 @@ import {
   isSsoHandoffInProgress,
 } from "@/lib/auth-sso-state";
 import { getImsUrl, isLocalFrontendDev } from "@/lib/ims-url";
-import { redirectToDashboardAfterApprovalWithSessionRefresh } from "@/lib/onboarding-approval-redirect";
+import { redirectToDashboardAfterApproval } from "@/lib/onboarding-approval-redirect";
 
 /**
  * Roles that require onboarding status check via the my-onboarding endpoint
  * Admin roles are excluded as they don't need this check
  */
 const ONBOARDING_CHECK_ROLES = ["SEAFARER", "AGENT", "TRAINING_INSTITUTION"];
-
-const SEAFARER_ROLE_TO_API: Record<string, string> = {
-  Owner: "OWNER",
-  Seafarer: "SEAFARER",
-  Agent: "AGENT",
-  "Training Institution": "TRAINING_INSTITUTION",
-};
-
-/** Resolve API role when primaryRole / userRole state is missing (e.g. after full page reload). */
-function resolveEffectiveRole(
-  pathname: string,
-  user: UserWithWorkspaceRoles | null | undefined,
-  primaryRole: string | null | undefined,
-  userRole: string | null | undefined
-): string | null {
-  if (userRole?.trim()) return userRole;
-  if (primaryRole?.trim()) return primaryRole;
-  if (pathname.startsWith("/seafarer")) return "SEAFARER";
-  if (pathname.startsWith("/agent")) return "AGENT";
-  if (pathname.startsWith("/institution")) return "TRAINING_INSTITUTION";
-  if (pathname.startsWith("/admin")) return "ADMIN";
-  const sfRole = getSeaFarerPrimaryRole(user);
-  if (sfRole && SEAFARER_ROLE_TO_API[sfRole]) {
-    return SEAFARER_ROLE_TO_API[sfRole];
-  }
-  return null;
-}
 
 /**
  * UserInfo from IMS /connect/userinfo endpoint
@@ -212,20 +183,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     if (tokenInUrl) {
       markSsoInitStarted();
     } else if (wasSsoInitStarted()) {
-      // Strict Mode remount: skip only when role is already in memory this session
-      const storedRole = useAuthStore.getState().primaryRole;
-      const persistedToken = getTokenFromLocalStorage();
-      if (storedRole && (token || persistedToken)) {
-        setUserRole(storedRole);
-        setIsInitializing(false);
-        return;
-      }
-      // Full navigation (e.g. after approval redirect): re-fetch userinfo for role
-      if (persistedToken || token) {
-        clearSsoInitStarted();
-      } else {
-        return;
-      }
+      // React Strict Mode remounts after URL tokens are stripped — do not re-init
+      return;
     }
 
     const delay = tokenInUrl ? 0 : 400;
@@ -265,18 +224,6 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       );
 
       if (hasWorkspaceRoles) {
-        const role = resolveEffectiveRole(
-          pathname,
-          user,
-          hasStoredRole,
-          null
-        );
-        if (role) {
-          setUserRole(role);
-          if (!hasStoredRole) {
-            setPrimaryRole(role);
-          }
-        }
         setIsInitializing(false);
         setIsInitializingUser(false);
         return;
@@ -700,26 +647,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // 1) Call User Readiness first (before my-onboarding) to know if we show onboarding welcome or not
   // TRAINING_INSTITUTION: do not call User Readiness — that endpoint is for seafarer/employer; TI uses permit flow only and we redirect by role
   useEffect(() => {
-    // FIXED: Skip readiness check on onboarding status pages - they handle their own checks
-    // The OnboardingPendingPage.syncSessionAndCheckApproval already calls getUserReadinessStatus
-    if (pathname.startsWith("/onboarding/status/")) {
-      setUserReadinessChecked(true);
-      return;
-    }
-
-    if (isInitializing) return;
-
-    const effectiveRole = resolveEffectiveRole(
-      pathname,
-      user,
-      primaryRole,
-      userRole
-    );
-    if (effectiveRole && effectiveRole !== userRole) {
-      setUserRole(effectiveRole);
-    }
-
-    const roleUpper = (effectiveRole ?? "").toUpperCase();
+    if (isInitializing || !userRole) return;
+    const roleUpper = userRole.toUpperCase();
     if (roleUpper === "ADMIN" || roleUpper === "SUPERADMIN") {
       setUserReadinessChecked(true);
       return;
@@ -756,7 +685,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [isInitializing, userRole, primaryRole, user, pathname]);
+  }, [isInitializing, userRole]);
 
   /**
    * Check onboarding status for roles that require it (SEAFARER, AGENT, TRAINING_INSTITUTION)
@@ -823,7 +752,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             const isOnOnboardingPage = pathname.startsWith("/onboarding");
 
             if (isOnRootPage || isOnOnboardingPage) {
-              await redirectToDashboardAfterApprovalWithSessionRefresh(
+              redirectToDashboardAfterApproval(
                 userReadinessData,
                 onboardingRole || "SEAFARER"
               );
@@ -843,7 +772,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                   pathname.startsWith("/agent"));
 
               if (isOnWrongDashboard) {
-                await redirectToDashboardAfterApprovalWithSessionRefresh(
+                redirectToDashboardAfterApproval(
                   userReadinessData,
                   onboardingRole || "SEAFARER"
                 );
@@ -870,7 +799,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                   getDashboardRoleFromReadiness(readinessRes.data) ??
                   onboardingRole ??
                   "SEAFARER";
-                await redirectToDashboardAfterApprovalWithSessionRefresh(
+                redirectToDashboardAfterApproval(
                   readinessRes.data,
                   onboardingRole ?? "SEAFARER"
                 );
@@ -909,36 +838,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // 2) After User Readiness is checked: route permit users, or call my-onboarding for onboarding source
   useEffect(() => {
     if (!userReadinessChecked || onboardingStatusChecked) return;
-    if (isInitializing) return;
-
-    const effectiveRole = resolveEffectiveRole(
-      pathname,
-      user,
-      primaryRole,
-      userRole
-    );
-    if (effectiveRole && effectiveRole !== userRole) {
-      setUserRole(effectiveRole);
-    }
-
-    if (!effectiveRole) {
-      if (pathname.startsWith("/seafarer")) {
-        checkOnboardingStatus("SEAFARER");
-      } else {
-        setOnboardingStatusChecked(true);
-      }
-      return;
-    }
-
+    if (isInitializing || !userRole) return;
     if (pathname.startsWith("/onboarding/status/rejected")) {
-      setOnboardingStatusChecked(true);
-      return;
-    }
-
-    // FIXED: Skip status checks when user is on /onboarding/status/pending
-    // The OnboardingPendingPage component handles its own status checks via syncSessionAndCheckApproval
-    // Running checks here creates duplicate API calls and race conditions
-    if (pathname.startsWith("/onboarding/status/pending")) {
       setOnboardingStatusChecked(true);
       return;
     }
@@ -949,7 +850,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const roleUpper = effectiveRole.toUpperCase();
+    const roleUpper = userRole.toUpperCase();
     if (roleUpper === "ADMIN" || roleUpper === "SUPERADMIN") {
       setOnboardingStatusChecked(true);
       return;
@@ -961,10 +862,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       const isRootPath = pathname === "/" || pathname === "";
       const isOnboardingPath = pathname.startsWith("/onboarding");
       if (isRootPath || isOnboardingPath) {
-        void redirectToDashboardAfterApprovalWithSessionRefresh(
-          userReadinessData,
-          effectiveRole
-        );
+        redirectToDashboardAfterApproval(userReadinessData, userRole);
       }
       return;
     }
@@ -997,39 +895,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     userReadinessData,
     isInitializing,
     userRole,
-    primaryRole,
-    user,
     onboardingStatusChecked,
     checkOnboardingStatus,
     pathname,
     router,
-  ]);
-
-  // Fail-open if onboarding checks never settle (e.g. role state lost after reload)
-  useEffect(() => {
-    if (isInitializing) return;
-    if (
-      userReadinessChecked &&
-      onboardingStatusChecked &&
-      !isCheckingOnboardingStatus
-    ) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      if (!userReadinessChecked) {
-        setUserReadinessChecked(true);
-        setIsCheckingOnboardingStatus(false);
-      }
-      if (!onboardingStatusChecked) {
-        setOnboardingStatusChecked(true);
-      }
-    }, 8000);
-    return () => clearTimeout(timer);
-  }, [
-    isInitializing,
-    userReadinessChecked,
-    onboardingStatusChecked,
-    isCheckingOnboardingStatus,
   ]);
 
   // Reset redirect flag when pathname changes to onboarding
@@ -1293,11 +1162,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     pathname === "/onboarding" || pathname === "/onboarding/welcome";
   const isRootPage = pathname === "/" || pathname === "";
   const onboardingChecksSettled =
-    (userReadinessChecked &&
-      onboardingStatusChecked &&
-      !isCheckingOnboardingStatus) ||
-    (userReadinessChecked &&
-      isUserReadyFromReadiness(userReadinessData));
+    userReadinessChecked &&
+    onboardingStatusChecked &&
+    !isCheckingOnboardingStatus;
   const isRoleDashboardRoute =
     pathname.startsWith("/seafarer/") ||
     pathname.startsWith("/agent/") ||

@@ -1,9 +1,13 @@
 /**
  * Redirect to role dashboard after onboarding approval (User Readiness or my-onboarding).
  * Uses a full page navigation to avoid soft-router loops with stale layout state.
+ *
+ * Always refresh the OAuth session before redirect so the new JWT carries updated
+ * role claims and GET /api/menu returns the correct sidebar items.
  */
 
 import { getDashboardRoute } from "@/lib/role-routing";
+import { refreshSessionAfterOnboarding } from "@/lib/services/auth-session-service";
 import {
   getDashboardRoleFromReadiness,
   isUserReadyFromReadiness,
@@ -11,6 +15,23 @@ import {
 } from "@/lib/services/user-readiness-service";
 
 const REDIRECT_GUARD_KEY = "seafarer-onboarding-approved-redirect";
+
+function resolveApprovalDashboardRole(
+  readiness: UserReadinessStatusDto | null | undefined,
+  fallbackRole?: string | null
+): string | null {
+  if (readiness && isUserReadyFromReadiness(readiness)) {
+    return (
+      getDashboardRoleFromReadiness(readiness) ??
+      (fallbackRole ? fallbackRole.toUpperCase() : null) ??
+      "SEAFARER"
+    );
+  }
+  if (fallbackRole?.trim()) {
+    return fallbackRole.toUpperCase();
+  }
+  return null;
+}
 
 /**
  * Full-page redirect once per tab session. Prevents pending ↔ dashboard ping-pong
@@ -45,23 +66,38 @@ function redirectToDashboardWithRole(role: string): boolean {
   return true;
 }
 
+/** Synchronous redirect only — prefer redirectToDashboardAfterApprovalWithSessionRefresh. */
 export function redirectToDashboardAfterApproval(
   readiness: UserReadinessStatusDto | null | undefined,
   fallbackRole?: string | null
 ): boolean {
-  if (readiness && isUserReadyFromReadiness(readiness)) {
-    const role =
-      getDashboardRoleFromReadiness(readiness) ??
-      (fallbackRole ? fallbackRole.toUpperCase() : null) ??
-      "SEAFARER";
-    return redirectToDashboardWithRole(role);
+  const role = resolveApprovalDashboardRole(readiness, fallbackRole);
+  if (!role) return false;
+  return redirectToDashboardWithRole(role);
+}
+
+/**
+ * Refresh OAuth token (updated role/menu claims), then redirect to the role dashboard.
+ * Call this whenever User Readiness or my-onboarding reports approval.
+ */
+export async function redirectToDashboardAfterApprovalWithSessionRefresh(
+  readiness: UserReadinessStatusDto | null | undefined,
+  fallbackRole?: string | null
+): Promise<boolean> {
+  const role = resolveApprovalDashboardRole(readiness, fallbackRole);
+  if (!role) return false;
+
+  if (typeof window !== "undefined") {
+    const target = getDashboardRoute(role);
+    const currentPath = window.location.pathname;
+    const alreadyOnTarget =
+      currentPath === target || currentPath.startsWith(`${target}/`);
+    if (!alreadyOnTarget) {
+      await refreshSessionAfterOnboarding();
+    }
   }
 
-  if (fallbackRole) {
-    return redirectToDashboardWithRole(fallbackRole);
-  }
-
-  return false;
+  return redirectToDashboardAfterApproval(readiness, fallbackRole);
 }
 
 export function clearApprovalRedirectGuard(): void {

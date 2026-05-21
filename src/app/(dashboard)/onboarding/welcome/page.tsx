@@ -6,7 +6,7 @@ import {
   getUserReadinessStatus,
   isUserReadyFromReadiness,
 } from "@/lib/services/user-readiness-service";
-import { redirectToDashboardAfterApproval } from "@/lib/onboarding-approval-redirect";
+import { redirectToDashboardAfterApprovalWithSessionRefresh } from "@/lib/onboarding-approval-redirect";
 import {
   Card,
   CardContent,
@@ -66,7 +66,7 @@ export default function OnboardingWelcomePage() {
         const res = await getUserReadinessStatus();
         if (cancelled) return;
         if (res.success && res.data && isUserReadyFromReadiness(res.data)) {
-          redirectToDashboardAfterApproval(res.data);
+          await redirectToDashboardAfterApprovalWithSessionRefresh(res.data);
           return;
         }
       } catch {

@@ -37,7 +37,7 @@ import {
 } from "@/lib/services/user-readiness-service";
 import {
   clearApprovalRedirectGuard,
-  redirectToDashboardAfterApproval,
+  redirectToDashboardAfterApprovalWithSessionRefresh,
 } from "@/lib/onboarding-approval-redirect";
 import { getImsUrl } from "@/lib/ims-url";
 
@@ -50,11 +50,14 @@ export function OnboardingPendingPage({
 }: OnboardingPendingPageProps) {
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  // FIXED: Disable auto-fetch in the hook - only syncSessionAndCheckApproval should drive initial checks
+  // This eliminates duplicate status fetches on mount
   const { status, onboardingData, isLoading, refresh } =
-    useOnboardingStatus(true);
+    useOnboardingStatus(false);
   const [isChecking, setIsChecking] = useState(false);
   const syncInFlightRef = useRef(false);
   const initialSyncDoneRef = useRef(false);
+  const redirectAttemptedRef = useRef(false);
 
   const syncSessionAndCheckApproval = async (
     options: { force?: boolean } = {},
@@ -76,26 +79,35 @@ export function OnboardingPendingPage({
         if (
           readinessRes.success &&
           readinessRes.data &&
-          isUserReadyFromReadiness(readinessRes.data) &&
-          redirectToDashboardAfterApproval(
-            readinessRes.data,
-            onboardingData?.role,
-          )
+          isUserReadyFromReadiness(readinessRes.data)
         ) {
+          redirectAttemptedRef.current =
+            await redirectToDashboardAfterApprovalWithSessionRefresh(
+              readinessRes.data,
+              onboardingData?.role,
+            );
           return;
         }
       } catch {
         /* fall through to my-onboarding */
       }
 
+      // FIXED: Only call refresh() once to get the latest onboarding status
       const data = await refresh();
       if (data && isOnboardingApproved(data.status)) {
-        await refreshSessionAfterOnboarding();
-        redirectToDashboardAfterApproval(null, data.role);
+        redirectAttemptedRef.current =
+          await redirectToDashboardAfterApprovalWithSessionRefresh(
+            null,
+            data.role,
+          );
         return;
       }
 
-      await refreshSessionAfterOnboarding();
+      // FIXED: Only refresh session if we're NOT approved (for pending states)
+      // After approval, refreshSessionAfterOnboarding is handled above
+      if (!data || !isOnboardingApproved(data.status)) {
+        await refreshSessionAfterOnboarding();
+      }
     } finally {
       setIsChecking(false);
       syncInFlightRef.current = false;
@@ -109,10 +121,21 @@ export function OnboardingPendingPage({
     void syncSessionAndCheckApproval();
   }, []);
 
+  // FIXED: Consolidated status effect - only redirect once and prevent duplicate calls
+  // Remove redundant effect that was causing double redirects and double refreshes
   useEffect(() => {
+    // Skip if we've already attempted a redirect in this lifecycle
+    if (redirectAttemptedRef.current) return;
+
     if (status === "approved") {
       clearApprovalRedirectGuard();
-      redirectToDashboardAfterApproval(null, onboardingData?.role);
+      void (async () => {
+        redirectAttemptedRef.current =
+          await redirectToDashboardAfterApprovalWithSessionRefresh(
+            null,
+            onboardingData?.role,
+          );
+      })();
       return;
     }
     if (status === "rejected") {
@@ -282,7 +305,8 @@ export function OnboardingPendingPage({
                   {
                     label: "Admin Review",
                     completed:
-                      isApproved || normalizedOnboardingStatus === "UNDER_REVIEW",
+                      isApproved ||
+                      normalizedOnboardingStatus === "UNDER_REVIEW",
                   },
                   { label: "Approval Decision", completed: isApproved },
                 ].map((step, index) => (
